@@ -372,7 +372,7 @@ function formatMessage(text) {
               </svg>
             </button>
           </div>
-          <pre class="code-content"><code class="language-${block.language}">${escapeHtml(block.content)}</code></pre>
+          <pre class="code-content"><code class="language-${block.language}">${highlightCode(block.content, block.language)}</code></pre>
         </div>
       `)
     } else if (block.type === 'inline-code') {
@@ -409,7 +409,30 @@ function formatMessage(text) {
 
 // Função global para copiar para clipboard
 window.copyToClipboard = function (text, type = 'text') {
-  navigator.clipboard.writeText(text).then(() => {
+  // Fallback para navegadores que não suportam clipboard API
+  const fallbackCopyTextToClipboard = (text) => {
+    const textArea = document.createElement("textarea")
+    textArea.value = text
+    textArea.style.position = "fixed"
+    textArea.style.left = "-999999px"
+    textArea.style.top = "-999999px"
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    try {
+      const successful = document.execCommand('copy')
+      if (successful) {
+        showToast(type)
+      }
+    } catch (err) {
+      console.error('Fallback: Erro ao copiar:', err)
+    }
+
+    document.body.removeChild(textArea)
+  }
+
+  const showToast = (type) => {
     // Feedback visual
     const toast = document.createElement('div')
     toast.className = 'copy-toast'
@@ -426,9 +449,106 @@ window.copyToClipboard = function (text, type = 'text') {
       toast.style.opacity = '0'
       setTimeout(() => document.body.removeChild(toast), 300)
     }, 2000)
-  }).catch(err => {
-    console.error('Erro ao copiar:', err)
-  })
+  }
+
+  // Tentar usar clipboard API primeiro
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(type)
+    }).catch(err => {
+      console.error('Clipboard API falhou, usando fallback:', err)
+      fallbackCopyTextToClipboard(text)
+    })
+  } else {
+    // Usar fallback direto
+    fallbackCopyTextToClipboard(text)
+  }
+}
+
+// Função para syntax highlighting
+function highlightCode(code, language) {
+  // Mapeamento de linguagens para cores VSCode
+  const syntaxColors = {
+    // JavaScript
+    javascript: {
+      keywords: ['function', 'const', 'let', 'var', 'if', 'else', 'for', 'while', 'return', 'class', 'import', 'export', 'default', 'async', 'await', 'try', 'catch', 'throw', 'new', 'this'],
+      types: ['String', 'Number', 'Boolean', 'Array', 'Object', 'Promise', 'Date', 'RegExp', 'Error'],
+      functions: ['console', 'fetch', 'setTimeout', 'setInterval', 'parseInt', 'parseFloat', 'JSON', 'Math'],
+      strings: /(["'`])([^"'`]*)\1/g,
+      comments: /\/\/.*$/gm,
+      blockComments: /\/\*[\s\S]*?\*\//g,
+      numbers: /\b\d+\.?\d*\b/g
+    },
+    // Python
+    python: {
+      keywords: ['def', 'class', 'if', 'elif', 'else', 'for', 'while', 'return', 'import', 'from', 'as', 'try', 'except', 'finally', 'with', 'lambda', 'yield', 'async', 'await'],
+      types: ['str', 'int', 'float', 'bool', 'list', 'dict', 'tuple', 'set', 'None', 'True', 'False'],
+      functions: ['print', 'len', 'range', 'enumerate', 'zip', 'map', 'filter', 'sorted', 'sum', 'max', 'min', 'abs', 'round'],
+      strings: /(["'`])([^"'`]*)\1/g,
+      comments: /#.*$/gm,
+      blockComments: /'''[\s\S]*?'''/g,
+      numbers: /\b\d+\.?\d*\b/g
+    },
+    // CSS
+    css: {
+      keywords: ['color', 'background', 'margin', 'padding', 'border', 'width', 'height', 'display', 'position', 'font-size', 'font-weight', 'text-align', 'flex', 'grid'],
+      properties: /([a-zA-Z-]+)(\s*:)/g,
+      values: /:\s*([^;]+)/g,
+      selectors: /([.#]?[a-zA-Z-]+)(\s*{)/g,
+      comments: /\/\*[\s\S]*?\*\//g,
+      numbers: /\b\d+(px|em|rem|%|vh|vw|pt|pc|in|cm|mm|ex|ch|vmin|vmax|deg|rad|turn|s|ms)\b/g
+    },
+    // HTML
+    html: {
+      tags: /(&lt;\/?)([a-zA-Z-]+)([^&gt;]*&gt;)/g,
+      attributes: /([a-zA-Z-]+)(=)/g,
+      comments: /&lt;!--[\s\S]*?--&gt;/g,
+      strings: /(["'])([^"']*)\1/g
+    }
+  }
+
+  const lang = syntaxColors[language.toLowerCase()] || syntaxColors.javascript
+  let highlighted = code
+
+  // Escape HTML primeiro
+  highlighted = highlighted
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // Aplicar cores
+  if (lang.comments) {
+    highlighted = highlighted.replace(lang.comments, '<span class="token comment">$&</span>')
+  }
+  if (lang.blockComments) {
+    highlighted = highlighted.replace(lang.blockComments, '<span class="token comment">$&</span>')
+  }
+  if (lang.strings) {
+    highlighted = highlighted.replace(lang.strings, '<span class="token string">$&</span>')
+  }
+  if (lang.numbers) {
+    highlighted = highlighted.replace(lang.numbers, '<span class="token number">$&</span>')
+  }
+  if (lang.keywords) {
+    lang.keywords.forEach(keyword => {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'g')
+      highlighted = highlighted.replace(regex, '<span class="token keyword">' + keyword + '</span>')
+    })
+  }
+  if (lang.types) {
+    lang.types.forEach(type => {
+      const regex = new RegExp(`\\b${type}\\b`, 'g')
+      highlighted = highlighted.replace(regex, '<span class="token type">' + type + '</span>')
+    })
+  }
+  if (lang.functions) {
+    lang.functions.forEach(func => {
+      const regex = new RegExp(`\\b${func}\\b`, 'g')
+      highlighted = highlighted.replace(regex, '<span class="token function">' + func + '</span>')
+    })
+  }
+
+  return highlighted
 }
 
 function appendMessage(role, content, isError = false, meta = {}) {

@@ -662,9 +662,103 @@ select {
   overflow-x: auto;
   background: var(--panel);
   color: var(--text);
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-family: 'Fira Code', 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* Syntax Highlighting - Cores VSCode */
+.token.comment {
+  color: #6A737D;
+  font-style: italic;
+}
+
+.token.string {
+  color: #032F62;
+  background: rgba(3, 47, 98, 0.1);
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.token.number {
+  color: #005CC5;
+  font-weight: 600;
+}
+
+.token.keyword {
+  color: #D73A49;
+  font-weight: 600;
+}
+
+.token.type {
+  color: #6F42C1;
+  font-weight: 600;
+}
+
+.token.function {
+  color: #6F42C1;
+}
+
+.token.property {
+  color: #E36209;
+}
+
+.token.selector {
+  color: #22863A;
+  font-weight: 600;
+}
+
+.token.tag {
+  color: #22863A;
+}
+
+.token.attribute {
+  color: #6F42C1;
+}
+
+/* Tema Escuro VSCode */
+@media (prefers-color-scheme: dark) {
+  .token.comment {
+    color: #6A737D;
+  }
+  
+  .token.string {
+    color: #9ECBFF;
+    background: rgba(158, 203, 255, 0.1);
+  }
+  
+  .token.number {
+    color: #79B8FF;
+  }
+  
+  .token.keyword {
+    color: #FF7B72;
+  }
+  
+  .token.type {
+    color: #D2A8FF;
+  }
+  
+  .token.function {
+    color: #D2A8FF;
+  }
+  
+  .token.property {
+    color: #FFAB70;
+  }
+  
+  .token.selector {
+    color: #7EE787;
+  }
+  
+  .token.tag {
+    color: #7EE787;
+  }
+  
+  .token.attribute {
+    color: #D2A8FF;
+  }
 }
 
 .inline-code {
