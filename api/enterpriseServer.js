@@ -367,6 +367,7 @@ app.get("/bible/passage", async (req, res) => {
   try {
     const passage = String(req.query.passage || '').trim()
     const bibleId = String(req.query.bibleId || '').trim()
+    const bibleCode = String(req.query.bibleCode || '').trim()
 
     if (!passage) {
       return res.status(400).json({
@@ -376,7 +377,7 @@ app.get("/bible/passage", async (req, res) => {
       })
     }
 
-    const data = await fetchBiblePassage({ bibleId, passage })
+    const data = await fetchBiblePassage({ bibleId, bibleCode, passage })
 
     res.json({
       data,

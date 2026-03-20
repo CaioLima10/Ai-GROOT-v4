@@ -27,6 +27,12 @@ GITHUB_TOKEN=your_github_token_here
 # YouVersion Bible API (optional)
 YVP_APP_KEY=your_yvp_app_key_here
 YVP_BIBLE_ID=3034
+YVP_BIBLE_ID_NAA=your_bible_id_naa
+YVP_BIBLE_ID_ARC=your_bible_id_arc
+YVP_BIBLE_ID_ARA=your_bible_id_ara
+YVP_BIBLE_ID_KJV1611=your_bible_id_kjv1611
+YVP_BIBLE_ID_GREEK_NT=your_bible_id_greek_nt
+YVP_BIBLE_ID_HEBREW_OT=your_bible_id_hebrew_ot
 
 # Server Configuration
 NODE_ENV=production

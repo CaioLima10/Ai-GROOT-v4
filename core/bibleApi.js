@@ -10,7 +10,24 @@ function getAppKey() {
   return process.env.YVP_APP_KEY
 }
 
-export async function fetchBiblePassage({ bibleId, passage }) {
+function normalizeBibleCode(code) {
+  if (!code) return ""
+  return String(code).trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_")
+}
+
+function resolveBibleId({ bibleId, bibleCode }) {
+  if (bibleId) return bibleId
+  const normalized = normalizeBibleCode(bibleCode)
+  if (normalized) {
+    const envKey = `YVP_BIBLE_ID_${normalized}`
+    if (process.env[envKey]) {
+      return process.env[envKey]
+    }
+  }
+  return process.env.YVP_BIBLE_ID || "3034"
+}
+
+export async function fetchBiblePassage({ bibleId, bibleCode, passage }) {
   const appKey = getAppKey()
   if (!appKey) {
     throw new Error("YVP_APP_KEY não configurada")
@@ -20,7 +37,7 @@ export async function fetchBiblePassage({ bibleId, passage }) {
     throw new Error("Passagem não informada")
   }
 
-  const resolvedBibleId = bibleId || process.env.YVP_BIBLE_ID || "3034"
+  const resolvedBibleId = resolveBibleId({ bibleId, bibleCode })
   const url = `${BASE_URL}/bibles/${encodeURIComponent(resolvedBibleId)}/passages/${encodeURIComponent(passage)}`
 
   const response = await axios.get(url, {
