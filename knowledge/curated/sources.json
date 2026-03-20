@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Documentação oficial (exemplo)",
+    "domain": "docs.exemplo.com",
+    "license": "permissive",
+    "allowed": true
+  }
+]

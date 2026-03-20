@@ -565,6 +565,17 @@ select {
   color: var(--accent);
 }
 
+.ghost.small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.feedback {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .link {
   background: transparent;
   border: none;

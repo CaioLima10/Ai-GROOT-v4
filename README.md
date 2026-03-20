@@ -240,6 +240,16 @@ Para ingestão de conhecimento local (RAG avançado):
 npm run knowledge:ingest
 ```
 
+Para ingestão de fontes curadas (com licença):
+```bash
+npm run knowledge:curated
+```
+
+Para upgrades de aprendizado no Supabase:
+```bash
+database/groot-learning-upgrades.sql
+```
+
 Arquivos iniciais ficam em `knowledge/seed/`. Você pode adicionar novos `.md` ou `.txt`
 e reexecutar a ingestão.
 
@@ -254,6 +264,11 @@ Controle o modelo via variáveis:
 - Dashboard em `/metrics/json` (pode exigir `ADMIN_DASH_KEY`)
 - Headers e rate limit habilitados por padrão
 - Configs em `.env.example`
+
+## 🧪 Feedback e Qualidade
+
+- Botões “Útil / Não útil” no chat enviam feedback
+- Avaliação automática evita aprender respostas ruins
 
 ## 🧩 Extensão VSCode
 

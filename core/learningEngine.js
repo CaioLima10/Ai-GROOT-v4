@@ -76,9 +76,13 @@ export function mergePreferences(existing = {}, updates = {}) {
   }
 }
 
-export function buildLearningSignals({ userMessage, aiResponse, userStyle }) {
+export function buildLearningSignals({ userMessage, aiResponse, userStyle, qualityScore = 0.8 }) {
   if (isSensitive(userMessage) || isSensitive(aiResponse)) {
     return { skip: true, reason: 'sensitive_content' }
+  }
+
+  if (qualityScore < 0.45) {
+    return { skip: true, reason: 'low_quality' }
   }
 
   const topics = extractTopics(userMessage, 4)
@@ -89,6 +93,6 @@ export function buildLearningSignals({ userMessage, aiResponse, userStyle }) {
     topics,
     preferences,
     style: userStyle || 'natural',
-    confidence: 0.6
+    confidence: Math.max(0.4, Math.min(0.9, qualityScore))
   }
 }

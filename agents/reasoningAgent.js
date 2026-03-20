@@ -4,6 +4,8 @@ import { grootRAG } from '../core/grootRAG.js'
 import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
 import { grootAnalytics } from '../core/grootAnalytics.js'
 import { buildLearningSignals, mergePreferences } from '../core/learningEngine.js'
+import { evaluateInteractionQuality } from '../core/qualityEngine.js'
+import { maybeSummarize } from '../core/summaryEngine.js'
 
 export class ReasoningAgent {
   constructor() {
@@ -345,6 +347,7 @@ ${memoryContext.history.map(h => `Usuário: ${h.user}\nGROOT: ${h.ai}`).join('\n
 - Estilo preferido: ${memoryContext.userProfile?.style || 'natural'}
 - Contexto: ${memoryContext.contextSummary}
 - Tópicos recorrentes: ${(memoryContext.userProfile?.topics || []).join(', ') || 'nenhum ainda'}
+${memoryContext.summary ? `\nResumo recente: ${memoryContext.summary}` : ''}
 
 🎯 CONHECIMENTO RELEVANTE (RAG AVANÇADO):
 ${ragContext.enriched ? ragContext.context : 'Nenhum conhecimento específico encontrado.'}
@@ -373,6 +376,11 @@ Responda como se estivesse tendo uma conversa real, com memória do que já conv
     try {
       const llmResponse = await askMultiAI(prompt)
 
+      const quality = evaluateInteractionQuality({
+        userMessage: task,
+        aiResponse: llmResponse
+      })
+
       const reasoning = {
         success: true,
         type: 'llm_reasoning',
@@ -385,14 +393,16 @@ Responda como se estivesse tendo uma conversa real, com memória do que já conv
           userStyle: userStyle,
           toneInstruction: toneInstructions[userStyle],
           personality: 'adaptive_human',
-          memoryContext: memoryContext.contextSummary
+          memoryContext: memoryContext.contextSummary,
+          qualityScore: quality.score
         }
       }
 
       const learningSignals = buildLearningSignals({
         userMessage: task,
         aiResponse: llmResponse,
-        userStyle
+        userStyle,
+        qualityScore: quality.score
       })
 
       if (!learningSignals.skip) {
@@ -439,8 +449,26 @@ Responda como se estivesse tendo uma conversa real, com memória do que já conv
         userStyle: userStyle,
         confidence: 0.9,
         provider: 'multi_ai_fallback',
-        sessionId: `session_${Date.now()}`
+        sessionId: `session_${Date.now()}`,
+        requestId: context.requestId
       })
+
+      if (context.requestId) {
+        await grootMemoryConnector.saveEvaluation(userId, context.requestId, quality)
+      }
+
+      try {
+        const history = await grootMemoryConnector.getRecentHistory(userId, 12)
+        const summary = await maybeSummarize(history)
+        if (summary) {
+          await grootMemoryConnector.saveSummary(userId, summary, {
+            source: 'auto',
+            count: history.length
+          })
+        }
+      } catch (error) {
+        console.warn('⚠️ Falha ao gerar resumo:', error.message)
+      }
 
       // 🎯 APRENDER COM RAG AVANÇADO
       await grootAdvancedRAG.learnFromInteractionAdvanced(task, llmResponse, {

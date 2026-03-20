@@ -73,20 +73,36 @@ export class GrootAdvancedRAG {
     try {
       const embedding = await this.embeddings.generateEmbedding(content)
 
-      const { data, error } = await this.supabase
+      const payload = {
+        content,
+        embedding,
+        source: metadata.source || 'manual',
+        category: metadata.category || 'general',
+        language: metadata.language || 'pt',
+        metadata: {
+          ...metadata,
+          created_at: new Date().toISOString()
+        },
+        version: metadata.version || 1,
+        is_active: metadata.is_active ?? true
+      }
+
+      let { data, error } = await this.supabase
         .from('knowledge_embeddings')
-        .insert({
-          content,
-          embedding,
-          source: metadata.source || 'manual',
-          category: metadata.category || 'general',
-          language: metadata.language || 'pt',
-          metadata: {
-            ...metadata,
-            created_at: new Date().toISOString()
-          }
-        })
+        .insert(payload)
         .select()
+
+      if (error && error.message?.includes('column')) {
+        const fallback = { ...payload }
+        delete fallback.version
+        delete fallback.is_active
+        const retry = await this.supabase
+          .from('knowledge_embeddings')
+          .insert(fallback)
+          .select()
+        data = retry.data
+        error = retry.error
+      }
 
       if (error) throw error
 
@@ -94,6 +110,89 @@ export class GrootAdvancedRAG {
       return data[0]
     } catch (error) {
       console.error('❌ Erro ao adicionar conhecimento:', error)
+      return null
+    }
+  }
+
+  async deprecateKnowledge(knowledgeId) {
+    if (!this.enabled) {
+      return null
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('knowledge_embeddings')
+        .update({ is_active: false })
+        .eq('id', knowledgeId)
+        .select()
+
+      if (error && error.message?.includes('column')) {
+        return null
+      }
+
+      if (error) throw error
+      return data?.[0] || null
+    } catch (error) {
+      console.error('❌ Erro ao desativar conhecimento:', error)
+      return null
+    }
+  }
+
+  async saveKnowledgeVersion(knowledgeId, content, metadata = {}) {
+    if (!this.enabled) {
+      return null
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('knowledge_versions')
+        .insert({
+          knowledge_id: knowledgeId,
+          content,
+          metadata,
+          version: metadata.version || 1,
+          created_at: new Date().toISOString()
+        })
+        .select()
+
+      if (error) throw error
+      return data?.[0] || null
+    } catch (error) {
+      console.error('❌ Erro ao salvar versão:', error)
+      return null
+    }
+  }
+
+  async rollbackKnowledge(knowledgeId, versionContent) {
+    if (!this.enabled) {
+      return null
+    }
+    try {
+      const embedding = await this.embeddings.generateEmbedding(versionContent)
+      const { data, error } = await this.supabase
+        .from('knowledge_embeddings')
+        .update({
+          content: versionContent,
+          embedding,
+          is_active: true
+        })
+        .eq('id', knowledgeId)
+        .select()
+
+      if (error && error.message?.includes('column')) {
+        const fallback = await this.supabase
+          .from('knowledge_embeddings')
+          .update({
+            content: versionContent,
+            embedding
+          })
+          .eq('id', knowledgeId)
+          .select()
+        return fallback.data?.[0] || null
+      }
+
+      if (error) throw error
+      return data?.[0] || null
+    } catch (error) {
+      console.error('❌ Erro ao fazer rollback:', error)
       return null
     }
   }

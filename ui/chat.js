@@ -154,10 +154,33 @@ function formatMessage(text) {
   return safe
 }
 
-function appendMessage(role, content, isError = false) {
+function appendMessage(role, content, isError = false, meta = {}) {
   const message = document.createElement("div")
   message.className = `message ${role}${isError ? " error" : ""}`
   message.innerHTML = formatMessage(content)
+  if (role === "ai" && !isError && meta.requestId) {
+    const feedback = document.createElement("div")
+    feedback.className = "feedback"
+    const up = document.createElement("button")
+    const down = document.createElement("button")
+    up.textContent = "Útil"
+    down.textContent = "Não útil"
+    up.className = "ghost small"
+    down.className = "ghost small"
+    up.addEventListener("click", async () => {
+      await sendFeedback(meta.requestId, 1)
+      up.disabled = true
+      down.disabled = true
+    })
+    down.addEventListener("click", async () => {
+      await sendFeedback(meta.requestId, 0)
+      up.disabled = true
+      down.disabled = true
+    })
+    feedback.appendChild(up)
+    feedback.appendChild(down)
+    message.appendChild(feedback)
+  }
   chat.appendChild(message)
   chat.scrollTop = chat.scrollHeight
 }
@@ -455,13 +478,31 @@ async function send() {
     if (data.error) {
       appendMessage("ai", `Erro: ${data.error}`, true)
     } else if (data.response) {
-      appendMessage("ai", data.response)
+      appendMessage("ai", data.response, false, { requestId: data.requestId })
     } else {
       appendMessage("ai", "Resposta inválida da IA", true)
     }
   } catch (error) {
     console.error("Erro no frontend:", error)
     appendMessage("ai", `Falha ao comunicar com Ai-GROOT: ${error.message}`, true)
+  }
+}
+
+async function sendFeedback(requestId, rating) {
+  try {
+    await fetch("/feedback", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Id": state.user?.id || localStorage.getItem("groot-user-id") || "default_user"
+      },
+      body: JSON.stringify({
+        requestId,
+        rating
+      })
+    })
+  } catch (error) {
+    console.warn("Falha ao enviar feedback:", error.message)
   }
 }
 

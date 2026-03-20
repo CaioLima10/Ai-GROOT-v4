@@ -14,6 +14,7 @@
 2. Cole o conteúdo de `database/supabase-schema.sql`
 3. Execute o SQL (Run)
 4. Verifique se tabelas foram criadas
+5. (Opcional) Execute `database/groot-learning-upgrades.sql` para recursos avançados
 
 ### 3️⃣ Obter Credenciais
 1. Settings → API

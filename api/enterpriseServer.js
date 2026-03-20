@@ -6,6 +6,7 @@ import { fileURLToPath } from "url"
 import { askGroot } from "../core/aiBrain.js"
 import { aiGateway } from "../core/enterprise/AIGateway.js"
 import { fetchBiblePassage } from "../core/bibleApi.js"
+import { grootMemoryConnector } from "../core/grootMemoryConnector.js"
 import helmet from "helmet"
 import rateLimit from "express-rate-limit"
 import slowDown from "express-slow-down"
@@ -262,6 +263,23 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       code: errorCode,
       requestId
     })
+  }
+})
+
+// Feedback explícito do usuário
+app.post("/feedback", async (req, res) => {
+  try {
+    const { requestId, rating, comment } = req.body || {}
+    if (!requestId || typeof rating !== "number") {
+      return res.status(400).json({ error: "Feedback inválido", code: "INVALID_FEEDBACK" })
+    }
+
+    const userId = req.get('X-User-Id') || req.ip || 'default_user'
+    await grootMemoryConnector.saveFeedback(userId, requestId, rating, comment)
+
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: "Falha ao salvar feedback" })
   }
 })
 

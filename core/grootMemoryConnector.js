@@ -72,7 +72,8 @@ export class GrootMemoryConnector {
             style: metadata.userStyle,
             confidence: metadata.confidence,
             provider: metadata.provider,
-            session_id: metadata.sessionId
+            session_id: metadata.sessionId,
+            request_id: metadata.requestId
           }
         })
         .select()
@@ -151,6 +152,101 @@ export class GrootMemoryConnector {
     } catch (error) {
       console.error('❌ Erro ao buscar perfil:', error)
       return this.getLocalProfile(userId)
+    }
+  }
+
+  async saveSummary(userId, summary, metadata = {}) {
+    if (!this.isConnected || !this.supabase) {
+      return this.saveLocalSummary(userId, summary, metadata)
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('conversation_summaries')
+        .insert({
+          user_id: userId,
+          summary,
+          metadata,
+          created_at: new Date().toISOString()
+        })
+        .select()
+
+      if (error) throw error
+      return data[0]
+    } catch (error) {
+      console.error('❌ Erro ao salvar resumo:', error)
+      return this.saveLocalSummary(userId, summary, metadata)
+    }
+  }
+
+  async getLatestSummary(userId) {
+    if (!this.isConnected || !this.supabase) {
+      return this.getLocalSummary(userId)
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('conversation_summaries')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (error) throw error
+      return data?.[0] || null
+    } catch (error) {
+      console.error('❌ Erro ao buscar resumo:', error)
+      return this.getLocalSummary(userId)
+    }
+  }
+
+  async saveFeedback(userId, requestId, rating, comment = null) {
+    if (!this.isConnected || !this.supabase) {
+      return this.saveLocalFeedback(userId, requestId, rating, comment)
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('interaction_feedback')
+        .insert({
+          user_id: userId,
+          request_id: requestId,
+          rating,
+          comment,
+          created_at: new Date().toISOString()
+        })
+        .select()
+
+      if (error) throw error
+      return data[0]
+    } catch (error) {
+      console.error('❌ Erro ao salvar feedback:', error)
+      return this.saveLocalFeedback(userId, requestId, rating, comment)
+    }
+  }
+
+  async saveEvaluation(userId, requestId, evaluation) {
+    if (!this.isConnected || !this.supabase) {
+      return this.saveLocalEvaluation(userId, requestId, evaluation)
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('learning_evaluations')
+        .insert({
+          user_id: userId,
+          request_id: requestId,
+          score: evaluation.score,
+          issues: evaluation.issues,
+          created_at: new Date().toISOString()
+        })
+        .select()
+
+      if (error) throw error
+      return data[0]
+    } catch (error) {
+      console.error('❌ Erro ao salvar avaliação:', error)
+      return this.saveLocalEvaluation(userId, requestId, evaluation)
     }
   }
 
@@ -244,6 +340,49 @@ export class GrootMemoryConnector {
     return data || { preferences: { style: 'natural' } }
   }
 
+  saveLocalSummary(userId, summary, metadata) {
+    const storageKey = `groot_summary_${userId}`
+    const payload = {
+      summary,
+      metadata,
+      created_at: new Date().toISOString()
+    }
+    this.localMemory.set(storageKey, payload)
+    return payload
+  }
+
+  getLocalSummary(userId) {
+    const storageKey = `groot_summary_${userId}`
+    return this.localMemory.get(storageKey) || null
+  }
+
+  saveLocalFeedback(userId, requestId, rating, comment) {
+    const storageKey = `groot_feedback_${userId}`
+    const existing = this.localMemory.get(storageKey) || []
+    const payload = {
+      request_id: requestId,
+      rating,
+      comment,
+      created_at: new Date().toISOString()
+    }
+    existing.push(payload)
+    this.localMemory.set(storageKey, existing.slice(-50))
+    return payload
+  }
+
+  saveLocalEvaluation(userId, requestId, evaluation) {
+    const storageKey = `groot_evaluations_${userId}`
+    const existing = this.localMemory.get(storageKey) || []
+    const payload = {
+      request_id: requestId,
+      ...evaluation,
+      created_at: new Date().toISOString()
+    }
+    existing.push(payload)
+    this.localMemory.set(storageKey, existing.slice(-50))
+    return payload
+  }
+
   saveLocalLearningPattern(userId, patternType, patternData, confidence) {
     const storageKey = `groot_learning_${userId}`
     const existing = this.localMemory.get(storageKey) || []
@@ -268,9 +407,10 @@ export class GrootMemoryConnector {
 
   async getContextForPrompt(userId = 'default_user') {
     try {
-      const [history, profile] = await Promise.all([
+      const [history, profile, summary] = await Promise.all([
         this.getRecentHistory(userId, 5),
-        this.getUserProfile(userId)
+        this.getUserProfile(userId),
+        this.getLatestSummary(userId)
       ])
 
       return {
@@ -280,14 +420,16 @@ export class GrootMemoryConnector {
           timestamp: h.created_at
         })),
         userProfile: profile.preferences,
-        contextSummary: this.generateContextSummary(history)
+        contextSummary: this.generateContextSummary(history),
+        summary: summary?.summary || ''
       }
     } catch (error) {
       console.error('❌ Erro ao buscar contexto:', error)
       return {
         history: [],
         userProfile: { style: 'natural' },
-        contextSummary: 'Início de conversa'
+        contextSummary: 'Início de conversa',
+        summary: ''
       }
     }
   }
