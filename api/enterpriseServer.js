@@ -5,6 +5,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { askGroot } from "../core/aiBrain.js"
 import { aiGateway } from "../core/enterprise/AIGateway.js"
+import { fetchBiblePassage } from "../core/bibleApi.js"
 
 dotenv.config()
 
@@ -125,10 +126,13 @@ app.post("/ask", async (req, res) => {
     }
 
     // Extrair headers de contexto
+    const userId = req.get('X-User-Id') || req.ip || 'default_user'
+
     const enhancedContext = {
       ...context,
       userAgent: req.get('User-Agent'),
       ip: req.ip,
+      userId,
       timestamp: new Date().toISOString(),
       requestId
     }
@@ -253,6 +257,39 @@ app.post("/review", async (req, res) => {
   } catch (error) {
     aiGateway.logger.error(requestId, 'REVIEW_FAILED', { error: error.message })
     res.status(500).json({ error: "Falha no code review" })
+  }
+})
+
+// Bible API (YouVersion Platform) - requer YVP_APP_KEY
+app.get("/bible/passage", async (req, res) => {
+  const requestId = `bible_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  try {
+    const passage = String(req.query.passage || '').trim()
+    const bibleId = String(req.query.bibleId || '').trim()
+
+    if (!passage) {
+      return res.status(400).json({
+        error: "Passagem não informada. Use ?passage=JHN.3.16",
+        code: "MISSING_PASSAGE",
+        requestId
+      })
+    }
+
+    const data = await fetchBiblePassage({ bibleId, passage })
+
+    res.json({
+      data,
+      source: "youversion",
+      requestId
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: "Falha ao consultar a Bíblia",
+      details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      code: "BIBLE_API_ERROR",
+      requestId
+    })
   }
 })
 

@@ -154,6 +154,54 @@ export class GrootMemoryConnector {
     }
   }
 
+  async saveLearningPattern(userId, patternType, patternData, confidence = 0.5) {
+    if (!this.isConnected || !this.supabase) {
+      console.warn('⚠️ Supabase não conectado - salvando padrão localmente')
+      return this.saveLocalLearningPattern(userId, patternType, patternData, confidence)
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('learning_patterns')
+        .insert({
+          user_id: userId,
+          pattern_type: patternType,
+          pattern_data: patternData,
+          confidence,
+          created_at: new Date().toISOString()
+        })
+        .select()
+
+      if (error) throw error
+      console.log('✅ Padrão de aprendizado salvo na Supabase')
+      return data[0]
+    } catch (error) {
+      console.error('❌ Erro ao salvar padrão de aprendizado:', error)
+      return this.saveLocalLearningPattern(userId, patternType, patternData, confidence)
+    }
+  }
+
+  async getLearningPatterns(userId, limit = 10) {
+    if (!this.isConnected || !this.supabase) {
+      return this.getLocalLearningPatterns(userId, limit)
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('learning_patterns')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('❌ Erro ao buscar padrões de aprendizado:', error)
+      return this.getLocalLearningPatterns(userId, limit)
+    }
+  }
+
   // Fallback local para quando Supabase não está disponível (Node.js compatible)
   saveLocalFallback(userId, userMessage, aiResponse, metadata) {
     const storageKey = `groot_conversation_${userId}`
@@ -194,6 +242,28 @@ export class GrootMemoryConnector {
     const storageKey = `groot_profile_${userId}`
     const data = this.localMemory.get(storageKey) || {}
     return data || { preferences: { style: 'natural' } }
+  }
+
+  saveLocalLearningPattern(userId, patternType, patternData, confidence) {
+    const storageKey = `groot_learning_${userId}`
+    const existing = this.localMemory.get(storageKey) || []
+
+    existing.push({
+      user_id: userId,
+      pattern_type: patternType,
+      pattern_data: patternData,
+      confidence,
+      created_at: new Date().toISOString()
+    })
+
+    this.localMemory.set(storageKey, existing.slice(-50))
+    return existing[existing.length - 1]
+  }
+
+  getLocalLearningPatterns(userId, limit = 10) {
+    const storageKey = `groot_learning_${userId}`
+    const data = this.localMemory.get(storageKey) || []
+    return data.slice(-limit).reverse()
   }
 
   async getContextForPrompt(userId = 'default_user') {

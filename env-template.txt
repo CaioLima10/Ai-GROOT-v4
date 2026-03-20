@@ -6,6 +6,12 @@ GROQ_API_KEY=your_groq_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
 OPENROUTER_KEY=your_openrouter_key_here
 
+# Model selection
+GROOT_MODEL_TIER=balanced
+GROQ_MODEL=llama-3.1-8b-instant
+OPENROUTER_MODEL=google/gemma-2-9b-it:free
+GEMINI_MODEL=gemini-1.5-flash
+
 # Database
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your_supabase_anon_key_here
@@ -17,6 +23,10 @@ JWT_SECRET=your_jwt_secret_here
 # Optional
 HUGGINGFACE_API_KEY=your_huggingface_key_here
 GITHUB_TOKEN=your_github_token_here
+
+# YouVersion Bible API (optional)
+YVP_APP_KEY=your_yvp_app_key_here
+YVP_BIBLE_ID=3034
 
 # Server Configuration
 NODE_ENV=production

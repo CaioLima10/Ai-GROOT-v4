@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Documentos internos e notas de projeto",
+    "type": "local",
+    "license": "internal",
+    "allowed": true
+  },
+  {
+    "name": "YouVersion / Bible API",
+    "type": "external",
+    "license": "requires_agreement",
+    "allowed": false,
+    "notes": "Usar somente via API oficial e após aceitar as licenças."
+  }
+]

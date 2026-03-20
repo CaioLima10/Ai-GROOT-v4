@@ -1,14 +1,33 @@
-// GROOT - Seletor de modo (core vs quantum)
+// GROOT - Seletor de modo (core vs quantum) + segurança
+import { randomUUID } from 'crypto'
 import { askGroot as askCore } from '../grootCore.js'
 import { askGroot as askQuantum } from '../groot-quantum.js'
+import { detectSafetyRisk, buildSafetyResponse } from './safetyGuard.js'
 
 // Manter compatibilidade com a API existente
 export async function askGroot(prompt, context = {}) {
+  const safety = detectSafetyRisk(prompt)
+  if (safety.triggered) {
+    return {
+      success: true,
+      response: buildSafetyResponse(safety, context),
+      timestamp: new Date().toISOString(),
+      version: '9.0.0',
+      interactionId: randomUUID(),
+      safety: {
+        ...safety,
+        handled: true
+      }
+    }
+  }
+
+  const enrichedContext = safety.advisory ? { ...context, safety } : context
+
   const mode = process.env.GROOT_MODE || 'quantum'
   if (mode === 'core') {
-    return await askCore(prompt, context)
+    return await askCore(prompt, enrichedContext)
   }
-  return await askQuantum(prompt, context)
+  return await askQuantum(prompt, enrichedContext)
 }
 
 // Funções avançadas usando o novo core

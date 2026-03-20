@@ -176,6 +176,15 @@ PORT=3000
 NODE_ENV=development  # ou production
 ```
 
+### Bible API (opcional)
+
+Se você tiver acesso à YouVersion Platform API, configure:
+```
+YVP_APP_KEY=seu_app_key
+YVP_BIBLE_ID=3034
+```
+Veja `docs/BIBLE-API.md`.
+
 ## 🚀 Deploy
 
 ### Produção
@@ -223,3 +232,19 @@ Se encontrar problemas:
 ---
 
 **Desenvolvido com ❤️ para a comunidade de desenvolvedores**
+
+## 🧠 Aprendizado e Conhecimento
+
+Para ingestão de conhecimento local (RAG avançado):
+```bash
+npm run knowledge:ingest
+```
+
+Arquivos iniciais ficam em `knowledge/seed/`. Você pode adicionar novos `.md` ou `.txt`
+e reexecutar a ingestão.
+
+## 🤖 Perfis de Modelo
+
+Controle o modelo via variáveis:
+- `GROOT_MODEL_TIER=fast|balanced|best`
+- `GROQ_MODEL`, `OPENROUTER_MODEL`, `GEMINI_MODEL` para sobrescrever

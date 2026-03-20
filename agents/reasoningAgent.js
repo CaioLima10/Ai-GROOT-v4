@@ -3,6 +3,7 @@ import { grootMemoryConnector } from '../core/grootMemoryConnector.js'
 import { grootRAG } from '../core/grootRAG.js'
 import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
 import { grootAnalytics } from '../core/grootAnalytics.js'
+import { buildLearningSignals, mergePreferences } from '../core/learningEngine.js'
 
 export class ReasoningAgent {
   constructor() {
@@ -284,7 +285,11 @@ export class ReasoningAgent {
     // 🚀 USAR LLM REAL DIRETO
     const { askMultiAI } = await import('../core/multiAI.js')
 
-    const userStyle = this.detectUserStyle(task)
+    const userStyle = this.detectUserStyle(task, userId)
+
+    const safetyNote = context?.safety?.category === 'mental_health'
+      ? 'Se o usuário demonstrar tristeza, ansiedade ou sofrimento, responda com empatia, encoraje buscar ajuda profissional e ofereça apoio. Não dê conselhos médicos específicos.'
+      : ''
 
     // 🎭 INSTRUÇÕES DE TOM BASEADO NO ESTILO
     const toneInstructions = {
@@ -308,6 +313,7 @@ ${memoryContext.history.map(h => `Usuário: ${h.user}\nGROOT: ${h.ai}`).join('\n
 📊 PERFIL DO USUÁRIO:
 - Estilo preferido: ${memoryContext.userProfile?.style || 'natural'}
 - Contexto: ${memoryContext.contextSummary}
+- Tópicos recorrentes: ${(memoryContext.userProfile?.topics || []).join(', ') || 'nenhum ainda'}
 
 🎯 CONHECIMENTO RELEVANTE (RAG AVANÇADO):
 ${ragContext.enriched ? ragContext.context : 'Nenhum conhecimento específico encontrado.'}
@@ -323,6 +329,9 @@ REGRAS IMPORTANTES:
 - Use exemplos práticos e linguagem humana
 - CONSIDERE O HISTÓRICO E O CONHECIMENTO ACIMA
 - APRENDA COM ESSA INTERAÇÃO
+- Se houver risco de autoagressão ou violência, responda com cuidado e incentive ajuda profissional
+- Em segurança cibernética, seja defensivo e educativo. Não forneça instruções ofensivas.
+${safetyNote ? `- Nota de cuidado: ${safetyNote}` : ''}
 
 Tarefa atual do usuário: ${task}
 
@@ -345,6 +354,51 @@ Responda como se estivesse tendo uma conversa real, com memória do que já conv
           personality: 'adaptive_human',
           memoryContext: memoryContext.contextSummary
         }
+      }
+
+      const learningSignals = buildLearningSignals({
+        userMessage: task,
+        aiResponse: llmResponse,
+        userStyle
+      })
+
+      if (!learningSignals.skip) {
+        const existingProfile = memoryContext.userProfile || {}
+        const existingTopics = Array.isArray(existingProfile.topics) ? existingProfile.topics : []
+        const mergedTopics = Array.from(new Set([...existingTopics, ...learningSignals.topics])).slice(0, 12)
+
+        const mergedProfile = mergePreferences(existingProfile, {
+          ...learningSignals.preferences,
+          style: learningSignals.style,
+          topics: mergedTopics
+        })
+
+        await grootMemoryConnector.updateUserProfile(userId, mergedProfile)
+
+        if (learningSignals.topics.length > 0) {
+          await grootMemoryConnector.saveLearningPattern(
+            userId,
+            'topic',
+            { topics: learningSignals.topics, source: 'conversation' },
+            learningSignals.confidence
+          )
+        }
+
+        if (Object.keys(learningSignals.preferences).length > 0) {
+          await grootMemoryConnector.saveLearningPattern(
+            userId,
+            'preference',
+            learningSignals.preferences,
+            learningSignals.confidence
+          )
+        }
+
+        await grootMemoryConnector.saveLearningPattern(
+          userId,
+          'style',
+          { style: learningSignals.style },
+          learningSignals.confidence
+        )
       }
 
       // 🧠 SALVAR INTERAÇÃO NA MEMÓRIA

@@ -6,10 +6,23 @@ export class GrootAdvancedRAG {
   constructor() {
     this.supabase = grootMemoryConnector.supabase
     this.embeddings = grootFreeEmbeddings
+    this.enabled = !!this.supabase
+
+    if (!this.enabled) {
+      console.warn('⚠️ RAG avançado desativado: Supabase não configurado.')
+    }
   }
 
   // 🔍 BUSCA SEMÂNTICA REAL
   async searchKnowledge(query, language = null, limit = 5) {
+    if (!this.enabled) {
+      return {
+        knowledge: [],
+        bugs: [],
+        queryEmbedding: null,
+        totalFound: 0
+      }
+    }
     try {
       // Gerar embedding da query
       const queryEmbedding = await this.embeddings.generateEmbedding(query)
@@ -54,6 +67,9 @@ export class GrootAdvancedRAG {
 
   // 📚 ADICIONAR CONHECIMENTO COM EMBEDDING
   async addKnowledge(content, metadata = {}) {
+    if (!this.enabled) {
+      return null
+    }
     try {
       const embedding = await this.embeddings.generateEmbedding(content)
 
@@ -84,6 +100,9 @@ export class GrootAdvancedRAG {
 
   // 🐛 ADICIONAR BUGS E SOLUÇÕES
   async addBugSolution(errorMessage, solution, metadata = {}) {
+    if (!this.enabled) {
+      return null
+    }
     try {
       const content = `Error: ${errorMessage}\nSolution: ${solution}`
       const embedding = await this.embeddings.generateEmbedding(content)
@@ -155,6 +174,7 @@ export class GrootAdvancedRAG {
 
   // 🧠 APRENDER COM INTERAÇÃO (AVANÇADO)
   async learnFromInteractionAdvanced(userMessage, aiResponse, metadata = {}) {
+    if (!this.enabled) return
     // Detectar tipo de conteúdo
     const contentType = this.detectContentType(userMessage, aiResponse)
 
@@ -228,6 +248,13 @@ export class GrootAdvancedRAG {
 
   // 📊 OBTER ESTATÍSTICAS AVANÇADAS
   async getAdvancedStats() {
+    if (!this.enabled) {
+      return {
+        totalKnowledge: 0,
+        totalBugs: 0,
+        lastUpdated: new Date().toISOString()
+      }
+    }
     try {
       const [knowledgeCount, bugsCount] = await Promise.all([
         this.supabase.from('knowledge_embeddings').select('count', { count: 'exact' }),

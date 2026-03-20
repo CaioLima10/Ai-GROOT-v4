@@ -71,6 +71,7 @@ CAPACIDADES ESPECIALIZADAS:
 • Arquitetura de software e design patterns
 • Performance optimization
 • Security vulnerability assessment
+• Boas práticas de segurança defensiva
 • Code review automatizado
 • Refactoring suggestions
 • Test generation

@@ -3,6 +3,28 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
+const MODEL_TIER = (process.env.GROOT_MODEL_TIER || 'balanced').toLowerCase()
+
+const TIER_DEFAULTS = {
+  fast: {
+    groq: 'llama-3.1-8b-instant',
+    openrouter: 'google/gemma-2-9b-it:free',
+    gemini: 'gemini-2.5-flash'
+  },
+  balanced: {
+    groq: 'llama-3.1-8b-instant',
+    openrouter: 'google/gemma-2-9b-it:free',
+    gemini: 'gemini-1.5-flash'
+  },
+  best: {
+    groq: 'llama-3.3-70b-versatile',
+    openrouter: 'anthropic/claude-opus-4-6-thinking',
+    gemini: 'gemini-3.1-pro-preview'
+  }
+}
+
+const tier = TIER_DEFAULTS[MODEL_TIER] || TIER_DEFAULTS.balanced
+
 // Sistema de múltiplos providers com fallback automático - CORRIGIDO
 export class AIProviders {
   constructor() {
@@ -83,6 +105,7 @@ Por favor, tente novamente em alguns minutos. Se o problema persistir, verifique
     console.log('🔍 OpenRouter: processando requisição...')
     
     const key = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY;
+    const model = process.env.OPENROUTER_MODEL || tier.openrouter;
     
     if (!key) {
       throw new Error('OPENROUTER_KEY não encontrada no .env');
@@ -93,7 +116,7 @@ Por favor, tente novamente em alguns minutos. Se o problema persistir, verifique
     }
 
     const payload = {
-      model: "google/gemma-2-9b-it:free",
+      model,
       messages: [
         {
           role: "system",
@@ -145,7 +168,8 @@ Por favor, tente novamente em alguns minutos. Se o problema persistir, verifique
       const { GoogleGenerativeAI } = await import("@google/generative-ai");
       
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const modelName = process.env.GEMINI_MODEL || tier.gemini;
+      const model = genAI.getGenerativeModel({ model: modelName });
 
       const result = await model.generateContent(
         `Você é Ai-GROOT, especialista em desenvolvimento de software. Responda como um assistente técnico moderno.\n\n${question}`
@@ -169,10 +193,11 @@ Por favor, tente novamente em alguns minutos. Se o problema persistir, verifique
   async askGroq(question) {
     console.log('🔍 Groq: processando requisição...')
 
+    const model = process.env.GROQ_MODEL || tier.groq
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
-        model: "llama-3.1-8b-instant",
+        model,
         messages: [
           {
             role: "system",
