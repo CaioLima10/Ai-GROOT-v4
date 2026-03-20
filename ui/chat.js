@@ -58,7 +58,57 @@ const state = {
   user: null,
   preferences: {},
   adminProtected: false,
-  lastUpload: null
+  lastUpload: null,
+  currentChatHistory: []
+}
+
+// Funções para gerenciar histórico por usuário
+function getUserStorageKey() {
+  const userId = state.user?.email || "visitante"
+  return `groot-chat-history-${userId.replace(/[^a-zA-Z0-9]/g, "_")}`
+}
+
+function saveChatHistory() {
+  const key = getUserStorageKey()
+  try {
+    localStorage.setItem(key, JSON.stringify(state.currentChatHistory))
+  } catch (e) {
+    console.warn("Erro ao salvar histórico:", e)
+  }
+}
+
+function loadChatHistory() {
+  const key = getUserStorageKey()
+  try {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      state.currentChatHistory = JSON.parse(saved)
+      renderChatHistory()
+    } else {
+      state.currentChatHistory = []
+      chat.innerHTML = ""
+    }
+  } catch (e) {
+    console.warn("Erro ao carregar histórico:", e)
+    state.currentChatHistory = []
+    chat.innerHTML = ""
+  }
+}
+
+function renderChatHistory() {
+  chat.innerHTML = ""
+  state.currentChatHistory.forEach(msg => {
+    const message = document.createElement("div")
+    message.className = `message ${msg.role}${msg.isError ? " error" : ""}`
+    message.innerHTML = formatMessage(msg.content)
+    chat.appendChild(message)
+  })
+  chat.scrollTop = chat.scrollHeight
+}
+
+function addToHistory(role, content, isError = false) {
+  state.currentChatHistory.push({ role, content, isError, timestamp: Date.now() })
+  saveChatHistory()
 }
 
 document.body.dataset.theme = state.theme
@@ -92,6 +142,8 @@ loginModal.addEventListener("click", (event) => {
 })
 newChat.addEventListener("click", () => {
   chat.innerHTML = ""
+  state.currentChatHistory = []
+  saveChatHistory()
 })
 
 if (uploadBtn && fileInput) {
@@ -298,6 +350,9 @@ function appendMessage(role, content, isError = false, meta = {}) {
   }
   chat.appendChild(message)
   chat.scrollTop = chat.scrollHeight
+
+  // Salvar no histórico do usuário
+  addToHistory(role, content, isError)
 }
 
 function setView(view) {
@@ -665,6 +720,7 @@ async function initAuth() {
   const { data } = await state.supabase.auth.getSession()
   state.user = data?.session?.user || null
   updateUserUI()
+  loadChatHistory() // Carregar histórico do usuário atual
   cleanAuthUrl()
 
   state.supabase.auth.onAuthStateChange((_event, session) => {
@@ -672,6 +728,7 @@ async function initAuth() {
     updateUserUI()
     if (state.user) {
       loadPreferences()
+      loadChatHistory() // Carregar histórico do usuário
       loginModal.classList.add("hidden")
       loginModal.style.display = "none"
     }
@@ -782,6 +839,7 @@ if (logoutBtn) {
     state.user = null
     userDropdown.classList.add("hidden")
     updateUserUI()
+    loadChatHistory() // Carregar histórico do visitante
   })
 }
 
