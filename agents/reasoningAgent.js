@@ -291,6 +291,10 @@ export class ReasoningAgent {
       ? 'Se o usuário demonstrar tristeza, ansiedade ou sofrimento, responda com empatia, encoraje buscar ajuda profissional e ofereça apoio. Não dê conselhos médicos específicos.'
       : ''
 
+    const ageGuidance = context?.ageGroup === 'minor'
+      ? 'O usuário é menor de idade. Evite conteúdo adulto, linguagem imprópria e instruções perigosas. Foque em respostas educativas e seguras.'
+      : ''
+
     // 🎭 INSTRUÇÕES DE TOM BASEADO NO ESTILO
     const toneInstructions = {
       casual: "Responda de forma informal e amigável, use gírias leves, seja descontraído. Use emojis se apropriado. 😄",
@@ -332,6 +336,7 @@ REGRAS IMPORTANTES:
 - Se houver risco de autoagressão ou violência, responda com cuidado e incentive ajuda profissional
 - Em segurança cibernética, seja defensivo e educativo. Não forneça instruções ofensivas.
 ${safetyNote ? `- Nota de cuidado: ${safetyNote}` : ''}
+${ageGuidance ? `- Aviso de idade: ${ageGuidance}` : ''}
 
 Tarefa atual do usuário: ${task}
 

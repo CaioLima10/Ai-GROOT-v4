@@ -48,6 +48,17 @@ const __dirname = path.dirname(__filename)
 // Servir interface da IA
 app.use(express.static(path.join(__dirname, "../ui")))
 
+// Config público para o frontend (somente chaves seguras)
+app.get("/config", (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || null,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
+    features: {
+      auth: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
+    }
+  })
+})
+
 // Health check enterprise
 app.get("/health", async (req, res) => {
   try {
