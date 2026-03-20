@@ -18,6 +18,9 @@ const loginStatus = document.getElementById("loginStatus")
 const userName = document.getElementById("userName")
 const userRole = document.getElementById("userRole")
 const userAvatar = document.getElementById("userAvatar")
+const userDropdown = document.getElementById("userDropdown")
+const logoutBtn = document.getElementById("logoutBtn")
+const switchAccount = document.getElementById("switchAccount")
 const newChat = document.getElementById("newChat")
 const navItems = document.querySelectorAll(".nav-item")
 const viewChat = document.getElementById("view-chat")
@@ -747,13 +750,9 @@ function updateUserUI() {
     userName.textContent = state.user.email || "Usuário"
     userRole.textContent = "Autenticado"
     userAvatar.textContent = (state.user.email || "U").slice(0, 1).toUpperCase()
-    loginBtn.textContent = "Sair"
+    loginBtn.textContent = state.user.email?.split('@')[0] || "Usuário"
     loginBtn.disabled = false
-    loginBtn.onclick = async () => {
-      await state.supabase?.auth.signOut()
-      state.user = null
-      updateUserUI()
-    }
+    userDropdown.classList.remove("hidden")
     localStorage.setItem("groot-user-id", state.user.id)
   } else {
     userName.textContent = "Visitante"
@@ -761,8 +760,44 @@ function updateUserUI() {
     userAvatar.textContent = "G"
     loginBtn.textContent = "Entrar"
     loginBtn.onclick = () => showModal(loginModal)
+    userDropdown.classList.add("hidden")
   }
 }
+
+// Event listeners do menu de usuário
+if (loginBtn) {
+  loginBtn.addEventListener("click", (e) => {
+    if (state.user) {
+      e.stopPropagation()
+      userDropdown.classList.toggle("hidden")
+    } else {
+      showModal(loginModal)
+    }
+  })
+}
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    await state.supabase?.auth.signOut()
+    state.user = null
+    userDropdown.classList.add("hidden")
+    updateUserUI()
+  })
+}
+
+if (switchAccount) {
+  switchAccount.addEventListener("click", () => {
+    userDropdown.classList.add("hidden")
+    showModal(loginModal)
+  })
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener("click", (e) => {
+  if (userDropdown && !userDropdown.contains(e.target) && e.target !== loginBtn) {
+    userDropdown.classList.add("hidden")
+  }
+})
 
 initAgeGate()
 initAuth()
