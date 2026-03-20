@@ -2,7 +2,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ SUPABASE_URL / SUPABASE_ANON_KEY não configurados no ambiente.')
@@ -144,6 +147,7 @@ async function executeSchema() {
     console.log('⚠️ ATENÇÃO: O schema precisa ser executado manualmente!')
     console.log('📋 Acesse: https://supabase.com/dashboard/project/nyvljbcrfletvxqwprgb/sql')
     console.log('📝 Cole o conteúdo do arquivo: database/supabase-schema.sql')
+    console.log('🧠 Depois execute também: database/pgvector-schema-fixed.sql (RAG avançado)')
     console.log('🚀 Execute tudo de uma vez')
     
     // Testar se tabelas existem

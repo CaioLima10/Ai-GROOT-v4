@@ -20,12 +20,14 @@
 2. Copie:
    - Project URL (ex: https://xyz.supabase.co)
    - anon public key (ex: eyJhbGciOiJIUz...)
+   - service_role key (usar no backend, manter secreto)
 
 ### 4️⃣ Atualizar .env
 ```env
 # Substitua pelos valores reais
 SUPABASE_URL=https://xyz.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 ### 5️⃣ Testar Conexão
@@ -52,7 +54,7 @@ node server-definitivo.js
 ### 🔐 Segurança:
 - RLS (Row Level Security) ativado
 - Usuários só veem seus próprios dados
-- Acesso controlado por auth
+- Para backend, use `SUPABASE_SERVICE_KEY` para bypass seguro
 
 ### 🚀 Features:
 - Memória persistente

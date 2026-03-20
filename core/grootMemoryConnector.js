@@ -3,8 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 
 // Configuração Supabase via variáveis de ambiente
 const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_KEY
 const hasSupabaseConfig = !!(supabaseUrl && supabaseKey)
+const usingServiceKey = !!process.env.SUPABASE_SERVICE_KEY
 
 export class GrootMemoryConnector {
   constructor() {
@@ -15,6 +19,10 @@ export class GrootMemoryConnector {
     if (!hasSupabaseConfig) {
       console.warn('⚠️ Supabase não configurado (SUPABASE_URL / SUPABASE_ANON_KEY). Usando memória local.')
     } else {
+      if (!usingServiceKey) {
+        console.warn('⚠️ Usando SUPABASE_ANON_KEY. Se o RLS estiver ativo, inserts podem falhar.')
+        console.warn('   Recomendo usar SUPABASE_SERVICE_KEY no backend.')
+      }
       // Tentativa inicial de conexão (não bloqueante)
       this.testConnection().catch(error => {
         console.warn('⚠️ Falha na conexão inicial com Supabase:', error.message)

@@ -13,11 +13,13 @@
 1. No projeto criado → Settings → Database
 2. Copie "Connection string"
 3. Copie "anon public" key
+4. Copie "service_role" key (para backend)
 4. Anote os valores:
 
 ```
 SUPABASE_URL=https://xxxxx.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 ### 3️⃣ ATUALIZAR .ENV
@@ -28,6 +30,7 @@ SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # Substitua pelos valores reais do Supabase
 SUPABASE_URL=https://SEU-PROJETO.supabase.co
 SUPABASE_ANON_KEY=SUA-CHAVE-ANON-REAL
+SUPABASE_SERVICE_KEY=SUA-CHAVE-SERVICE-REAL
 
 # Mantenha as outras chaves existentes
 GROQ_API_KEY=sua_groq_api_key_aqui
