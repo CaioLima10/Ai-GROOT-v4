@@ -407,6 +407,22 @@ function formatMessage(text) {
   return safe
 }
 
+// Função global para accordion
+window.toggleAccordion = function (sectionId) {
+  const content = document.getElementById(sectionId)
+  const allContents = document.querySelectorAll('.accordion-content')
+  const allIcons = document.querySelectorAll('.accordion-icon')
+
+  // Toggle current section
+  content.classList.toggle('hidden')
+
+  // Rotate icon
+  const icon = content.previousElementSibling.querySelector('.accordion-icon')
+  if (icon) {
+    icon.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)'
+  }
+}
+
 // Função global para copiar para clipboard
 window.copyToClipboard = function (text, type = 'text') {
   // Fallback para navegadores que não suportam clipboard API
