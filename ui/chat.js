@@ -70,7 +70,23 @@ textarea.addEventListener("keydown", (event) => {
 
 themeToggle.addEventListener("click", toggleTheme)
 loginBtn.addEventListener("click", () => showModal(loginModal))
-closeLogin.addEventListener("click", () => hideModal(loginModal))
+
+// Fechar modal com botão X
+if (closeLogin) {
+  closeLogin.addEventListener("click", (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    loginModal.classList.add("hidden")
+    console.log("Modal fechado!")
+  })
+}
+
+// Fechar modal ao clicar fora
+loginModal.addEventListener("click", (event) => {
+  if (event.target === loginModal) {
+    loginModal.classList.add("hidden")
+  }
+})
 newChat.addEventListener("click", () => {
   chat.innerHTML = ""
 })
@@ -638,7 +654,8 @@ async function initAuth() {
     updateUserUI()
     if (state.user) {
       loadPreferences()
-      hideModal(loginModal)
+      loginModal.classList.add("hidden")
+      loginModal.style.display = "none"
     }
     cleanAuthUrl()
   })
