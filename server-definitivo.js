@@ -52,6 +52,15 @@ app.get('/health', (req, res) => {
   })
 })
 
+// Config público para o frontend (Supabase keys)
+app.get('/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || null,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
+    adminProtected: false
+  })
+})
+
 // API do GROOT - VERSÃO SIMPLIFICADA
 app.post('/ask', async (req, res) => {
   try {

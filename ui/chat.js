@@ -160,6 +160,55 @@ function updateAgeUI() {
   ageBanner.classList.remove("hidden")
 }
 
+function initAgeGate() {
+  const birthMonth = document.getElementById("birthMonth")
+  const birthYear = document.getElementById("birthYear")
+  const confirmAgeBtn = document.getElementById("confirmAge")
+
+  if (birthYear) {
+    const currentYear = new Date().getFullYear()
+    for (let year = currentYear - 13; year >= 1950; year--) {
+      const option = document.createElement("option")
+      option.value = year
+      option.textContent = year
+      birthYear.appendChild(option)
+    }
+  }
+
+  if (confirmAgeBtn) {
+    confirmAgeBtn.addEventListener("click", () => {
+      const month = birthMonth?.value
+      const year = birthYear?.value
+
+      if (!month || !year) {
+        return
+      }
+
+      const birthDate = new Date(parseInt(year), parseInt(month) - 1)
+      const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+
+      const group = age >= 18 ? "adult" : "minor"
+      state.ageGroup = group
+      state.birthMonth = month
+      state.birthYear = year
+      state.age = age
+
+      localStorage.setItem("groot-age-group", group)
+      localStorage.setItem("groot-birth-month", month)
+      localStorage.setItem("groot-birth-year", year)
+      localStorage.setItem("groot-age", age.toString())
+
+      updateAgeUI()
+      hideModal(ageModal)
+    })
+  }
+
+  updateAgeUI()
+  if (!state.ageGroup) {
+    showModal(ageModal)
+  }
+}
+
 function escapeHtml(text) {
   return text
     .replace(/&/g, "&amp;")
@@ -666,13 +715,6 @@ function updateUserUI() {
     userAvatar.textContent = "G"
     loginBtn.textContent = "Entrar"
     loginBtn.onclick = () => showModal(loginModal)
-  }
-}
-
-function initAgeGate() {
-  updateAgeUI()
-  if (!state.ageGroup) {
-    showModal(ageModal)
   }
 }
 

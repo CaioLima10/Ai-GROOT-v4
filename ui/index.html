@@ -243,11 +243,34 @@
 
     <div id="ageModal" class="modal hidden">
       <div class="modal-card">
-        <h2>Confirme sua idade</h2>
+        <h2>Quando você nasceu?</h2>
         <p>Isso ajuda o GROOT a adaptar a linguagem e o nível de segurança das respostas.</p>
+        <div class="field">
+          <label for="birthMonth">Mês de nascimento</label>
+          <select id="birthMonth">
+            <option value="">Selecione...</option>
+            <option value="01">Janeiro</option>
+            <option value="02">Fevereiro</option>
+            <option value="03">Março</option>
+            <option value="04">Abril</option>
+            <option value="05">Maio</option>
+            <option value="06">Junho</option>
+            <option value="07">Julho</option>
+            <option value="08">Agosto</option>
+            <option value="09">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="birthYear">Ano de nascimento</label>
+          <select id="birthYear">
+            <option value="">Selecione...</option>
+          </select>
+        </div>
         <div class="modal-actions">
-          <button class="primary" data-age="adult">Tenho 18+ anos</button>
-          <button class="ghost" data-age="minor">Tenho menos de 18</button>
+          <button id="confirmAge" class="primary">Confirmar</button>
         </div>
       </div>
     </div>
