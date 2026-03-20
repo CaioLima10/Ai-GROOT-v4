@@ -86,6 +86,7 @@ dist
 # Temporary folders
 tmp/
 temp/
+tmp_uploads/
 
 # Editor directories and files
 .vscode/*

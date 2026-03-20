@@ -44,6 +44,9 @@ const saveAdminKey = document.getElementById("saveAdminKey")
 const metricsStatus = document.getElementById("metricsStatus")
 const providersList = document.getElementById("providersList")
 const errorsList = document.getElementById("errorsList")
+const uploadBtn = document.getElementById("uploadBtn")
+const fileInput = document.getElementById("fileInput")
+const uploadStatus = document.getElementById("uploadStatus")
 
 const state = {
   theme: localStorage.getItem("groot-theme") || "dark",
@@ -51,7 +54,8 @@ const state = {
   supabase: null,
   user: null,
   preferences: {},
-  adminProtected: false
+  adminProtected: false,
+  lastUpload: null
 }
 
 document.body.dataset.theme = state.theme
@@ -70,6 +74,11 @@ closeLogin.addEventListener("click", () => hideModal(loginModal))
 newChat.addEventListener("click", () => {
   chat.innerHTML = ""
 })
+
+if (uploadBtn && fileInput) {
+  uploadBtn.addEventListener("click", () => fileInput.click())
+  fileInput.addEventListener("change", handleUpload)
+}
 
 navItems.forEach((item) => {
   item.addEventListener("click", () => setView(item.dataset.view))
@@ -99,6 +108,12 @@ function showModal(modal) {
 
 function hideModal(modal) {
   modal.classList.add("hidden")
+}
+
+function setUploadStatus(message, isError = false) {
+  if (!uploadStatus) return
+  uploadStatus.textContent = message || ""
+  uploadStatus.classList.toggle("error", !!isError)
 }
 
 function setLoginStatus(message, isError = false) {
@@ -481,7 +496,10 @@ async function send() {
         context: {
           ageGroup: state.ageGroup,
           uiTheme: state.theme,
-          locale: navigator.language
+          locale: navigator.language,
+          uploadId: state.lastUpload?.id || null,
+          uploadName: state.lastUpload?.name || null,
+          uploadType: state.lastUpload?.type || null
         }
       })
     })
@@ -498,6 +516,10 @@ async function send() {
       appendMessage("ai", data.response, false, { requestId: data.requestId })
     } else {
       appendMessage("ai", "Resposta inválida da IA", true)
+    }
+    if (state.lastUpload) {
+      state.lastUpload = null
+      setUploadStatus("")
     }
   } catch (error) {
     console.error("Erro no frontend:", error)
@@ -657,3 +679,59 @@ function initAgeGate() {
 initAgeGate()
 initAuth()
 setView("chat")
+
+async function handleUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const maxBytes = 2_000_000
+  if (file.size > maxBytes) {
+    setUploadStatus("Arquivo muito grande (máx 2MB).", true)
+    fileInput.value = ""
+    return
+  }
+
+  setUploadStatus("Enviando arquivo...")
+  try {
+    const base64 = await readFileAsBase64(file)
+    const response = await fetch("/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Id": state.user?.id || localStorage.getItem("groot-user-id") || "default_user"
+      },
+      body: JSON.stringify({
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        data: base64
+      })
+    })
+
+    if (!response.ok) {
+      setUploadStatus("Falha ao enviar arquivo.", true)
+      return
+    }
+
+    const data = await response.json()
+    state.lastUpload = data
+    const expires = data.expiresAt ? new Date(data.expiresAt).toLocaleTimeString() : "em breve"
+    setUploadStatus(`Arquivo pronto: ${data.name} (expira ${expires})`)
+  } catch (error) {
+    setUploadStatus("Erro no upload. Tente novamente.", true)
+  } finally {
+    fileInput.value = ""
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || "")
+      const base64 = result.split(",")[1] || ""
+      resolve(base64)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}

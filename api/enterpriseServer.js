@@ -3,6 +3,8 @@ import cors from "cors"
 import dotenv from "dotenv"
 import path from "path"
 import { fileURLToPath } from "url"
+import fs from "fs/promises"
+import crypto from "crypto"
 import { askGroot } from "../core/aiBrain.js"
 import { aiGateway } from "../core/enterprise/AIGateway.js"
 import { fetchBiblePassage } from "../core/bibleApi.js"
@@ -85,6 +87,50 @@ app.use(express.json({ limit: process.env.REQUEST_LIMIT || "4mb", strict: true }
 // Corrige __dirname no ESModules
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+const UPLOAD_DIR = path.join(process.cwd(), "tmp_uploads")
+const uploads = new Map()
+const uploadTtlMinutes = Number(process.env.UPLOAD_TTL_MINUTES || 10)
+const uploadMaxBytes = Number(process.env.UPLOAD_MAX_BYTES || 2_000_000)
+const uploadTextLimit = Number(process.env.UPLOAD_TEXT_LIMIT || 12000)
+
+async function ensureUploadDir() {
+  try {
+    await fs.mkdir(UPLOAD_DIR, { recursive: true })
+  } catch (error) {
+    console.error("❌ Falha ao criar pasta de uploads:", error.message)
+  }
+}
+
+function scheduleUploadCleanup(id) {
+  const entry = uploads.get(id)
+  if (!entry) return
+  const ttlMs = uploadTtlMinutes * 60 * 1000
+  entry.timeout = setTimeout(async () => {
+    try {
+      await fs.unlink(entry.path)
+    } catch {
+      // ignore
+    }
+    uploads.delete(id)
+  }, ttlMs)
+}
+
+function safeFilename(name) {
+  return String(name || "upload")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 120)
+}
+
+function isTextLike(name, type) {
+  if (type && type.startsWith("text/")) return true
+  const lower = String(name || "").toLowerCase()
+  return [
+    ".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".log",
+    ".js", ".ts", ".tsx", ".jsx", ".py", ".java", ".go", ".rs",
+    ".c", ".cpp", ".h", ".cs", ".php", ".rb", ".sql", ".xml", ".html", ".css"
+  ].some(ext => lower.endsWith(ext))
+}
 
 // Servir interface da IA
 app.use(express.static(path.join(__dirname, "../ui")))
@@ -176,6 +222,58 @@ app.get("/admin", requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "../ui/admin.html"))
 })
 
+// Upload temporário (armazenamento local, auto-delete)
+app.post("/upload", async (req, res) => {
+  try {
+    const { name, type, data } = req.body || {}
+    if (!name || !data) {
+      return res.status(400).json({ error: "Arquivo inválido", code: "INVALID_UPLOAD" })
+    }
+
+    const buffer = Buffer.from(String(data), "base64")
+    if (!buffer || !buffer.length) {
+      return res.status(400).json({ error: "Conteúdo vazio", code: "EMPTY_UPLOAD" })
+    }
+
+    if (buffer.length > uploadMaxBytes) {
+      return res.status(413).json({
+        error: "Arquivo muito grande",
+        code: "UPLOAD_TOO_LARGE",
+        maxBytes: uploadMaxBytes
+      })
+    }
+
+    await ensureUploadDir()
+    const id = crypto.randomUUID()
+    const safeName = safeFilename(name)
+    const filePath = path.join(UPLOAD_DIR, `${id}_${safeName}`)
+
+    await fs.writeFile(filePath, buffer)
+
+    const expiresAt = Date.now() + uploadTtlMinutes * 60 * 1000
+    uploads.set(id, {
+      id,
+      name: safeName,
+      type: type || "application/octet-stream",
+      path: filePath,
+      size: buffer.length,
+      expiresAt
+    })
+    scheduleUploadCleanup(id)
+
+    res.json({
+      id,
+      name: safeName,
+      type: type || "application/octet-stream",
+      size: buffer.length,
+      expiresAt
+    })
+  } catch (error) {
+    console.error("❌ Falha no upload:", error.message)
+    res.status(500).json({ error: "Falha ao salvar arquivo", code: "UPLOAD_FAILED" })
+  }
+})
+
 // API principal com contexto enterprise
 app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
   const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -200,6 +298,30 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       })
     }
 
+    let finalQuestion = question
+    const uploadId = context?.uploadId
+    const uploadEntry = uploadId ? uploads.get(uploadId) : null
+    if (uploadEntry) {
+      const label = `\n\n[Arquivo enviado: ${uploadEntry.name} | tipo: ${uploadEntry.type}]`
+      if (isTextLike(uploadEntry.name, uploadEntry.type)) {
+        try {
+          const raw = await fs.readFile(uploadEntry.path, "utf8")
+          const snippet = raw.length > uploadTextLimit
+            ? `${raw.slice(0, uploadTextLimit)}\n... (truncado)`
+            : raw
+          finalQuestion += `${label}\n${snippet}`
+        } catch (error) {
+          finalQuestion += `${label}\n(erro ao ler o arquivo)`
+        }
+      } else {
+        finalQuestion += `${label}\n(Leitura de imagens/arquivos binários ainda não habilitada)`
+      }
+
+      if (finalQuestion.length > 50000) {
+        finalQuestion = finalQuestion.slice(0, 50000)
+      }
+    }
+
     // Extrair headers de contexto
     const userId = req.get('X-User-Id') || req.ip || 'default_user'
 
@@ -217,7 +339,7 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       context: Object.keys(enhancedContext)
     })
 
-    const answer = await askGroot(question, enhancedContext)
+    const answer = await askGroot(finalQuestion, enhancedContext)
     const responseText = typeof answer === 'string'
       ? answer
       : (answer?.response ?? answer?.answer ?? '')

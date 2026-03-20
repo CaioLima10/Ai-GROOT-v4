@@ -81,8 +81,11 @@
             </div>
             <div class="composer-box">
               <textarea id="msg" placeholder="Digite sua pergunta sobre código, bugs, segurança ou setup..."></textarea>
+              <input id="fileInput" type="file" class="hidden" />
+              <button id="uploadBtn" class="ghost">Upload</button>
               <button id="sendBtn" class="primary">Enviar</button>
             </div>
+            <div id="uploadStatus" class="status-text"></div>
             <div class="composer-hint">Shift + Enter para nova linha</div>
           </section>
         </div>
