@@ -295,6 +295,33 @@ export class ReasoningAgent {
       ? 'O usuário é menor de idade. Evite conteúdo adulto, linguagem imprópria e instruções perigosas. Foque em respostas educativas e seguras.'
       : ''
 
+    const profilePreferences = memoryContext.userProfile || {}
+    const preferenceNotes = []
+
+    if (profilePreferences.verbosity === 'short') {
+      preferenceNotes.push('Responda de forma curta e objetiva.')
+    }
+
+    if (profilePreferences.verbosity === 'detailed') {
+      preferenceNotes.push('Responda com mais detalhes e explicações.')
+    }
+
+    if (profilePreferences.examples) {
+      preferenceNotes.push('Inclua exemplos práticos e código quando fizer sentido.')
+    }
+
+    if (profilePreferences.noEmojis) {
+      preferenceNotes.push('Não use emojis.')
+    }
+
+    if (profilePreferences.safetyLevel === 'strict') {
+      preferenceNotes.push('Seja mais cauteloso em temas sensíveis.')
+    }
+
+    const preferenceGuidance = preferenceNotes.length > 0
+      ? `Preferências do usuário: ${preferenceNotes.join(' ')}`
+      : ''
+
     // 🎭 INSTRUÇÕES DE TOM BASEADO NO ESTILO
     const toneInstructions = {
       casual: "Responda de forma informal e amigável, use gírias leves, seja descontraído. Use emojis se apropriado. 😄",
@@ -337,6 +364,7 @@ REGRAS IMPORTANTES:
 - Em segurança cibernética, seja defensivo e educativo. Não forneça instruções ofensivas.
 ${safetyNote ? `- Nota de cuidado: ${safetyNote}` : ''}
 ${ageGuidance ? `- Aviso de idade: ${ageGuidance}` : ''}
+${preferenceGuidance ? `- ${preferenceGuidance}` : ''}
 
 Tarefa atual do usuário: ${task}
 

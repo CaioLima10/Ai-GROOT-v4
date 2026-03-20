@@ -18,12 +18,26 @@ const userName = document.getElementById("userName")
 const userRole = document.getElementById("userRole")
 const userAvatar = document.getElementById("userAvatar")
 const newChat = document.getElementById("newChat")
+const navItems = document.querySelectorAll(".nav-item")
+const viewChat = document.getElementById("view-chat")
+const viewMemory = document.getElementById("view-memory")
+const viewDocs = document.getElementById("view-docs")
+const viewSettings = document.getElementById("view-settings")
+const memoryList = document.getElementById("memoryList")
+const learningList = document.getElementById("learningList")
+const verbositySelect = document.getElementById("verbositySelect")
+const examplesToggle = document.getElementById("examplesToggle")
+const emojiToggle = document.getElementById("emojiToggle")
+const safetySelect = document.getElementById("safetySelect")
+const saveSettings = document.getElementById("saveSettings")
+const settingsStatus = document.getElementById("settingsStatus")
 
 const state = {
   theme: localStorage.getItem("groot-theme") || "dark",
   ageGroup: localStorage.getItem("groot-age-group") || null,
   supabase: null,
-  user: null
+  user: null,
+  preferences: {}
 }
 
 document.body.dataset.theme = state.theme
@@ -41,6 +55,10 @@ loginBtn.addEventListener("click", () => showModal(loginModal))
 closeLogin.addEventListener("click", () => hideModal(loginModal))
 newChat.addEventListener("click", () => {
   chat.innerHTML = ""
+})
+
+navItems.forEach((item) => {
+  item.addEventListener("click", () => setView(item.dataset.view))
 })
 
 ageModal.addEventListener("click", (event) => {
@@ -131,6 +149,158 @@ function appendMessage(role, content, isError = false) {
   chat.scrollTop = chat.scrollHeight
 }
 
+function setView(view) {
+  const map = {
+    chat: viewChat,
+    memory: viewMemory,
+    docs: viewDocs,
+    settings: viewSettings
+  }
+
+  Object.values(map).forEach((el) => el.classList.remove("active"))
+  map[view]?.classList.add("active")
+
+  navItems.forEach((item) => {
+    item.classList.toggle("active", item.dataset.view === view)
+  })
+
+  if (view === "memory") {
+    loadMemory()
+  }
+
+  if (view === "settings") {
+    loadPreferences()
+  }
+}
+
+function renderEmpty(list, message) {
+  list.innerHTML = ""
+  const item = document.createElement("div")
+  item.className = "list-item"
+  item.textContent = message
+  list.appendChild(item)
+}
+
+function truncate(text, max = 120) {
+  const value = String(text || "")
+  return value.length > max ? `${value.slice(0, max)}...` : value
+}
+
+async function loadMemory() {
+  if (!state.supabase || !state.user) {
+    renderEmpty(memoryList, "Faça login para ver sua memória.")
+    renderEmpty(learningList, "Faça login para ver seus padrões.")
+    return
+  }
+
+  const { data: memory, error } = await state.supabase
+    .from("conversations")
+    .select("*")
+    .eq("user_id", state.user.id)
+    .order("created_at", { ascending: false })
+    .limit(20)
+
+  if (error) {
+    renderEmpty(memoryList, "Não foi possível carregar a memória.")
+  } else if (!memory?.length) {
+    renderEmpty(memoryList, "Sem conversas por enquanto.")
+  } else {
+    memoryList.innerHTML = ""
+    memory.forEach((item) => {
+      const node = document.createElement("div")
+      node.className = "list-item"
+      node.innerHTML = `
+        <div class="list-title">${truncate(item.user_message, 80)}</div>
+        <div class="list-body">${truncate(item.ai_response, 140)}</div>
+        <div class="list-meta">${new Date(item.created_at).toLocaleString()}</div>
+      `
+      memoryList.appendChild(node)
+    })
+  }
+
+  const { data: patterns, error: patternError } = await state.supabase
+    .from("learning_patterns")
+    .select("*")
+    .eq("user_id", state.user.id)
+    .order("created_at", { ascending: false })
+    .limit(10)
+
+  if (patternError) {
+    renderEmpty(learningList, "Não foi possível carregar padrões.")
+  } else if (!patterns?.length) {
+    renderEmpty(learningList, "Sem padrões aprendidos ainda.")
+  } else {
+    learningList.innerHTML = ""
+    patterns.forEach((item) => {
+      const node = document.createElement("div")
+      node.className = "list-item"
+      node.innerHTML = `
+        <div class="list-title">${item.pattern_type}</div>
+        <div class="list-body">${truncate(JSON.stringify(item.pattern_data), 140)}</div>
+        <div class="list-meta">${new Date(item.created_at).toLocaleString()}</div>
+      `
+      learningList.appendChild(node)
+    })
+  }
+}
+
+async function loadPreferences() {
+  settingsStatus.textContent = ""
+  if (!state.supabase || !state.user) {
+    settingsStatus.textContent = "Faça login para ajustar preferências."
+    return
+  }
+
+  const { data, error } = await state.supabase
+    .from("user_profiles")
+    .select("preferences")
+    .eq("user_id", state.user.id)
+    .single()
+
+  if (error && error.code !== "PGRST116") {
+    settingsStatus.textContent = "Erro ao carregar preferências."
+    return
+  }
+
+  const prefs = data?.preferences || {}
+  state.preferences = prefs
+  verbositySelect.value = prefs.verbosity || "natural"
+  examplesToggle.checked = !!prefs.examples
+  emojiToggle.checked = !prefs.noEmojis
+  safetySelect.value = prefs.safetyLevel || "standard"
+}
+
+saveSettings.addEventListener("click", async () => {
+  settingsStatus.textContent = ""
+  if (!state.supabase || !state.user) {
+    settingsStatus.textContent = "Faça login para salvar."
+    return
+  }
+
+  const prefs = {
+    ...state.preferences,
+    verbosity: verbositySelect.value,
+    examples: examplesToggle.checked,
+    noEmojis: !emojiToggle.checked,
+    safetyLevel: safetySelect.value
+  }
+
+  const { error } = await state.supabase
+    .from("user_profiles")
+    .upsert({
+      user_id: state.user.id,
+      preferences: prefs,
+      updated_at: new Date().toISOString()
+    })
+
+  if (error) {
+    settingsStatus.textContent = "Erro ao salvar."
+  } else {
+    settingsStatus.textContent = "Preferências salvas."
+    state.preferences = prefs
+  }
+})
+
 async function send() {
   const message = textarea.value.trim()
   if (!message) return
@@ -205,6 +375,9 @@ async function initAuth() {
   state.supabase.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user || null
     updateUserUI()
+    if (state.user) {
+      loadPreferences()
+    }
   })
 
   emailLogin.addEventListener("click", async () => {
@@ -269,3 +442,4 @@ function initAgeGate() {
 
 initAgeGate()
 initAuth()
+setView("chat")

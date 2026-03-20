@@ -194,6 +194,16 @@ body[data-theme="light"] {
   gap: 16px;
 }
 
+.view {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.view.active {
+  display: flex;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -244,6 +254,126 @@ body[data-theme="light"] {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-header h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 18px;
+}
+
+.badge {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.list-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list-title {
+  font-weight: 600;
+}
+
+.list-body {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.list-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.doc-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-card h3 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-text {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .chat-stream {
@@ -469,6 +599,14 @@ body[data-theme="light"] {
 
   .main {
     padding: 18px;
+  }
+
+  .panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
 

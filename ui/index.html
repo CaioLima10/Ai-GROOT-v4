@@ -19,10 +19,10 @@
         </div>
 
         <div class="nav">
-          <button class="nav-item active">Chat</button>
-          <button class="nav-item">Memória</button>
-          <button class="nav-item">Docs</button>
-          <button class="nav-item">Configurações</button>
+          <button class="nav-item active" data-view="chat">Chat</button>
+          <button class="nav-item" data-view="memory">Memória</button>
+          <button class="nav-item" data-view="docs">Docs</button>
+          <button class="nav-item" data-view="settings">Configurações</button>
         </div>
 
         <div class="section">
@@ -67,22 +67,110 @@
 
         <div id="ageBanner" class="age-banner hidden"></div>
 
-        <section class="chat-area">
-          <div id="chat" class="chat-stream"></div>
-        </section>
+        <div class="view active" id="view-chat">
+          <section class="chat-area">
+            <div id="chat" class="chat-stream"></div>
+          </section>
 
-        <section class="composer">
-          <div class="chips">
-            <span class="chip">Memória ativa</span>
-            <span class="chip">RAG pronto</span>
-            <span class="chip">Segurança reforçada</span>
+          <section class="composer">
+            <div class="chips">
+              <span class="chip">Memória ativa</span>
+              <span class="chip">RAG pronto</span>
+              <span class="chip">Segurança reforçada</span>
+            </div>
+            <div class="composer-box">
+              <textarea id="msg" placeholder="Digite sua pergunta sobre código, bugs, segurança ou setup..."></textarea>
+              <button id="sendBtn" class="primary">Enviar</button>
+            </div>
+            <div class="composer-hint">Shift + Enter para nova linha</div>
+          </section>
+        </div>
+
+        <div class="view" id="view-memory">
+          <div class="panel-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h2>Memória recente</h2>
+                <span class="badge">últimas 20</span>
+              </div>
+              <div id="memoryList" class="list"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header">
+                <h2>Padrões aprendidos</h2>
+                <span class="badge">contexto</span>
+              </div>
+              <div id="learningList" class="list"></div>
+            </div>
           </div>
-          <div class="composer-box">
-            <textarea id="msg" placeholder="Digite sua pergunta sobre código, bugs, segurança ou setup..."></textarea>
-            <button id="sendBtn" class="primary">Enviar</button>
+        </div>
+
+        <div class="view" id="view-docs">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Guias rápidos</h2>
+              <span class="badge">produtividade</span>
+            </div>
+            <div class="doc-grid">
+              <div class="doc-card">
+                <h3>Setup do ambiente</h3>
+                <p>Configura chaves, modelos e memória no Supabase.</p>
+              </div>
+              <div class="doc-card">
+                <h3>Melhores práticas</h3>
+                <p>Debug, segurança, install e performance no fluxo do dia a dia.</p>
+              </div>
+              <div class="doc-card">
+                <h3>RAG avançado</h3>
+                <p>Como alimentar o GROOT com bases locais e fontes seguras.</p>
+              </div>
+            </div>
           </div>
-          <div class="composer-hint">Shift + Enter para nova linha</div>
-        </section>
+        </div>
+
+        <div class="view" id="view-settings">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Preferências do usuário</h2>
+              <span class="badge">perfil</span>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="verbositySelect">Nível de detalhes</label>
+                <select id="verbositySelect">
+                  <option value="short">Curto e direto</option>
+                  <option value="natural">Natural</option>
+                  <option value="detailed">Detalhado</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Exemplos práticos</label>
+                <div class="toggle">
+                  <input type="checkbox" id="examplesToggle" />
+                  <span>Incluir exemplos de código</span>
+                </div>
+              </div>
+              <div class="field">
+                <label>Emojis</label>
+                <div class="toggle">
+                  <input type="checkbox" id="emojiToggle" />
+                  <span>Permitir emojis</span>
+                </div>
+              </div>
+              <div class="field">
+                <label for="safetySelect">Nível de segurança</label>
+                <select id="safetySelect">
+                  <option value="standard">Padrão</option>
+                  <option value="strict">Mais restrito</option>
+                </select>
+              </div>
+            </div>
+            <div class="panel-actions">
+              <button id="saveSettings" class="primary">Salvar preferências</button>
+              <span id="settingsStatus" class="status-text"></span>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
 
