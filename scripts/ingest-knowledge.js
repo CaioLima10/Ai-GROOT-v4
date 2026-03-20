@@ -3,8 +3,6 @@ import fs from 'fs/promises'
 import path from 'path'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
-import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
-
 dotenv.config()
 
 const __filename = fileURLToPath(import.meta.url)
@@ -83,6 +81,7 @@ async function loadDocument(filePath) {
 }
 
 async function ingest() {
+  const { grootAdvancedRAG } = await import('../core/grootAdvancedRAG.js')
   const config = parseArgs()
   console.log(`📥 Ingestão iniciada em: ${config.dir}`)
   if (config.dryRun) console.log('🧪 Modo dry-run ativo (não grava no Supabase)')

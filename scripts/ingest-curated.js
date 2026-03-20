@@ -3,8 +3,6 @@ import fs from 'fs/promises'
 import path from 'path'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
-import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
-
 dotenv.config()
 
 const __filename = fileURLToPath(import.meta.url)
@@ -61,6 +59,7 @@ async function listFiles(dir) {
 }
 
 async function ingest() {
+  const { grootAdvancedRAG } = await import('../core/grootAdvancedRAG.js')
   const sources = await loadSources()
   if (sources.length === 0) {
     console.log('⚠️ Nenhuma fonte aprovada encontrada.')
