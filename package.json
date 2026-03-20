@@ -1,0 +1,84 @@
+{
+  "name": "ai-groot-enterprise",
+  "version": "2.1.0",
+  "description": "Ai-GROOT Enterprise Edition - IA avançada para desenvolvimento de software com NLP e aprendizado real",
+  "type": "module",
+  "main": "api/enterpriseServer.js",
+  "scripts": {
+    "dev": "node api/enterpriseServer.js",
+    "start": "node api/enterpriseServer.js",
+    "dev:legacy": "node api/server.js",
+    "enterprise": "node api/enterpriseServer.js",
+    "electron": "electron .",
+    "kill-port": "npx kill-port 3000",
+    "test": "node --test",
+    "lint": "echo 'ESLint não configurado'",
+    "logs": "tail -f logs/app.log",
+    "metrics": "curl http://localhost:3000/metrics",
+    "health": "curl http://localhost:3000/health",
+    "docker:build": "docker build -t ai-groot-enterprise .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env ai-groot-enterprise",
+    "docker:compose": "docker-compose up -d",
+    "docker:logs": "docker-compose logs -f",
+    "deploy:zeabur": "echo 'Configure no dashboard Zeabur'",
+    "deploy:render": "echo 'Configure no dashboard Render'",
+    "deploy:oracle": "chmod +x deploy/oracle-cloud.sh && ./deploy/oracle-cloud.sh",
+    "ai:test": "node debug-apis.js",
+    "ai:train": "node core/aiTraining.js",
+    "evolve": "node -e \"import('./grootCore.js').then(({ grootCore }) => grootCore.evolve())\"",
+    "status": "node -e \"import('./grootCore.js').then(({ grootCore }) => grootCore.getStatus().then(console.log))\"",
+    "reset": "node -e \"import('./grootCore.js').then(({ grootCore }) => grootCore.reset().then(console.log))\""
+  },
+  "keywords": [
+    "ai",
+    "machine-learning",
+    "consciousness",
+    "vector-memory",
+    "autonomous",
+    "evolution",
+    "enterprise",
+    "groot",
+    "developer",
+    "assistant",
+    "debug",
+    "nodejs",
+    "copilot-alternative",
+    "nlp",
+    "code-analysis",
+    "rag"
+  ],
+  "author": "Gabriel Lima de Souza",
+  "license": "MIT",
+  "dependencies": {
+    "@huggingface/inference": "^4.13.15",
+    "bcryptjs": "^3.0.3",
+    "compromise": "^14.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "electron": "^41.0.2",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "natural": "^6.12.0",
+    "node-nlp": "^4.27.0",
+    "uuid": "^9.0.1"
+  },
+  "optionalDependencies": {
+    "@supabase/supabase-js": "^2.99.2",
+    "axios": "^1.6.2",
+    "openai": "^4.20.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CaioLima10/Ai-GROOT-v4.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CaioLima10/Ai-GROOT-v4/issues"
+  },
+  "homepage": "https://github.com/CaioLima10/Ai-GROOT-v4"
+}

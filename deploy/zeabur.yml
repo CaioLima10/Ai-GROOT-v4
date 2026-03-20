@@ -1,0 +1,72 @@
+# Zeabur Deploy Configuration
+version: "1.0"
+name: ai-groot-enterprise
+
+services:
+  # Main AI Service
+  - type: web
+    name: ai-groot-api
+    env: node
+    buildCommand: "npm install"
+    startCommand: "node api/enterpriseServer.js"
+    plan: free
+    region: us-west
+    
+    # Environment variables (configure in Zeabur dashboard)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: GEMINI_API_KEY
+        sync: false # Set manually in dashboard
+      - key: OPENROUTER_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+    
+    # Health check
+    healthCheckPath: /health
+    
+    # Auto-deploy from GitHub
+    sourceDir: /
+    
+    # Ports
+    ports:
+      - port: 3000
+        protocol: http
+
+  # Static frontend (separate service)
+  - type: web
+    name: ai-groot-frontend
+    env: static
+    buildCommand: "echo 'Static files ready'"
+    plan: free
+    region: us-west
+    
+    # Serve static files
+    rootDir: ui
+    routes:
+      - path: /
+        dest: index.html
+      - path: /admin
+        dest: admin.html
+      - path: /style.css
+        dest: style.css
+      - path: /chat.js
+        dest: chat.js
+
+# Domains (configure after deploy)
+domains:
+  - domain: ai-groot.zeabur.app
+    service: ai-groot-api
+    path: /
+  - domain: ai-groot-admin.zeabur.app
+    service: ai-groot-api
+    path: /admin
