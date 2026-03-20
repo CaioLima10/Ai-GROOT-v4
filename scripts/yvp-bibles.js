@@ -18,6 +18,7 @@ const langs = (langsArg ? langsArg.split("=")[1] : "pt,en,pt-BR")
   .filter(Boolean)
 
 const outFile = outArg ? outArg.split("=")[1] : "bibles-filtered.json"
+const rawFile = "bibles-raw.json"
 
 const params = new URLSearchParams()
 langs.forEach(lang => params.append("language_ranges[]", lang))
@@ -52,22 +53,29 @@ async function run() {
 
   const preview = filtered.map(item => ({
     id: item.id,
-    abbreviation: item.abbreviation,
-    name: item.name,
-    language: item.language,
-    language_name: item.language_name
+    abbreviation: item.abbreviation || item.localized_abbreviation,
+    title: item.title || item.localized_title,
+    language_tag: item.language_tag,
+    organization_id: item.organization_id
   }))
 
   console.log(`✅ Total retornadas: ${data.length}`)
   console.log(`✅ Filtradas: ${filtered.length}`)
   console.log(`📄 Campos: ${Object.keys(data[0] || {}).join(", ")}`)
   console.table(preview)
+  if (data.length <= 3) {
+    console.log("⚠️ Sua chave retornou poucas bíblias. Isso indica permissão limitada no portal YouVersion.")
+  }
 
   await import("fs/promises").then(fs =>
-    fs.writeFile(outFile, JSON.stringify(preview, null, 2), "utf8")
+    Promise.all([
+      fs.writeFile(outFile, JSON.stringify(preview, null, 2), "utf8"),
+      fs.writeFile(rawFile, JSON.stringify(payload, null, 2), "utf8")
+    ])
   )
 
   console.log(`💾 Salvo em ${outFile}`)
+  console.log(`💾 Salvo raw em ${rawFile}`)
 }
 
 run().catch(error => {
