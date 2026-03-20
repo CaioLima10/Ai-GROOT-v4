@@ -23,6 +23,7 @@ const viewChat = document.getElementById("view-chat")
 const viewMemory = document.getElementById("view-memory")
 const viewDocs = document.getElementById("view-docs")
 const viewSettings = document.getElementById("view-settings")
+const viewMetrics = document.getElementById("view-metrics")
 const memoryList = document.getElementById("memoryList")
 const learningList = document.getElementById("learningList")
 const verbositySelect = document.getElementById("verbositySelect")
@@ -31,13 +32,25 @@ const emojiToggle = document.getElementById("emojiToggle")
 const safetySelect = document.getElementById("safetySelect")
 const saveSettings = document.getElementById("saveSettings")
 const settingsStatus = document.getElementById("settingsStatus")
+const refreshMetrics = document.getElementById("refreshMetrics")
+const metricTotal = document.getElementById("metricTotal")
+const metricSuccess = document.getElementById("metricSuccess")
+const metricAvg = document.getElementById("metricAvg")
+const metricCache = document.getElementById("metricCache")
+const metricUptime = document.getElementById("metricUptime")
+const adminKeyInput = document.getElementById("adminKeyInput")
+const saveAdminKey = document.getElementById("saveAdminKey")
+const metricsStatus = document.getElementById("metricsStatus")
+const providersList = document.getElementById("providersList")
+const errorsList = document.getElementById("errorsList")
 
 const state = {
   theme: localStorage.getItem("groot-theme") || "dark",
   ageGroup: localStorage.getItem("groot-age-group") || null,
   supabase: null,
   user: null,
-  preferences: {}
+  preferences: {},
+  adminProtected: false
 }
 
 document.body.dataset.theme = state.theme
@@ -153,6 +166,7 @@ function setView(view) {
   const map = {
     chat: viewChat,
     memory: viewMemory,
+    metrics: viewMetrics,
     docs: viewDocs,
     settings: viewSettings
   }
@@ -166,6 +180,10 @@ function setView(view) {
 
   if (view === "memory") {
     loadMemory()
+  }
+
+  if (view === "metrics") {
+    loadMetrics()
   }
 
   if (view === "settings") {
@@ -184,6 +202,94 @@ function renderEmpty(list, message) {
 function truncate(text, max = 120) {
   const value = String(text || "")
   return value.length > max ? `${value.slice(0, max)}...` : value
+}
+
+function formatDuration(seconds) {
+  if (!seconds || Number.isNaN(seconds)) return "0s"
+  if (seconds < 60) return `${seconds.toFixed(0)}s`
+  const minutes = Math.floor(seconds / 60)
+  const rest = Math.floor(seconds % 60)
+  return `${minutes}m ${rest}s`
+}
+
+async function loadMetrics() {
+  metricsStatus.textContent = ""
+  const adminKey = localStorage.getItem("groot-admin-key")
+  if (adminKey) {
+    adminKeyInput.value = adminKey
+  }
+
+  const headers = {}
+  if (adminKey) {
+    headers["X-Admin-Key"] = adminKey
+  }
+
+  if (state.adminProtected && !adminKey) {
+    metricsStatus.textContent = "Admin key necessária para visualizar métricas."
+    return
+  }
+
+  try {
+    const response = await fetch("/metrics/json", { headers })
+    if (response.status === 401) {
+      metricsStatus.textContent = "Admin key necessária para ver métricas."
+      return
+    }
+    if (!response.ok) {
+      metricsStatus.textContent = "Erro ao carregar métricas."
+      return
+    }
+
+    const data = await response.json()
+    const summary = data.summary || {}
+
+    metricTotal.textContent = summary.requests?.total ?? 0
+    const successRate = summary.requests?.total
+      ? ((summary.requests.successful / summary.requests.total) * 100).toFixed(1)
+      : 0
+    metricSuccess.textContent = `${successRate}%`
+    metricAvg.textContent = `${summary.requests?.avgResponseTime ?? 0}ms`
+    metricCache.textContent = `${summary.cache?.hitRate ?? 0}%`
+    metricUptime.textContent = formatDuration(summary.uptime || 0)
+
+    providersList.innerHTML = ""
+    const providers = data.providers || {}
+    const providerEntries = Object.entries(providers)
+    if (providerEntries.length === 0) {
+      renderEmpty(providersList, "Sem dados de providers.")
+    } else {
+      providerEntries.forEach(([name, stats]) => {
+        const node = document.createElement("div")
+        node.className = "list-item"
+        node.innerHTML = `
+          <div class="list-title">${name}</div>
+          <div class="list-body">Requests: ${stats.requests} | Sucesso: ${stats.successRate}%</div>
+          <div class="list-meta">Tempo médio: ${stats.avgResponseTime || 0}ms</div>
+        `
+        providersList.appendChild(node)
+      })
+    }
+
+    errorsList.innerHTML = ""
+    const errors = data.errors || {}
+    const errorEntries = Object.entries(errors)
+    if (errorEntries.length === 0) {
+      renderEmpty(errorsList, "Nenhum erro recente.")
+    } else {
+      errorEntries.forEach(([type, stats]) => {
+        const node = document.createElement("div")
+        node.className = "list-item"
+        node.innerHTML = `
+          <div class="list-title">${type}</div>
+          <div class="list-body">Ocorrências: ${stats.count}</div>
+          <div class="list-meta">${stats.recentSample?.message || ""}</div>
+        `
+        errorsList.appendChild(node)
+      })
+    }
+  } catch (error) {
+    metricsStatus.textContent = "Falha ao carregar métricas."
+  }
 }
 
 async function loadMemory() {
@@ -301,6 +407,21 @@ saveSettings.addEventListener("click", async () => {
   }
 })
 
+saveAdminKey.addEventListener("click", () => {
+  const value = adminKeyInput.value.trim()
+  if (value) {
+    localStorage.setItem("groot-admin-key", value)
+    metricsStatus.textContent = "Admin key salva localmente."
+  } else {
+    localStorage.removeItem("groot-admin-key")
+    metricsStatus.textContent = "Admin key removida."
+  }
+})
+
+refreshMetrics.addEventListener("click", () => {
+  loadMetrics()
+})
+
 async function send() {
   const message = textarea.value.trim()
   if (!message) return
@@ -359,6 +480,9 @@ async function loadConfig() {
 
 async function initAuth() {
   const config = await loadConfig()
+  if (config) {
+    state.adminProtected = !!config.adminProtected
+  }
   if (!config?.supabaseUrl || !config?.supabaseAnonKey || !window.supabase) {
     loginBtn.textContent = "Entrar"
     loginBtn.disabled = true

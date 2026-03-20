@@ -248,3 +248,13 @@ e reexecutar a ingestão.
 Controle o modelo via variáveis:
 - `GROOT_MODEL_TIER=fast|balanced|best`
 - `GROQ_MODEL`, `OPENROUTER_MODEL`, `GEMINI_MODEL` para sobrescrever
+
+## 📊 Dashboard & Segurança
+
+- Dashboard em `/metrics/json` (pode exigir `ADMIN_DASH_KEY`)
+- Headers e rate limit habilitados por padrão
+- Configs em `.env.example`
+
+## 🧩 Extensão VSCode
+
+Esqueleto pronto em `vscode-extension/` com WebView para conexão futura.

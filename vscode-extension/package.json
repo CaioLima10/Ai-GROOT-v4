@@ -1,0 +1,40 @@
+{
+  "name": "groot-ai",
+  "displayName": "GROOT AI",
+  "publisher": "gabriel-lima",
+  "version": "0.0.1",
+  "description": "GROOT AI Developer Studio - WebView pronto para conexão futura.",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:groot.openChat"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "groot.openChat",
+        "title": "GROOT: Abrir Chat"
+      }
+    ],
+    "configuration": {
+      "title": "GROOT",
+      "properties": {
+        "groot.endpoint": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "Endpoint do GROOT API"
+        },
+        "groot.enableConnection": {
+          "type": "boolean",
+          "default": false,
+          "description": "Ativa a conexão do WebView com o backend"
+        }
+      }
+    }
+  }
+}

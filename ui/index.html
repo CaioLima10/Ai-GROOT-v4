@@ -21,6 +21,7 @@
         <div class="nav">
           <button class="nav-item active" data-view="chat">Chat</button>
           <button class="nav-item" data-view="memory">Memória</button>
+          <button class="nav-item" data-view="metrics">Métricas</button>
           <button class="nav-item" data-view="docs">Docs</button>
           <button class="nav-item" data-view="settings">Configurações</button>
         </div>
@@ -128,6 +129,58 @@
           </div>
         </div>
 
+        <div class="view" id="view-metrics">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Dashboard de métricas</h2>
+              <button id="refreshMetrics" class="ghost">Atualizar</button>
+            </div>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span class="metric-label">Total de requests</span>
+                <span id="metricTotal" class="metric-value">0</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Sucesso</span>
+                <span id="metricSuccess" class="metric-value">0%</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Tempo médio</span>
+                <span id="metricAvg" class="metric-value">0ms</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Cache hit</span>
+                <span id="metricCache" class="metric-value">0%</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Uptime</span>
+                <span id="metricUptime" class="metric-value">0s</span>
+              </div>
+            </div>
+            <div class="admin-key-row">
+              <input id="adminKeyInput" type="password" placeholder="Admin key (opcional)" />
+              <button id="saveAdminKey" class="ghost">Salvar chave</button>
+              <span id="metricsStatus" class="status-text"></span>
+            </div>
+            <div class="panel-grid">
+              <div class="panel">
+                <div class="panel-header">
+                  <h2>Providers</h2>
+                  <span class="badge">status</span>
+                </div>
+                <div id="providersList" class="list"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-header">
+                  <h2>Erros recentes</h2>
+                  <span class="badge">últimos</span>
+                </div>
+                <div id="errorsList" class="list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="view" id="view-settings">
           <div class="panel">
             <div class="panel-header">
@@ -168,6 +221,17 @@
             <div class="panel-actions">
               <button id="saveSettings" class="primary">Salvar preferências</button>
               <span id="settingsStatus" class="status-text"></span>
+            </div>
+            <div class="divider"></div>
+            <div class="doc-grid">
+              <a class="doc-card link-card" href="terms.html" target="_blank" rel="noreferrer">
+                <h3>Termos de Uso</h3>
+                <p>Regras de uso e limitações do serviço.</p>
+              </a>
+              <a class="doc-card link-card" href="privacy.html" target="_blank" rel="noreferrer">
+                <h3>Privacidade</h3>
+                <p>Como coletamos e protegemos seus dados.</p>
+              </a>
             </div>
           </div>
         </div>

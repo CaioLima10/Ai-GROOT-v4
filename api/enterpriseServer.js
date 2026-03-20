@@ -6,40 +6,80 @@ import { fileURLToPath } from "url"
 import { askGroot } from "../core/aiBrain.js"
 import { aiGateway } from "../core/enterprise/AIGateway.js"
 import { fetchBiblePassage } from "../core/bibleApi.js"
+import helmet from "helmet"
+import rateLimit from "express-rate-limit"
+import slowDown from "express-slow-down"
+import hpp from "hpp"
+import compression from "compression"
 
 dotenv.config()
 
 const app = express()
+app.disable("x-powered-by")
+app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false)
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean)
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.length === 0) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    return callback(new Error("Not allowed by CORS"))
+  },
+  credentials: true
+}
 
 // Middleware enterprise
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-  credentials: true
+app.use(cors(corsOptions))
+app.use(hpp())
+app.use(compression())
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'", process.env.SUPABASE_URL || ""].filter(Boolean),
+      frameAncestors: ["'none'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
 }))
 
-app.use(express.json({ limit: '10mb' })) // Aumentar limite para uploads
-
-// Rate limiting por IP
-const ipRequests = new Map()
 app.use((req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress
-  const now = Date.now()
-  const window = ipRequests.get(ip) || { start: now, count: 0 }
-  
-  if (now - window.start > 60000) { // Reset a cada minuto
-    ipRequests.set(ip, { start: now, count: 1 })
-  } else {
-    window.count++
-    if (window.count > 1000) { // 1000 req/min por IP
-      return res.status(429).json({ 
-        error: "Too many requests",
-        code: "IP_RATE_LIMIT"
-      })
-    }
-  }
-  
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
   next()
 })
+
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_GLOBAL || 600),
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+const askLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_ASK || 60),
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+const askSlowDown = slowDown({
+  windowMs: 60 * 1000,
+  delayAfter: Number(process.env.SLOWDOWN_AFTER || 30),
+  delayMs: Number(process.env.SLOWDOWN_DELAY_MS || 350)
+})
+
+app.use(globalLimiter)
+app.use(express.json({ limit: process.env.REQUEST_LIMIT || "4mb", strict: true }))
 
 // Corrige __dirname no ESModules
 const __filename = fileURLToPath(import.meta.url)
@@ -53,11 +93,20 @@ app.get("/config", (req, res) => {
   res.json({
     supabaseUrl: process.env.SUPABASE_URL || null,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
+    adminProtected: !!process.env.ADMIN_DASH_KEY,
     features: {
       auth: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
     }
   })
 })
+
+const requireAdmin = (req, res, next) => {
+  const adminKey = process.env.ADMIN_DASH_KEY
+  if (!adminKey) return next()
+  const provided = req.get('X-Admin-Key') || req.query.key
+  if (provided && provided === adminKey) return next()
+  return res.status(401).json({ error: "Unauthorized", code: "ADMIN_REQUIRED" })
+}
 
 // Health check enterprise
 app.get("/health", async (req, res) => {
@@ -80,7 +129,7 @@ app.get("/health", async (req, res) => {
 })
 
 // Metrics endpoint (Prometheus compatible)
-app.get("/metrics", async (req, res) => {
+app.get("/metrics", requireAdmin, async (req, res) => {
   try {
     const metrics = aiGateway.metrics.exportMetrics('prometheus')
     res.set('Content-Type', 'text/plain')
@@ -90,8 +139,21 @@ app.get("/metrics", async (req, res) => {
   }
 })
 
+app.get("/metrics/json", requireAdmin, (req, res) => {
+  try {
+    res.json({
+      summary: aiGateway.metrics.getSummary(),
+      providers: aiGateway.metrics.getProviderStats(),
+      errors: aiGateway.metrics.getErrorSummary(),
+      topUsers: aiGateway.metrics.getTopUsers(5)
+    })
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get metrics" })
+  }
+})
+
 // Logs endpoint
-app.get("/logs", (req, res) => {
+app.get("/logs", requireAdmin, (req, res) => {
   try {
     const filter = {
       level: req.query.level,
@@ -109,13 +171,14 @@ app.get("/logs", (req, res) => {
 })
 
 // Admin dashboard
-app.get("/admin", (req, res) => {
+app.get("/admin", requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "../ui/admin.html"))
 })
 
 // API principal com contexto enterprise
-app.post("/ask", async (req, res) => {
+app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
   const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const startTime = Date.now()
   
   try {
     const { question, context = {} } = req.body
@@ -166,6 +229,11 @@ app.post("/ask", async (req, res) => {
       responseLength: responseText.length 
     })
 
+    aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
+    aiGateway.metrics.recordUserActivity(userId, "ask", {
+      length: question.length
+    })
+
     res.json({ 
       response: responseText,
       answer: responseText,
@@ -181,6 +249,9 @@ app.post("/ask", async (req, res) => {
       error: error.message,
       stack: error.stack
     })
+
+    aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, false)
+    aiGateway.metrics.recordError("ask_error", error, { requestId })
 
     const statusCode = error.response?.status || 500
     const errorCode = error.code || "INTERNAL_ERROR"
