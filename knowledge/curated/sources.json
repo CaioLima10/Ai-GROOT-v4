@@ -4,5 +4,11 @@
     "domain": "docs.exemplo.com",
     "license": "permissive",
     "allowed": true
+  },
+  {
+    "name": "Resumo interno",
+    "domain": "internal.local",
+    "license": "internal",
+    "allowed": true
   }
 ]

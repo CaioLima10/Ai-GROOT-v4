@@ -13,3 +13,6 @@ Conteúdo aqui...
 ```
 
 Somente arquivos com `source` aprovado em `sources.json` serão ingeridos.
+
+Para resumos internos, use `source: https://internal.local/...` e mantenha
+o domínio `internal.local` em `sources.json`.
