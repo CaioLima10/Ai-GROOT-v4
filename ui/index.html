@@ -1,307 +1,312 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ai-GROOT Studio</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-  </head>
-  <body data-theme="dark">
-    <div class="app">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="logo">G</div>
-          <div class="brand-text">
-            <div class="brand-title">GROOT</div>
-            <div class="brand-subtitle">AI Developer Studio</div>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ai-GROOT Studio</title>
+  <link rel="stylesheet" href="style.css">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+    rel="stylesheet">
+</head>
+
+<body data-theme="dark">
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">G</div>
+        <div class="brand-text">
+          <div class="brand-title">GROOT</div>
+          <div class="brand-subtitle">AI Developer Studio</div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="nav-item active" data-view="chat">Chat</button>
+        <button class="nav-item" data-view="memory">Memória</button>
+        <button class="nav-item" data-view="metrics">Métricas</button>
+        <button class="nav-item" data-view="docs">Docs</button>
+        <button class="nav-item" data-view="settings">Configurações</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Workspaces</div>
+        <button class="channel active">GROOT Studio</button>
+        <button class="channel">Debug Squad</button>
+        <button class="channel">Build Room</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Atalhos</div>
+        <button class="channel">Projetos</button>
+        <button class="channel">Extensões</button>
+        <button class="channel">Segurança</button>
+      </div>
+
+      <div class="profile">
+        <div class="avatar" id="userAvatar">G</div>
+        <div class="profile-info">
+          <div class="profile-name" id="userName">Visitante</div>
+          <div class="profile-role" id="userRole">Sem login</div>
+        </div>
+        <button id="loginBtn" class="ghost">Entrar</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="top-left">
+          <span class="status-dot"></span>
+          <div>
+            <div class="page-title">GROOT Assistant</div>
+            <div class="page-subtitle">Conversas inteligentes com memória</div>
           </div>
         </div>
-
-        <div class="nav">
-          <button class="nav-item active" data-view="chat">Chat</button>
-          <button class="nav-item" data-view="memory">Memória</button>
-          <button class="nav-item" data-view="metrics">Métricas</button>
-          <button class="nav-item" data-view="docs">Docs</button>
-          <button class="nav-item" data-view="settings">Configurações</button>
+        <div class="top-actions">
+          <button id="ageBadge" class="chip">Idade</button>
+          <button id="themeToggle" class="chip">Tema</button>
+          <button id="newChat" class="primary">Novo chat</button>
         </div>
+      </header>
 
-        <div class="section">
-          <div class="section-title">Workspaces</div>
-          <button class="channel active">GROOT Studio</button>
-          <button class="channel">Debug Squad</button>
-          <button class="channel">Build Room</button>
-        </div>
+      <div id="ageBanner" class="age-banner hidden"></div>
 
-        <div class="section">
-          <div class="section-title">Atalhos</div>
-          <button class="channel">Projetos</button>
-          <button class="channel">Extensões</button>
-          <button class="channel">Segurança</button>
-        </div>
+      <div class="view active" id="view-chat">
+        <section class="chat-area">
+          <div id="chat" class="chat-stream"></div>
+        </section>
 
-        <div class="profile">
-          <div class="avatar" id="userAvatar">G</div>
-          <div class="profile-info">
-            <div class="profile-name" id="userName">Visitante</div>
-            <div class="profile-role" id="userRole">Sem login</div>
+        <section class="composer">
+          <div class="chips">
+            <span class="chip">Memória ativa</span>
+            <span class="chip">RAG pronto</span>
+            <span class="chip">Segurança reforçada</span>
           </div>
-          <button id="loginBtn" class="ghost">Entrar</button>
-        </div>
-      </aside>
+          <div class="composer-box">
+            <textarea id="msg" placeholder="Digite sua pergunta sobre código, bugs, segurança ou setup..."></textarea>
+            <input id="fileInput" type="file" class="hidden" />
+            <button id="uploadBtn" class="ghost">Upload</button>
+            <button id="sendBtn" class="primary">Enviar</button>
+          </div>
+          <div id="uploadStatus" class="status-text"></div>
+          <div class="composer-hint">Shift + Enter para nova linha</div>
+        </section>
+      </div>
 
-      <main class="main">
-        <header class="topbar">
-          <div class="top-left">
-            <span class="status-dot"></span>
-            <div>
-              <div class="page-title">GROOT Assistant</div>
-              <div class="page-subtitle">Conversas inteligentes com memória</div>
+      <div class="view" id="view-memory">
+        <div class="panel-grid">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Memória recente</h2>
+              <span class="badge">últimas 20</span>
+            </div>
+            <div id="memoryList" class="list"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Padrões aprendidos</h2>
+              <span class="badge">contexto</span>
+            </div>
+            <div id="learningList" class="list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-docs">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Guias rápidos</h2>
+            <span class="badge">produtividade</span>
+          </div>
+          <div class="doc-grid">
+            <div class="doc-card">
+              <h3>Setup do ambiente</h3>
+              <p>Configura chaves, modelos e memória no Supabase.</p>
+            </div>
+            <div class="doc-card">
+              <h3>Melhores práticas</h3>
+              <p>Debug, segurança, install e performance no fluxo do dia a dia.</p>
+            </div>
+            <div class="doc-card">
+              <h3>RAG avançado</h3>
+              <p>Como alimentar o GROOT com bases locais e fontes seguras.</p>
             </div>
           </div>
-          <div class="top-actions">
-            <button id="ageBadge" class="chip">Idade</button>
-            <button id="themeToggle" class="chip">Tema</button>
-            <button id="newChat" class="primary">Novo chat</button>
-          </div>
-        </header>
-
-        <div id="ageBanner" class="age-banner hidden"></div>
-
-        <div class="view active" id="view-chat">
-          <section class="chat-area">
-            <div id="chat" class="chat-stream"></div>
-          </section>
-
-          <section class="composer">
-            <div class="chips">
-              <span class="chip">Memória ativa</span>
-              <span class="chip">RAG pronto</span>
-              <span class="chip">Segurança reforçada</span>
-            </div>
-            <div class="composer-box">
-              <textarea id="msg" placeholder="Digite sua pergunta sobre código, bugs, segurança ou setup..."></textarea>
-              <input id="fileInput" type="file" class="hidden" />
-              <button id="uploadBtn" class="ghost">Upload</button>
-              <button id="sendBtn" class="primary">Enviar</button>
-            </div>
-            <div id="uploadStatus" class="status-text"></div>
-            <div class="composer-hint">Shift + Enter para nova linha</div>
-          </section>
         </div>
+      </div>
 
-        <div class="view" id="view-memory">
+      <div class="view" id="view-metrics">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Dashboard de métricas</h2>
+            <button id="refreshMetrics" class="ghost">Atualizar</button>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Total de requests</span>
+              <span id="metricTotal" class="metric-value">0</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Sucesso</span>
+              <span id="metricSuccess" class="metric-value">0%</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Tempo médio</span>
+              <span id="metricAvg" class="metric-value">0ms</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Cache hit</span>
+              <span id="metricCache" class="metric-value">0%</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Uptime</span>
+              <span id="metricUptime" class="metric-value">0s</span>
+            </div>
+          </div>
+          <div class="admin-key-row">
+            <input id="adminKeyInput" type="password" placeholder="Admin key (opcional)" />
+            <button id="saveAdminKey" class="ghost">Salvar chave</button>
+            <span id="metricsStatus" class="status-text"></span>
+          </div>
           <div class="panel-grid">
             <div class="panel">
               <div class="panel-header">
-                <h2>Memória recente</h2>
-                <span class="badge">últimas 20</span>
+                <h2>Providers</h2>
+                <span class="badge">status</span>
               </div>
-              <div id="memoryList" class="list"></div>
+              <div id="providersList" class="list"></div>
             </div>
             <div class="panel">
               <div class="panel-header">
-                <h2>Padrões aprendidos</h2>
-                <span class="badge">contexto</span>
+                <h2>Erros recentes</h2>
+                <span class="badge">últimos</span>
               </div>
-              <div id="learningList" class="list"></div>
+              <div id="errorsList" class="list"></div>
             </div>
           </div>
-        </div>
-
-        <div class="view" id="view-docs">
-          <div class="panel">
-            <div class="panel-header">
-              <h2>Guias rápidos</h2>
-              <span class="badge">produtividade</span>
-            </div>
-            <div class="doc-grid">
-              <div class="doc-card">
-                <h3>Setup do ambiente</h3>
-                <p>Configura chaves, modelos e memória no Supabase.</p>
-              </div>
-              <div class="doc-card">
-                <h3>Melhores práticas</h3>
-                <p>Debug, segurança, install e performance no fluxo do dia a dia.</p>
-              </div>
-              <div class="doc-card">
-                <h3>RAG avançado</h3>
-                <p>Como alimentar o GROOT com bases locais e fontes seguras.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="view" id="view-metrics">
-          <div class="panel">
-            <div class="panel-header">
-              <h2>Dashboard de métricas</h2>
-              <button id="refreshMetrics" class="ghost">Atualizar</button>
-            </div>
-            <div class="metrics-grid">
-              <div class="metric-card">
-                <span class="metric-label">Total de requests</span>
-                <span id="metricTotal" class="metric-value">0</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Sucesso</span>
-                <span id="metricSuccess" class="metric-value">0%</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Tempo médio</span>
-                <span id="metricAvg" class="metric-value">0ms</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Cache hit</span>
-                <span id="metricCache" class="metric-value">0%</span>
-              </div>
-              <div class="metric-card">
-                <span class="metric-label">Uptime</span>
-                <span id="metricUptime" class="metric-value">0s</span>
-              </div>
-            </div>
-            <div class="admin-key-row">
-              <input id="adminKeyInput" type="password" placeholder="Admin key (opcional)" />
-              <button id="saveAdminKey" class="ghost">Salvar chave</button>
-              <span id="metricsStatus" class="status-text"></span>
-            </div>
-            <div class="panel-grid">
-              <div class="panel">
-                <div class="panel-header">
-                  <h2>Providers</h2>
-                  <span class="badge">status</span>
-                </div>
-                <div id="providersList" class="list"></div>
-              </div>
-              <div class="panel">
-                <div class="panel-header">
-                  <h2>Erros recentes</h2>
-                  <span class="badge">últimos</span>
-                </div>
-                <div id="errorsList" class="list"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="view" id="view-settings">
-          <div class="panel">
-            <div class="panel-header">
-              <h2>Preferências do usuário</h2>
-              <span class="badge">perfil</span>
-            </div>
-            <div class="form-grid">
-              <div class="field">
-                <label for="verbositySelect">Nível de detalhes</label>
-                <select id="verbositySelect">
-                  <option value="short">Curto e direto</option>
-                  <option value="natural">Natural</option>
-                  <option value="detailed">Detalhado</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Exemplos práticos</label>
-                <div class="toggle">
-                  <input type="checkbox" id="examplesToggle" />
-                  <span>Incluir exemplos de código</span>
-                </div>
-              </div>
-              <div class="field">
-                <label>Emojis</label>
-                <div class="toggle">
-                  <input type="checkbox" id="emojiToggle" />
-                  <span>Permitir emojis</span>
-                </div>
-              </div>
-              <div class="field">
-                <label for="safetySelect">Nível de segurança</label>
-                <select id="safetySelect">
-                  <option value="standard">Padrão</option>
-                  <option value="strict">Mais restrito</option>
-                </select>
-              </div>
-            </div>
-            <div class="panel-actions">
-              <button id="saveSettings" class="primary">Salvar preferências</button>
-              <span id="settingsStatus" class="status-text"></span>
-            </div>
-            <div class="divider"></div>
-            <div class="doc-grid">
-              <a class="doc-card link-card" href="terms.html" target="_blank" rel="noreferrer">
-                <h3>Termos de Uso</h3>
-                <p>Regras de uso e limitações do serviço.</p>
-              </a>
-              <a class="doc-card link-card" href="privacy.html" target="_blank" rel="noreferrer">
-                <h3>Privacidade</h3>
-                <p>Como coletamos e protegemos seus dados.</p>
-              </a>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <div id="ageModal" class="modal hidden">
-      <div class="modal-card">
-        <h2>Quando você nasceu?</h2>
-        <p>Isso ajuda o GROOT a adaptar a linguagem e o nível de segurança das respostas.</p>
-        <div class="field">
-          <label for="birthMonth">Mês de nascimento</label>
-          <select id="birthMonth">
-            <option value="">Selecione...</option>
-            <option value="01">Janeiro</option>
-            <option value="02">Fevereiro</option>
-            <option value="03">Março</option>
-            <option value="04">Abril</option>
-            <option value="05">Maio</option>
-            <option value="06">Junho</option>
-            <option value="07">Julho</option>
-            <option value="08">Agosto</option>
-            <option value="09">Setembro</option>
-            <option value="10">Outubro</option>
-            <option value="11">Novembro</option>
-            <option value="12">Dezembro</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="birthYear">Ano de nascimento</label>
-          <select id="birthYear">
-            <option value="">Selecione...</option>
-          </select>
-        </div>
-        <div class="modal-actions">
-          <button id="confirmAge" class="primary">Confirmar</button>
         </div>
       </div>
-    </div>
 
-    <div id="loginModal" class="modal hidden">
-      <div class="modal-card">
-        <h2>Entrar no GROOT</h2>
-        <p>Use email ou conecte com GitHub/Google.</p>
-        <div class="field">
-          <label for="emailInput">Email</label>
-          <input id="emailInput" type="email" placeholder="voce@email.com" />
+      <div class="view" id="view-settings">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Preferências do usuário</h2>
+            <span class="badge">perfil</span>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="verbositySelect">Nível de detalhes</label>
+              <select id="verbositySelect">
+                <option value="short">Curto e direto</option>
+                <option value="natural">Natural</option>
+                <option value="detailed">Detalhado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Exemplos práticos</label>
+              <div class="toggle">
+                <input type="checkbox" id="examplesToggle" />
+                <span>Incluir exemplos de código</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Emojis</label>
+              <div class="toggle">
+                <input type="checkbox" id="emojiToggle" />
+                <span>Permitir emojis</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="safetySelect">Nível de segurança</label>
+              <select id="safetySelect">
+                <option value="standard">Padrão</option>
+                <option value="strict">Mais restrito</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-actions">
+            <button id="saveSettings" class="primary">Salvar preferências</button>
+            <span id="settingsStatus" class="status-text"></span>
+          </div>
+          <div class="divider"></div>
+          <div class="doc-grid">
+            <a class="doc-card link-card" href="terms.html" target="_blank" rel="noreferrer">
+              <h3>Termos de Uso</h3>
+              <p>Regras de uso e limitações do serviço.</p>
+            </a>
+            <a class="doc-card link-card" href="privacy.html" target="_blank" rel="noreferrer">
+              <h3>Privacidade</h3>
+              <p>Como coletamos e protegemos seus dados.</p>
+            </a>
+          </div>
         </div>
-        <div class="field">
-          <label for="passwordInput">Senha</label>
-          <input id="passwordInput" type="password" placeholder="••••••••" />
-        </div>
-        <div class="modal-actions">
-          <button id="emailLogin" class="primary">Entrar com email</button>
-          <button id="emailSignup" class="ghost">Criar conta</button>
-        </div>
-        <div id="loginStatus" class="status-text"></div>
-        <div class="divider">ou</div>
-        <div class="modal-actions">
-          <button id="googleLogin" class="ghost">Continuar com Google</button>
-          <button id="githubLogin" class="ghost">Continuar com GitHub</button>
-        </div>
-        <button id="closeLogin" class="link">Fechar</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="ageModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Quando você nasceu?</h2>
+      <p>Isso ajuda o GROOT a adaptar a linguagem e o nível de segurança das respostas.</p>
+      <div class="field">
+        <label for="birthMonth">Mês de nascimento</label>
+        <select id="birthMonth">
+          <option value="">Selecione...</option>
+          <option value="01">Janeiro</option>
+          <option value="02">Fevereiro</option>
+          <option value="03">Março</option>
+          <option value="04">Abril</option>
+          <option value="05">Maio</option>
+          <option value="06">Junho</option>
+          <option value="07">Julho</option>
+          <option value="08">Agosto</option>
+          <option value="09">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="birthYear">Ano de nascimento</label>
+        <select id="birthYear">
+          <option value="">Selecione...</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button id="confirmAge" class="primary">Confirmar</button>
       </div>
     </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="chat.js"></script>
-  </body>
+  <div id="loginModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Entrar no GROOT</h2>
+      <p>Use email ou conecte com GitHub/Google.</p>
+      <div class="field">
+        <label for="emailInput">Email</label>
+        <input id="emailInput" type="email" placeholder="voce@email.com" />
+      </div>
+      <div class="field">
+        <label for="passwordInput">Senha</label>
+        <input id="passwordInput" type="password" placeholder="••••••••" />
+      </div>
+      <div class="modal-actions">
+        <button id="emailLogin" class="primary">Entrar com email</button>
+        <button id="emailSignup" class="ghost">Criar conta</button>
+      </div>
+      <div id="loginStatus" class="status-text"></div>
+      <div class="divider">ou</div>
+      <div class="modal-actions">
+        <button id="googleLogin" class="ghost">Continuar com Google</button>
+        <button id="githubLogin" class="ghost">Continuar com GitHub</button>
+      </div>
+      <button id="closeLogin" class="link">Fechar</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="chat.js"></script>
+</body>
+
 </html>
