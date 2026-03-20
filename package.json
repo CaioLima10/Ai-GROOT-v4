@@ -27,6 +27,7 @@
     "ai:train": "node core/aiTraining.js",
     "knowledge:ingest": "node scripts/ingest-knowledge.js",
     "knowledge:curated": "node scripts/ingest-curated.js",
+    "yvp:bibles": "node scripts/yvp-bibles.js",
     "evolve": "node -e \"import('./grootCore.js').then(({ grootCore }) => grootCore.evolve())\"",
     "status": "node -e \"import('./grootCore.js').then(({ grootCore }) => grootCore.getStatus().then(console.log))\"",
     "reset": "node -e \"import('./grootCore.js').then(({ grootCore }) => grootCore.reset().then(console.log))\""
