@@ -19,12 +19,13 @@ app.use(express.json({ limit: '10mb' }))
 app.use(cors())
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// Servir frontend estático
+// Servir frontend estático - UI primeiro
+app.use(express.static(path.join(__dirname, 'ui')))
 app.use(express.static(path.join(__dirname, 'public')))
 
-// Rota raiz - servir o frontend
+// Rota raiz - servir o frontend do ui
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+  res.sendFile(path.join(__dirname, 'ui', 'index.html'))
 })
 
 // CORS

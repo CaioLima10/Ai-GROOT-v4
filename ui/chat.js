@@ -644,33 +644,47 @@ async function initAuth() {
   })
 
   emailLogin.addEventListener("click", async () => {
-    setLoginStatus("")
+    setLoginStatus("Entrando...")
     const email = emailInput.value.trim()
     const password = passwordInput.value
-    if (!email || !password) return
-    const { error } = await state.supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setLoginStatus("Erro no login. Verifique email e senha.", true)
+    if (!email || !password) {
+      setLoginStatus("Preencha email e senha.", true)
       return
     }
-    hideModal(loginModal)
+    try {
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setLoginStatus(error.message, true)
+        return
+      }
+      hideModal(loginModal)
+    } catch (err) {
+      setLoginStatus("Erro: " + err.message, true)
+    }
   })
 
   emailSignup.addEventListener("click", async () => {
-    setLoginStatus("")
+    setLoginStatus("Criando conta...")
     const email = emailInput.value.trim()
     const password = passwordInput.value
-    if (!email || !password) return
-    const { data: signUpData, error } = await state.supabase.auth.signUp({ email, password })
-    if (error) {
-      setLoginStatus("Erro ao criar conta. Verifique os dados.", true)
+    if (!email || !password) {
+      setLoginStatus("Preencha email e senha.", true)
       return
     }
-    if (!signUpData?.session) {
-      setLoginStatus("Conta criada. Verifique seu email para confirmar.", false)
-      return
+    try {
+      const { data: signUpData, error } = await state.supabase.auth.signUp({ email, password })
+      if (error) {
+        setLoginStatus(error.message, true)
+        return
+      }
+      if (!signUpData?.session) {
+        setLoginStatus("Conta criada! Verifique seu email para confirmar.", false)
+        return
+      }
+      hideModal(loginModal)
+    } catch (err) {
+      setLoginStatus("Erro: " + err.message, true)
     }
-    hideModal(loginModal)
   })
 
   googleLogin.addEventListener("click", async () => {
