@@ -14,6 +14,7 @@ const emailLogin = document.getElementById("emailLogin")
 const emailSignup = document.getElementById("emailSignup")
 const googleLogin = document.getElementById("googleLogin")
 const githubLogin = document.getElementById("githubLogin")
+const loginStatus = document.getElementById("loginStatus")
 const userName = document.getElementById("userName")
 const userRole = document.getElementById("userRole")
 const userAvatar = document.getElementById("userAvatar")
@@ -98,6 +99,22 @@ function showModal(modal) {
 
 function hideModal(modal) {
   modal.classList.add("hidden")
+}
+
+function setLoginStatus(message, isError = false) {
+  if (!loginStatus) return
+  loginStatus.textContent = message || ""
+  loginStatus.classList.toggle("error", !!isError)
+}
+
+function cleanAuthUrl() {
+  const hash = window.location.hash || ""
+  const search = window.location.search || ""
+  const hasAuthHash = hash.includes("access_token") || hash.includes("refresh_token") || hash.includes("error_description")
+  const hasAuthCode = search.includes("code=") || search.includes("error_description")
+  if (hasAuthHash || hasAuthCode) {
+    history.replaceState({}, document.title, window.location.pathname)
+  }
 }
 
 function toggleTheme() {
@@ -531,48 +548,80 @@ async function initAuth() {
     return
   }
 
-  state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey)
+  state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: {
+      flowType: "pkce",
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  })
 
   const { data } = await state.supabase.auth.getSession()
   state.user = data?.session?.user || null
   updateUserUI()
+  cleanAuthUrl()
 
   state.supabase.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user || null
     updateUserUI()
     if (state.user) {
       loadPreferences()
+      hideModal(loginModal)
     }
+    cleanAuthUrl()
   })
 
   emailLogin.addEventListener("click", async () => {
+    setLoginStatus("")
     const email = emailInput.value.trim()
     const password = passwordInput.value
     if (!email || !password) return
-    await state.supabase.auth.signInWithPassword({ email, password })
+    const { error } = await state.supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setLoginStatus("Erro no login. Verifique email e senha.", true)
+      return
+    }
     hideModal(loginModal)
   })
 
   emailSignup.addEventListener("click", async () => {
+    setLoginStatus("")
     const email = emailInput.value.trim()
     const password = passwordInput.value
     if (!email || !password) return
-    await state.supabase.auth.signUp({ email, password })
+    const { data: signUpData, error } = await state.supabase.auth.signUp({ email, password })
+    if (error) {
+      setLoginStatus("Erro ao criar conta. Verifique os dados.", true)
+      return
+    }
+    if (!signUpData?.session) {
+      setLoginStatus("Conta criada. Verifique seu email para confirmar.", false)
+      return
+    }
     hideModal(loginModal)
   })
 
   googleLogin.addEventListener("click", async () => {
-    await state.supabase.auth.signInWithOAuth({
+    setLoginStatus("")
+    const { error } = await state.supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin }
     })
+    if (error) {
+      setLoginStatus("Falha ao iniciar login com Google.", true)
+    }
   })
 
   githubLogin.addEventListener("click", async () => {
-    await state.supabase.auth.signInWithOAuth({
+    setLoginStatus("")
+    const { error } = await state.supabase.auth.signInWithOAuth({
       provider: "github",
       options: { redirectTo: window.location.origin }
     })
+    if (error) {
+      setLoginStatus("Falha ao iniciar login com GitHub.", true)
+    }
   })
 }
 

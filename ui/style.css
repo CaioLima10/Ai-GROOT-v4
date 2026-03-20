@@ -710,3 +710,13 @@ select {
   background: var(--border);
   border-radius: 10px;
 }
+/* Login status feedback */
+.status-text {
+  font-size: 0.9rem;
+  color: var(--text-muted, #9aa4b2);
+  margin-top: 10px;
+}
+
+.status-text.error {
+  color: var(--danger, #ff6b6b);
+}
