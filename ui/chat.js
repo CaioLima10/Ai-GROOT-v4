@@ -570,7 +570,25 @@ function highlightCode(code, language) {
 function appendMessage(role, content, isError = false, meta = {}) {
   const message = document.createElement("div")
   message.className = `message ${role}${isError ? " error" : ""}`
-  message.innerHTML = formatMessage(content)
+
+  // Criar avatar
+  const avatar = document.createElement("div")
+  avatar.className = "message-avatar"
+  if (role === "ai") {
+    avatar.textContent = "🌳"
+  } else {
+    avatar.textContent = "👤"
+  }
+
+  // Criar content wrapper
+  const messageContent = document.createElement("div")
+  messageContent.className = "message-content"
+  messageContent.innerHTML = formatMessage(content)
+
+  // Montar mensagem estilo ChatGPT
+  message.appendChild(avatar)
+  message.appendChild(messageContent)
+
   if (role === "ai" && !isError && meta.requestId) {
     const feedback = document.createElement("div")
     feedback.className = "feedback"
