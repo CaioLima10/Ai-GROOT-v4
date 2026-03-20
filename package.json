@@ -4,6 +4,15 @@
   "description": "Ai-GROOT Enterprise Edition - IA avançada para desenvolvimento de software com NLP e aprendizado real",
   "type": "module",
   "main": "api/enterpriseServer.js",
+  "overrides": {
+    "xlsx": "0.18.5",
+    "@nlpjs/xtables": {
+      "xlsx": "0.18.5"
+    },
+    "node-nlp": {
+      "xlsx": "0.18.5"
+    }
+  },
   "scripts": {
     "dev": "node api/enterpriseServer.js",
     "start": "node api/enterpriseServer.js",
@@ -67,7 +76,6 @@
     "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.3",
     "natural": "^6.12.0",
-    "node-nlp": "^4.27.0",
     "tesseract.js": "^5.0.5",
     "uuid": "^9.0.1"
   },

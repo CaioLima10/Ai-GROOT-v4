@@ -1,62 +1,34 @@
 import nlp from 'compromise'
-import { NlpManager } from 'node-nlp'
 
-// Inicializar NLP Manager
-const manager = new NlpManager({ languages: ['pt'] })
-
-// Treinar intenções básicas
-async function trainNLP() {
-  // Saudações
-  manager.addDocument('pt', 'oi', 'greeting')
-  manager.addDocument('pt', 'ola', 'greeting')
-  manager.addDocument('pt', 'bom dia', 'greeting')
-  manager.addDocument('pt', 'boa tarde', 'greeting')
-  manager.addDocument('pt', 'e ai', 'greeting')
-  
-  // Ajuda com código
-  manager.addDocument('pt', 'ajuda com código', 'code_help')
-  manager.addDocument('pt', 'analisa esse código', 'code_help')
-  manager.addDocument('pt', 'erro no código', 'error_help')
-  manager.addDocument('pt', 'bug', 'error_help')
-  manager.addDocument('pt', 'tem erro', 'error_help')
-  
-  // Análise
-  manager.addDocument('pt', 'analisa', 'analysis')
-  manager.addDocument('pt', 'verifica', 'analysis')
-  manager.addDocument('pt', 'revisa', 'analysis')
-  
-  // Gerais
-  manager.addDocument('pt', 'como funciona', 'general')
-  manager.addDocument('pt', 'o que é', 'general')
-  manager.addDocument('pt', 'me explica', 'general')
-  
-  // Respostas
-  manager.addAnswer('pt', 'greeting', 'Oi! Sou Ai-GROOT, sua IA especialista em desenvolvimento. Como posso ajudar?')
-  manager.addAnswer('pt', 'code_help', 'Vou analisar seu código! Pode me enviar o trecho que precisa de ajuda.')
-  manager.addAnswer('pt', 'error_help', 'Vou te ajudar a resolver esse erro. Me mostre o código ou descreva o problema.')
-  manager.addAnswer('pt', 'analysis', 'Vou fazer uma análise completa. Me envie o código ou projeto.')
-  manager.addAnswer('pt', 'general', 'Sou especialista em desenvolvimento de software. Pode me perguntar sobre qualquer assunto técnico!')
-  
-  await manager.train()
-}
-
-// Inicializar treinamento
-trainNLP().catch(console.error)
-
-export class NLPProcessor {
+// Processador NLP usando apenas compromise (sem node-nlp vulnerável)
+class NLPProcessor {
   async detectIntent(text) {
     const doc = nlp(text.toLowerCase())
-    
-    // Detectar intenção com node-nlp
-    const response = await manager.process('pt', text)
-    const intent = response.answer ? response.classifications[0]?.intent : 'general'
-    const confidence = response.classifications[0]?.score || 0
-    
+    const textLower = text.toLowerCase()
+
+    // Detectar intenção por palavras-chave
+    let intent = 'general'
+    let confidence = 0.5
+
+    if (textLower.match(/oi|ola|olá|bom dia|boa tarde|boa noite|e ai|hello|hi/)) {
+      intent = 'greeting'
+      confidence = 0.9
+    } else if (textLower.match(/ajuda.*código|analisa.*código|código|programa|função|class|import|export/)) {
+      intent = 'code_help'
+      confidence = 0.8
+    } else if (textLower.match(/erro|bug|falha|problema|exception|failed/)) {
+      intent = 'error_help'
+      confidence = 0.8
+    } else if (textLower.match(/analisa|verifica|revisa|revisão|review/)) {
+      intent = 'analysis'
+      confidence = 0.7
+    }
+
     // Análise adicional com compromise
     const hasCode = doc.has('#Code') || text.includes('```') || text.includes('function')
     const hasError = doc.has('#Error') || text.includes('erro') || text.includes('bug')
     const hasQuestion = doc.has('#Question') || text.includes('?')
-    
+
     // Entidades extraídas
     const entities = {
       languages: doc.match('#Language').text(),
@@ -64,7 +36,7 @@ export class NLPProcessor {
       actions: doc.verbs().text(),
       topics: doc.nouns().text()
     }
-    
+
     return {
       type: intent,
       confidence,
@@ -76,13 +48,13 @@ export class NLPProcessor {
       processedText: doc.text()
     }
   }
-  
+
   async extractCode(text) {
     // Extrair blocos de código
     const codeBlocks = text.match(/```[\s\S]*?```/g) || []
     const functions = text.match(/function\s+\w+[\s\S]*?}/g) || []
     const classes = text.match(/class\s+\w+[\s\S]*?}/g) || []
-    
+
     return {
       blocks: codeBlocks.map(block => block.replace(/```/g, '')),
       functions,
@@ -90,15 +62,15 @@ export class NLPProcessor {
       hasCode: codeBlocks.length > 0 || functions.length > 0 || classes.length > 0
     }
   }
-  
+
   async analyzeSentiment(text) {
     const doc = nlp(text)
-    
+
     // Análise de sentimento simples
     const positive = doc.has('#Positive')
     const negative = doc.has('#Negative')
     const neutral = !positive && !negative
-    
+
     return {
       sentiment: positive ? 'positive' : negative ? 'negative' : 'neutral',
       confidence: positive || negative ? 0.8 : 0.5,
@@ -109,7 +81,7 @@ export class NLPProcessor {
       }
     }
   }
-  
+
   async generateContextualResponse(intent, entities, previousContext = []) {
     // Gerar resposta baseada no contexto e intenções
     const responses = {
@@ -139,19 +111,19 @@ export class NLPProcessor {
         "Pode falar! Sou especialista em desenvolvimento de software."
       ]
     }
-    
+
     const possibleResponses = responses[intent] || responses.general
     const randomResponse = possibleResponses[Math.floor(Math.random() * possibleResponses.length)]
-    
+
     // Enriquecer resposta com contexto
     if (entities.languages) {
       return `${randomResponse} Vejo que você está trabalhando com ${entities.languages}.`
     }
-    
+
     if (entities.technologies) {
       return `${randomResponse} Posso ajudar especificamente com ${entities.technologies}.`
     }
-    
+
     return randomResponse
   }
 }
