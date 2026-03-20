@@ -336,68 +336,63 @@ export class ReasoningAgent {
       ? `Preferências do usuário: ${preferenceNotes.join(' ')}`
       : ''
 
-    // 🎭 INSTRUÇÕES DE TOM BASEADO NO ESTILO
+    // 🎭 INSTRUÇÕES DE TOM - DEV EXPERIMENTE
     const toneInstructions = {
-      casual: "Responda de forma informal e amigável, use gírias leves, seja descontraído. Use emojis se apropriado. 😄",
-      urgent: "Vá direto ao ponto, sem enrolação. Seja objetivo e prático. Use linguagem clara e direta.",
-      detailed: "Responda de forma completa e explicativa, mas sem perder naturalidade. Pode aprofundar mais nos conceitos.",
-      beginner: "Explique de forma simples e didática, como se estivesse ensinando alguém que nunca ouviu falar do assunto. Use analogias.",
-      natural: "Responda de forma natural e fluida, como uma conversa normal. Seja você mesmo."
+      casual: "Responda como um dev experiente conversando com outro dev. Direto, sem enrolação.",
+      urgent: "Vá direto ao ponto. Zero explicação desnecessária. Código + resultado.",
+      detailed: "Explique o necessário. Exemplo prático primeiro, depois detalhes se precisar.",
+      beginner: "Simples e direto. Analogia rápida se ajudar, mas não perca tempo.",
+      natural: "Conversa normal de dev. Como se estivesse explicando no trabalho."
     }
 
-    // 🚀 PROMPT HUMANO INTELIGENTE COM MEMÓRIA + RAG + UPLOAD
-    const prompt = `Você é GROOT, uma inteligência artificial avançada com personalidade única.
-
-Seu objetivo é conversar de forma NATURAL e adaptável, como um humano inteligente.
+    // 🚀 PROMPT OTIMIZADO - DEV EXPERIMENTE
+    const prompt = `Você é um desenvolvedor experiente. Responda como tal.
 
 ${toneInstructions[userStyle]}
 
 ${uploadContext}
-🧠 MEMÓRIA DA CONVERSA:
-${memoryContext.history.map(h => `Usuário: ${h.user}\nGROOT: ${h.ai}`).join('\n\n')}
+📝 CONTEXTO:
+${memoryContext.history.slice(-3).map(h => `User: ${h.user}\nYou: ${h.ai}`).join('\n')}
 
-📊 PERFIL DO USUÁRIO:
-- Estilo preferido: ${memoryContext.userProfile?.style || 'natural'}
-- Contexto: ${memoryContext.contextSummary}
-- Tópicos recorrentes: ${(memoryContext.userProfile?.topics || []).join(', ') || 'nenhum ainda'}
-${memoryContext.summary ? `\nResumo recente: ${memoryContext.summary}` : ''}
+${ragContext.enriched ? `🔍 Info relevante: ${ragContext.context.substring(0, 200)}...` : ''}
 
-🎯 CONHECIMENTO RELEVANTE (RAG AVANÇADO):
-${ragContext.enriched ? ragContext.context : 'Nenhum conhecimento específico encontrado.'}
+REGRAS DE COMPORTAMENTO:
+- VÁ DIRETO AO PONTO
+- 1 definição curta → exemplo → explicação se necessário
+- Sem "É um prazer", "Estou ansioso", etc.
+- Linguagem natural, como conversa real
+- Priorize código prático
+- Evite repetição
+- Seja útil, não didático
 
-${ragContext.bugs.length > 0 ? '\n🐛 Bugs e Soluções Relacionados:\n' + ragContext.bugs.map(b => `• ${b.error_message}: ${b.solution}`).join('\n') : ''}
+PERGUNTA: ${task}
 
-REGRAS IMPORTANTES:
-- Fale de forma fluida e natural, como ChatGPT
-- NÃO use estruturas fixas como "Análise", "Solução", "Melhores práticas" 
-- Responda DIRETO à pergunta sem ser robótico
-- Adapte seu tom ao estilo do usuário
-- Seja autêntico e genuíno
-- Use exemplos práticos e linguagem humana
-- CONSIDERE O HISTÓRICO E O CONHECIMENTO ACIMA
-- APRENDA COM ESSA INTERAÇÃO
-- Se houver risco de autoagressão ou violência, responda com cuidado e incentive ajuda profissional
-- Em segurança cibernética, seja defensivo e educativo. Não forneça instruções ofensivas.
-${safetyNote ? `- Nota de cuidado: ${safetyNote}` : ''}
-${ageGuidance ? `- Aviso de idade: ${ageGuidance}` : ''}
-${preferenceGuidance ? `- ${preferenceGuidance}` : ''}
-
-Tarefa atual do usuário: ${task}
-
-Responda como se estivesse tendo uma conversa real, com memória do que já conversaram e conhecimento relevante.`
+Responda como um dev experiente. Direto e útil.`
 
     try {
       const llmResponse = await askMultiAI(prompt)
 
+      // 🧠 FILTRO DE NATURALIDADE - REMOVER ROBÔTISMO
+      const filteredResponse = llmResponse
+        .replace(/É um prazer conversar com você/gi, '')
+        .replace(/Estou ansioso para|Fico feliz em/gi, '')
+        .replace(/Espero que isso ajude/gi, '')
+        .replace(/Você entendeu\?|Alguma dúvida\?/gi, '')
+        .replace(/Isso é muito incrível|Isso é fantástico/gi, 'Isso resolve')
+        .replace(/Vamos explorar juntos/gi, '')
+        .replace(/Como desenvolvedor experiente/gi, '')
+        .replace(/\n{3,}/g, '\n\n') // Remover linhas vazias excessivas
+        .trim()
+
       const quality = evaluateInteractionQuality({
         userMessage: task,
-        aiResponse: llmResponse
+        aiResponse: filteredResponse
       })
 
       const reasoning = {
         success: true,
         type: 'llm_reasoning',
-        response: llmResponse,
+        response: filteredResponse,
         confidence: 0.9,
         metadata: {
           reasoningTime: Date.now(),
@@ -413,7 +408,7 @@ Responda como se estivesse tendo uma conversa real, com memória do que já conv
 
       const learningSignals = buildLearningSignals({
         userMessage: task,
-        aiResponse: llmResponse,
+        aiResponse: filteredResponse,
         userStyle,
         qualityScore: quality.score
       })
