@@ -76,7 +76,8 @@ dist
 
 # Gatsby files
 .cache/
-public
+
+# public/ é parte do app (mantido no repositório)
 
 # Storybook build outputs
 .out
