@@ -12,9 +12,9 @@ const CURATED_DIR = path.resolve(__dirname, '..', 'knowledge', 'curated')
 const SOURCES_FILE = path.join(CURATED_DIR, 'sources.json')
 
 function parseFrontMatter(text) {
-  const match = text.match(/^---\n([\s\S]*?)\n---\n?/i)
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/i)
   if (!match) return { metadata: {}, body: text }
-  const lines = match[1].split('\n')
+  const lines = match[1].split(/\r?\n/)
   const metadata = {}
   for (const line of lines) {
     const [key, ...rest] = line.split(':')
