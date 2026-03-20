@@ -55,8 +55,8 @@
   "dependencies": {
     "@huggingface/inference": "^4.13.15",
     "bcryptjs": "^3.0.3",
-    "compromise": "^14.10.0",
     "compression": "^1.7.4",
+    "compromise": "^14.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "electron": "^41.0.2",
@@ -68,6 +68,7 @@
     "jsonwebtoken": "^9.0.3",
     "natural": "^6.12.0",
     "node-nlp": "^4.27.0",
+    "tesseract.js": "^5.0.5",
     "uuid": "^9.0.1"
   },
   "optionalDependencies": {

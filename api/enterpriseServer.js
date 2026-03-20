@@ -93,6 +93,9 @@ const uploads = new Map()
 const uploadTtlMinutes = Number(process.env.UPLOAD_TTL_MINUTES || 10)
 const uploadMaxBytes = Number(process.env.UPLOAD_MAX_BYTES || 2_000_000)
 const uploadTextLimit = Number(process.env.UPLOAD_TEXT_LIMIT || 12000)
+const uploadOcrEnabled = process.env.UPLOAD_OCR_ENABLED === "true"
+const uploadOcrLang = process.env.OCR_LANG || "eng"
+const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
 
 async function ensureUploadDir() {
   try {
@@ -130,6 +133,36 @@ function isTextLike(name, type) {
     ".js", ".ts", ".tsx", ".jsx", ".py", ".java", ".go", ".rs",
     ".c", ".cpp", ".h", ".cs", ".php", ".rb", ".sql", ".xml", ".html", ".css"
   ].some(ext => lower.endsWith(ext))
+}
+
+function isImageLike(name, type) {
+  if (type && type.startsWith("image/")) return true
+  const lower = String(name || "").toLowerCase()
+  return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].some(ext => lower.endsWith(ext))
+}
+
+async function extractTextFromImage(filePath) {
+  if (!uploadOcrEnabled) return null
+  try {
+    const { createWorker } = await import("tesseract.js")
+    const worker = await createWorker({ logger: () => {} })
+    await worker.loadLanguage(uploadOcrLang)
+    await worker.initialize(uploadOcrLang)
+    const { data } = await worker.recognize(filePath)
+    await worker.terminate()
+
+    const text = String(data?.text || "").trim()
+    if (!text) return null
+
+    if (text.length > uploadOcrTextLimit) {
+      return `${text.slice(0, uploadOcrTextLimit)}\n... (truncado)`
+    }
+
+    return text
+  } catch (error) {
+    console.error("❌ OCR falhou:", error.message)
+    return null
+  }
 }
 
 // Servir interface da IA
@@ -312,6 +345,13 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
           finalQuestion += `${label}\n${snippet}`
         } catch (error) {
           finalQuestion += `${label}\n(erro ao ler o arquivo)`
+        }
+      } else if (isImageLike(uploadEntry.name, uploadEntry.type)) {
+        const ocrText = await extractTextFromImage(uploadEntry.path)
+        if (ocrText) {
+          finalQuestion += `${label}\nTexto extraído (OCR):\n${ocrText}`
+        } else {
+          finalQuestion += `${label}\n(Imagem recebida, OCR desativado ou sem texto)`
         }
       } else {
         finalQuestion += `${label}\n(Leitura de imagens/arquivos binários ainda não habilitada)`
