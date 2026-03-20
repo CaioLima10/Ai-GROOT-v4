@@ -907,7 +907,11 @@ async function handleUpload(event) {
     const data = await response.json()
     state.lastUpload = data
     const expires = data.expiresAt ? new Date(data.expiresAt).toLocaleTimeString() : "em breve"
-    setUploadStatus(`Arquivo pronto: ${data.name} (expira ${expires})`)
+    setUploadStatus(`📎 ${data.name} pronto para análise (expira ${expires})`)
+
+    // Adicionar mensagem visual no chat
+    appendMessage("user", `📎 Enviei o arquivo: ${data.name}`)
+    appendMessage("ai", `📎 Recebi seu arquivo "${data.name}"! Pode me pedir para:\n- Analisar o conteúdo\n- Descrever o que tem no arquivo\n- Explicar partes específicas\n- Resumir informações importantes\n\nO que você gostaria que eu faça com este arquivo?`)
   } catch (error) {
     setUploadStatus("Erro no upload. Tente novamente.", true)
   } finally {

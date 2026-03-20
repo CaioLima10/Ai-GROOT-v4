@@ -272,10 +272,22 @@ export class ReasoningAgent {
     return userProfile?.dominantStyle || currentPatterns[0] || 'natural'
   }
 
-  async generalReasoning(task, analysis, context) {
-    console.log(`🎯 Raciocínio geral para: ${task}`)
+  async generalReasoning(task, analysis, context = {}) {
+    console.log(`🧠 ReasoningAgent: Processando tarefa geral...`)
 
-    // 🧠 BUSCAR CONTEXTO DA MEMÓRIA
+    // 📋 PROCESSAR UPLOAD SE EXISTIR
+    let uploadContext = ""
+    if (context.uploadId && context.uploadName) {
+      uploadContext = `
+📎 ARQUIVO ENVIADO:
+- Nome: ${context.uploadName}
+- Tipo: ${context.uploadType}
+- ID: ${context.uploadId}
+- Observações: O arquivo está disponível para análise. Peça para descrever o conteúdo específico que deseja analisar.
+
+`
+    }
+
     const userId = context.userId || 'default_user'
     const memoryContext = await grootMemoryConnector.getContextForPrompt(userId)
     console.log('📚 Contexto da memória:', memoryContext.contextSummary)
@@ -333,13 +345,14 @@ export class ReasoningAgent {
       natural: "Responda de forma natural e fluida, como uma conversa normal. Seja você mesmo."
     }
 
-    // 🚀 PROMPT HUMANO INTELIGENTE COM MEMÓRIA + RAG
+    // 🚀 PROMPT HUMANO INTELIGENTE COM MEMÓRIA + RAG + UPLOAD
     const prompt = `Você é GROOT, uma inteligência artificial avançada com personalidade única.
 
 Seu objetivo é conversar de forma NATURAL e adaptável, como um humano inteligente.
 
 ${toneInstructions[userStyle]}
 
+${uploadContext}
 🧠 MEMÓRIA DA CONVERSA:
 ${memoryContext.history.map(h => `Usuário: ${h.user}\nGROOT: ${h.ai}`).join('\n\n')}
 

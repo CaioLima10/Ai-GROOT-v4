@@ -119,6 +119,48 @@ app.post('/ask', async (req, res) => {
   }
 })
 
+// Endpoint para upload de arquivos
+app.post('/upload', async (req, res) => {
+  try {
+    const { file, name, type } = req.body
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'Arquivo é obrigatório'
+      })
+    }
+
+    console.log(`📁 Upload recebido: ${name} (${type})`)
+
+    // Salvar informações do arquivo
+    const uploadData = {
+      id: Date.now().toString(),
+      name: name || 'arquivo',
+      type: type || 'unknown',
+      size: Math.round(file.length * 0.75), // Estimativa do tamanho original
+      data: file,
+      uploadedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hora
+    }
+
+    console.log(`✅ Upload processado: ${uploadData.name}`)
+
+    res.json({
+      success: true,
+      ...uploadData
+    })
+
+  } catch (error) {
+    console.error('❌ Erro no upload:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Erro no upload',
+      details: error.message
+    })
+  }
+})
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000
 
