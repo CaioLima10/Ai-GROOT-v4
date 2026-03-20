@@ -597,6 +597,163 @@ select {
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
 }
 
+/* BLOCOS ESPECIAIS */
+.link-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--chip);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.link-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.link-content:hover {
+  color: var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.link-text {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.code-block {
+  margin: 8px 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--panel-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.code-language {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.code-content {
+  padding: 16px;
+  margin: 0;
+  overflow-x: auto;
+  background: var(--panel);
+  color: var(--text);
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.inline-code {
+  background: var(--chip);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.inline-code:hover {
+  background: var(--accent);
+  color: #0b0f14;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(124, 155, 255, 0.2);
+}
+
+.document-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(124, 155, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(124, 155, 255, 0.2);
+  margin: 4px 0;
+}
+
+.document-icon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+
+.document-name {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.copy-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-btn:hover {
+  background: var(--accent);
+  color: #0b0f14;
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.copy-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* TOAST DE COPIA */
+.copy-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--success);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10000;
+  transition: opacity 0.3s ease;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
 .message.user {
   margin-left: auto;
   background: var(--chat-user);

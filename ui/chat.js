@@ -308,19 +308,127 @@ function escapeHtml(text) {
 
 function formatMessage(text) {
   const blocks = []
-  let safe = String(text || "").replace(/```([\s\S]*?)```/g, (match, code) => {
+  let safe = String(text || "")
+
+  // Detectar e formatar LINKS
+  safe = safe.replace(/(https?:\/\/[^\s<]+)/gi, (match, url) => {
+    const urlId = `url_${Date.now()}_${Math.random().toString(36).substr(0, 6)}`
+    blocks.push({ type: 'url', content: url, id: urlId })
+    return `__URL_${urlId}__`
+  })
+
+  // Detectar e formatar BLOCOS DE CÓDIGO
+  safe = safe.replace(/```(\w*)\n?([\s\S]*?)\n?```/g, (match, lang, code) => {
     const index = blocks.length
-    blocks.push(escapeHtml(code.trim()))
+    blocks.push({ type: 'code', content: code.trim(), language: lang || 'text' })
     return `__CODE_BLOCK_${index}__`
+  })
+
+  // Detectar e formatar CÓDIGO INLINE
+  safe = safe.replace(/`([^`]+)`/g, (match, code) => {
+    const codeId = `code_${Date.now()}_${Math.random().toString(36).substr(0, 6)}`
+    blocks.push({ type: 'inline-code', content: code.trim(), id: codeId })
+    return `__INLINE_CODE_${codeId}__`
+  })
+
+  // Detectar DOCUMENTOS (menções a arquivos, documentos, etc.)
+  safe = safe.replace(/\[([^\]]+\.(pdf|doc|docx|txt|md|csv|xlsx|ppt|pptx)[^\]]*)\]/gi, (match, doc) => {
+    const docId = `doc_${Date.now()}_${Math.random().toString(36).substr(0, 6)}`
+    blocks.push({ type: 'document', content: doc, id: docId })
+    return `__DOCUMENT_${docId}__`
   })
 
   safe = escapeHtml(safe).replace(/\n/g, "<br>")
 
+  // Renderizar blocos especiais
   blocks.forEach((block, index) => {
-    safe = safe.replace(`__CODE_BLOCK_${index}__`, `<pre><code>${block}</code></pre>`)
+    if (block.type === 'url') {
+      safe = safe.replace(`__URL_${block.id}__`, `
+        <div class="link-block">
+          <a href="${block.content}" target="_blank" rel="noopener noreferrer" class="link-content">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54 5.54l1.04 1.01L10 14.54l1.04 1.01A5 5 0 0 0 10 13z"/>
+              <path d="M18 9h-6V4h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/>
+            </svg>
+            <span class="link-text">${block.content.length > 50 ? block.content.substring(0, 47) + '...' : block.content}</span>
+          </a>
+          <button class="copy-btn" onclick="copyToClipboard('${block.content.replace(/'/g, "\\'")}', 'link')" title="Copiar link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/>
+            </svg>
+          </button>
+        </div>
+      `)
+    } else if (block.type === 'code') {
+      safe = safe.replace(`__CODE_BLOCK_${index}__`, `
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-language">${block.language}</span>
+            <button class="copy-btn" onclick="copyToClipboard(\`${block.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`, 'code')" title="Copiar código">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/>
+              </svg>
+            </button>
+          </div>
+          <pre class="code-content"><code class="language-${block.language}">${escapeHtml(block.content)}</code></pre>
+        </div>
+      `)
+    } else if (block.type === 'inline-code') {
+      safe = safe.replace(`__INLINE_CODE_${block.id}__`, `
+        <code class="inline-code" onclick="copyToClipboard('${block.content.replace(/'/g, "\\'")}', 'inline-code')" title="Copiar código">
+          ${escapeHtml(block.content)}
+        </code>
+      `)
+    } else if (block.type === 'document') {
+      safe = safe.replace(`__DOCUMENT_${block.id}__`, `
+        <div class="document-block">
+          <div class="document-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14,2H6A2,2 0 0,0 4,2V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+            </svg>
+          </div>
+          <span class="document-name">${block.content}</span>
+          <button class="copy-btn" onclick="copyToClipboard('${block.content}', 'document')" title="Copiar nome do documento">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/>
+            </svg>
+          </button>
+        </div>
+      `)
+    } else {
+      // Código antigo para blocos normais
+      safe = safe.replace(`__CODE_BLOCK_${index}__`, `<pre><code>${escapeHtml(block.content)}</code></pre>`)
+    }
   })
 
   return safe
+}
+
+// Função global para copiar para clipboard
+window.copyToClipboard = function (text, type = 'text') {
+  navigator.clipboard.writeText(text).then(() => {
+    // Feedback visual
+    const toast = document.createElement('div')
+    toast.className = 'copy-toast'
+    toast.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 6L9 17l-5-5"/>
+        <path d="M20 6l-7 7"/>
+      </svg>
+      ${type === 'code' ? 'Código copiado!' : type === 'link' ? 'Link copiado!' : 'Texto copiado!'}
+    `
+    document.body.appendChild(toast)
+
+    setTimeout(() => {
+      toast.style.opacity = '0'
+      setTimeout(() => document.body.removeChild(toast), 300)
+    }, 2000)
+  }).catch(err => {
+    console.error('Erro ao copiar:', err)
+  })
 }
 
 function appendMessage(role, content, isError = false, meta = {}) {
