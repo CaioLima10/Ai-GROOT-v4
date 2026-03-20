@@ -175,10 +175,12 @@ ageBadge.addEventListener("click", () => showModal(ageModal))
 
 function showModal(modal) {
   modal.classList.remove("hidden")
+  modal.style.display = "flex"
 }
 
 function hideModal(modal) {
   modal.classList.add("hidden")
+  modal.style.display = "none"
 }
 
 function setUploadStatus(message, isError = false) {
@@ -846,7 +848,16 @@ if (logoutBtn) {
 if (switchAccount) {
   switchAccount.addEventListener("click", () => {
     userDropdown.classList.add("hidden")
+    // Limpar campos do formulário
+    if (emailInput) emailInput.value = ""
+    if (passwordInput) passwordInput.value = ""
+    if (loginStatus) loginStatus.textContent = ""
+    // Abrir modal
     showModal(loginModal)
+    // Focar no campo de email
+    setTimeout(() => {
+      if (emailInput) emailInput.focus()
+    }, 100)
   })
 }
 

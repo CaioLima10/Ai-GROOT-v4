@@ -62,7 +62,7 @@ app.get('/config', (req, res) => {
   })
 })
 
-// API do GROOT - VERSÃO SIMPLIFICADA
+// API do GROOT - VERSÃO SIMPLIFICADA COM FILTROS DE SEGURANÇA
 app.post('/ask', async (req, res) => {
   try {
     const { question, prompt } = req.body
@@ -76,6 +76,30 @@ app.post('/ask', async (req, res) => {
     }
 
     console.log(`🌳 Pergunta: ${userPrompt.substring(0, 100)}...`)
+
+    // FILTROS DE SEGURANÇA RIGOROSOS
+    const dangerousPatterns = [
+      // Conteúdo adulto explícito
+      /\b(porn|sexo|nudez|naked|xxx|adulto explícito|conteúdo adulto)\b/gi,
+      // Violência e crimes
+      /\b(assassinar|matar|bombardear|terrorismo|drogas ilegais|tráfico de drogas|arma de fogo|fabricar arma)\b/gi,
+      // Pirataria e crimes digitais
+      /\b(pirataria|crackear|hackear|senha de|cartão de crédito|fraude|estelionato|phishing|malware|vírus)\b/gi,
+      // Conteúdo perigoso
+      /\b(cometer suicídio|automutilação|como morrer|envenenar|fazer bomba)\b/gi,
+      // Atividades ilegais
+      /\b(comprar drogas|vender drogas|prostituição|tráfico humano|lavar dinheiro|sonegar impostos)\b/gi
+    ]
+
+    const isDangerous = dangerousPatterns.some(pattern => pattern.test(userPrompt))
+
+    if (isDangerous) {
+      return res.json({
+        success: true,
+        response: "⚠️ **NÃO POSSO AJUDAR COM ISSO** ⚠️\n\nNão posso fornecer informações sobre:\n- Conteúdo adulto explícito\n- Atividades ilegais ou perigosas\n- Violência, crimes ou armas\n- Pirataria ou fraudes digitais\n- Qualquer tipo de atividade prejudicial\n\nSe você precisa de ajuda, procure autoridades competentes ou serviços de apoio especializados.",
+        requestId: null
+      })
+    }
 
     // CONECTAR COM GROOT CORE INTELIGENTE
     const { askGroot } = await import('./groot-quantum.js')
