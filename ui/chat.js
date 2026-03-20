@@ -183,7 +183,10 @@ function initAgeGate() {
 
   if (birthYear) {
     const currentYear = new Date().getFullYear()
-    for (let year = currentYear - 13; year >= 1950; year--) {
+    // Ano máximo é o ano atual - 13 (para maior de 13 anos)
+    // Não incluir o ano atual para evitar menores de 13 anos
+    const maxYear = currentYear - 13
+    for (let year = maxYear; year >= 1950; year--) {
       const option = document.createElement("option")
       option.value = year
       option.textContent = year
@@ -197,6 +200,7 @@ function initAgeGate() {
       const year = birthYear?.value
 
       if (!month || !year) {
+        alert("Por favor, selecione mês e ano de nascimento.")
         return
       }
 
@@ -215,13 +219,24 @@ function initAgeGate() {
       localStorage.setItem("groot-age", age.toString())
 
       updateAgeUI()
-      hideModal(ageModal)
+      ageModal.classList.add("hidden")
+      ageModal.style.display = "none"
     })
+  }
+
+  // Carregar dados salvos
+  const savedAgeGroup = localStorage.getItem("groot-age-group")
+  if (savedAgeGroup) {
+    state.ageGroup = savedAgeGroup
+    state.birthMonth = localStorage.getItem("groot-birth-month")
+    state.birthYear = localStorage.getItem("groot-birth-year")
+    state.age = parseInt(localStorage.getItem("groot-age") || "0")
   }
 
   updateAgeUI()
   if (!state.ageGroup) {
-    showModal(ageModal)
+    ageModal.classList.remove("hidden")
+    ageModal.style.display = "flex"
   }
 }
 
