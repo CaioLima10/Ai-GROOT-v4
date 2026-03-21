@@ -105,6 +105,8 @@ body {
   transition: all 0.2s ease;
   font-size: 13px;
   font-weight: 500;
+  width: 100%;
+  text-align: left;
 }
 
 .nav-item:hover {
@@ -115,6 +117,37 @@ body {
 .nav-item.active {
   background: var(--accent);
   color: #0b0f14;
+}
+
+/* Corrigir todos os botões */
+button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+}
+
+button:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inputs */
+input, textarea, select {
+  cursor: text;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ====== ACCORDION ====== */
@@ -359,6 +392,9 @@ body {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .primary:hover {
@@ -376,6 +412,9 @@ body {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .ghost:hover {
@@ -491,7 +530,7 @@ body {
   border-radius: 12px;
 }
 
-#msg {
+.composer-box #msg {
   flex: 1;
   border: none;
   background: transparent;
@@ -502,33 +541,42 @@ body {
   outline: none;
   font-family: inherit;
   max-height: 200px;
+  min-height: 20px;
+  padding: 8px 0;
 }
 
-#msg:focus {
+.composer-box #msg:focus {
   outline: none;
 }
 
-#uploadBtn, #sendBtn {
-  padding: 8px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
+.composer-box #uploadBtn,
+.composer-box #sendBtn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
-#uploadBtn:hover, #sendBtn:hover {
+.composer-box #uploadBtn:hover,
+.composer-box #sendBtn:hover {
   background: var(--chip);
   color: var(--text);
+  border-color: var(--accent);
 }
 
-#sendBtn:hover {
+.composer-box #sendBtn:hover {
   background: var(--accent);
   color: #0b0f14;
+  border-color: var(--accent);
 }
 
 .composer-hint {
