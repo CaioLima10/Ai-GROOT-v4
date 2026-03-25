@@ -14,7 +14,8 @@ export async function buildAssistantPromptContext(task, context = {}, options = 
   const memoryContext = await grootMemoryConnector.getContextForPrompt(userId, {
     limit,
     activeModules: requestedModules,
-    bibleStudyModules: requestedBibleStudyModules
+    bibleStudyModules: requestedBibleStudyModules,
+    conversationHistory: Array.isArray(context.conversationHistory) ? context.conversationHistory : []
   })
 
   const ragContext = await grootAdvancedRAG.enrichQueryAdvanced(task, {

@@ -142,6 +142,22 @@ function buildLearningSummary(memoryContext = {}) {
   return lines.length > 0 ? lines.join(" ") : "Sem padroes aprendidos relevantes alem do contexto recente."
 }
 
+function buildKnownFactsSummary(memoryContext = {}) {
+  if (memoryContext?.knownFactsText) {
+    return memoryContext.knownFactsText
+  }
+
+  const knownFacts = memoryContext?.knownFacts || {}
+  const lines = []
+
+  if (knownFacts.name) lines.push(`Nome: ${knownFacts.name}`)
+  if (knownFacts.workDomain) lines.push(`Area: ${knownFacts.workDomain}`)
+  if (knownFacts.responseStyle) lines.push(`Preferencia de resposta: ${knownFacts.responseStyle}`)
+  if (knownFacts.role) lines.push(`Funcao: ${knownFacts.role}`)
+
+  return lines.join(" | ")
+}
+
 export function buildAssistantPrompt({ task = "", context = {}, memoryContext = {}, ragContext = {}, userStyle = "natural" }) {
   const storedPreferences = memoryContext?.userProfile || {}
   const profileId = context.assistantProfile || storedPreferences.assistantProfile || DEFAULT_ASSISTANT_PROFILE
@@ -177,6 +193,10 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
   const memorySummary = memoryContext?.contextSummary
     ? `Contexto recente do usuario: ${memoryContext.contextSummary}.`
     : "Ainda sem contexto acumulado relevante."
+  const recentConversation = memoryContext?.recentConversationText
+    ? `Trecho recente da conversa:\n${memoryContext.recentConversationText}`
+    : "Sem trecho recente adicional da conversa."
+  const knownFactsSummary = buildKnownFactsSummary(memoryContext)
   const learnedSummary = buildLearningSummary(memoryContext)
 
   const ragSummary = ragContext?.enriched && ragContext?.context
@@ -241,9 +261,12 @@ ${promptPackLines}
 PESQUISA E FERRAMENTAS:
 - ${researchCapabilities.summary}
 ${researchCapabilities.lines.map(item => `- ${item}`).join("\n")}
+- Se o usuario perguntar o que voce consegue fazer hoje, responda usando estas capacidades de execucao, nao usando frases sobre "minha ultima atualizacao".
 
 MEMORIA, APRENDIZADO E CONTEXTO:
 - ${memorySummary}
+- ${knownFactsSummary ? `Fatos explicitos do usuario aprendidos: ${knownFactsSummary}.` : "Sem fatos explicitos do usuario confirmados ainda."}
+- ${recentConversation}
 - ${learnedSummary}
 - ${ragSummary}
 ${extraInstructions}
@@ -253,6 +276,7 @@ REGRAS DE SAIDA:
 - Seja objetivo antes de ser longo.
 - Se houver risco, incerteza ou divergencia de escola, diga isso com clareza.
 - Em fatos atuais, legislacao, noticias, precos ou informacoes mutaveis, nao finja atualizacao se a pesquisa ao vivo nao estiver disponivel.
+- Em perguntas sobre suas capacidades, limites, acesso web, Google, Bing, Yahoo, navegador, memoria ou RAG, descreva o estado operacional atual desta execucao com linguagem concreta e sem mencionar corte de treinamento.
 - Em ciberseguranca, mantenha o foco em defesa, auditoria, resposta e prevencao.
 - Em conteudo sexual, trate apenas de educacao, saude, consentimento e seguranca; recuse pornografia explicita.
 - Quando apropriado, entregue passos, exemplos, tabelas curtas ou codigo.

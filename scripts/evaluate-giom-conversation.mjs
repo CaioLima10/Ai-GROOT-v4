@@ -1,11 +1,14 @@
 import { spawn } from "child_process"
 import dotenv from "dotenv"
 
-const SERVER_URL = "http://127.0.0.1:3000"
-const SERVER_ENTRY = "apps/api/src/server.js"
-const PACK_ID = process.argv[2] || "core_diagnostics"
-
 dotenv.config()
+
+const SERVER_PORT = Number(process.env.GIOM_EVAL_PORT || 3101)
+const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`
+const SERVER_ENTRY = "apps/api/src/server.js"
+const CLI_ARGS = process.argv.slice(2)
+const PACK_ID = CLI_ARGS.find((arg) => !arg.startsWith("--")) || "core_diagnostics"
+const VERBOSE = CLI_ARGS.includes("--verbose")
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -37,7 +40,11 @@ async function main() {
 
   const child = spawn("node", [SERVER_ENTRY], {
     cwd: process.cwd(),
-    stdio: ["ignore", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      PORT: String(SERVER_PORT)
+    }
   })
 
   child.stdout.on("data", (chunk) => process.stdout.write(chunk))
@@ -73,8 +80,22 @@ async function main() {
     console.log(`Status: ${payload.summary.status}`)
     console.log(`Riscos: ${(payload.summary.risks || []).join(" | ") || "nenhum"}`)
 
-    for (const dimension of payload.summary.dimensions || []) {
+    for (const dimension of (payload.summary.dimensions || []).filter((item) => item.applicable !== false || item.applicableCount > 0)) {
       console.log(`${dimension.label}: ${Math.round(dimension.score * 100)}%`)
+    }
+
+    if (VERBOSE) {
+      console.log("\nDetalhes por cenario:")
+      for (const turn of payload.turns || []) {
+        const summary = (turn.evaluation?.dimensions || [])
+          .filter((item) => item.applicable !== false)
+          .map((item) => `${item.label}: ${Math.round(item.score * 100)}%`)
+          .join(" | ")
+
+        console.log(`- ${turn.scenarioId}: ${summary}`)
+        console.log(`  Pergunta: ${turn.question || turn.userMessage || ""}`)
+        console.log(`  Resposta: ${turn.answer || turn.aiResponse || ""}`)
+      }
     }
   } finally {
     child.kill("SIGTERM")

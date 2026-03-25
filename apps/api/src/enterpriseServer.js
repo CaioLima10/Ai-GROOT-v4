@@ -394,7 +394,27 @@ function normalizeAnswerText(answer) {
   return String(responseText || "").trim()
 }
 
+function resolveSafetyChatPayload(question, context = {}) {
+  const safety = detectSafetyRisk(question)
+  if (!safety?.triggered && !safety?.advisory) {
+    return null
+  }
+
+  return {
+    safety,
+    responseText: buildSafetyResponse(safety, {
+      locale: context?.locale || context?.language || "pt-BR",
+      promptText: question
+    })
+  }
+}
+
 async function askGiom(question, context = {}) {
+  const safePayload = resolveSafetyChatPayload(question, context)
+  if (safePayload) {
+    return safePayload.responseText
+  }
+
   const answer = await askGroot(question, context)
   const responseText = normalizeAnswerText(answer)
 
@@ -550,7 +570,11 @@ app.get("/config", async (req, res) => {
       explicitSexualContentBlocked: true,
       crimesBlocked: true,
       cyberAbuseBlocked: true,
-      selfHarmSupport: true
+      selfHarmSupport: true,
+      violenceBlocked: true,
+      terrorismBlocked: true,
+      youthHarmInfluenceBlocked: true,
+      preventionAndModerationGuidanceAllowed: true
     },
     evaluation: {
       dimensions: listEvaluationDimensions(),
@@ -896,7 +920,7 @@ app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
     const safety = detectSafetyRisk(prompt)
     if (safety.triggered) {
       return res.status(400).json({
-        error: buildSafetyResponse(safety, { locale }),
+        error: buildSafetyResponse(safety, { locale, promptText: prompt }),
         code: "IMAGE_PROMPT_BLOCKED",
         safety
       })
@@ -938,10 +962,7 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       context: Object.keys(enhancedContext)
     })
 
-    const answer = await askGroot(finalQuestion, enhancedContext)
-    const responseText = typeof answer === 'string'
-      ? answer
-      : (answer?.response ?? answer?.answer ?? '')
+    const responseText = await askGiom(finalQuestion, enhancedContext)
 
     if (!responseText) {
       throw new Error("Resposta vazia da IA")
@@ -1009,6 +1030,33 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
       enhancedContext,
       userId
     } = await buildPreparedAskPayload(req, requestId)
+
+    const safePayload = resolveSafetyChatPayload(finalQuestion, enhancedContext)
+    if (safePayload) {
+      await grootMemoryConnector.saveConversation(userId, question, safePayload.responseText, {
+        provider: "safety_guard",
+        requestId,
+        safety: safePayload.safety,
+        streaming: true
+      })
+
+      aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
+      aiGateway.metrics.recordUserActivity(userId, "ask_stream", {
+        length: question.length,
+        safetyBlocked: true
+      })
+
+      writeSSE(res, "complete", {
+        requestId,
+        response: safePayload.responseText,
+        metadata: {
+          processingTime: Date.now() - startTime,
+          provider: "safety_guard"
+        }
+      })
+      res.end()
+      return
+    }
 
     const { promptPackage } = await buildStreamingPromptPackage(finalQuestion, enhancedContext)
 

@@ -11,6 +11,38 @@ const supabaseKey =
 const hasSupabaseConfig = !!(supabaseUrl && supabaseKey)
 const usingServiceKey = !!process.env.SUPABASE_SERVICE_KEY
 
+const FACT_PATTERNS = [
+  {
+    key: "name",
+    label: "Nome",
+    regex: /(?:^|[.!?,]\s*|\se\s+)meu nome (?:e|é)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40})(?=[,.!?]|$)/i
+  },
+  {
+    key: "workDomain",
+    label: "Area",
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu trabalho com|trabalho com|atuo com|minha area (?:e|é)|minha área (?:e|é))\s+(?!como\b|qual\b|diga\b|dizer\b)([^.,\n]{2,80}?)(?=\s+e\s+prefiro|\s+e\s+gosto|[.,\n]|$)/i
+  },
+  {
+    key: "responseStyle",
+    label: "Preferencia de resposta",
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu\s+)?prefiro respostas?\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+  },
+  {
+    key: "role",
+    label: "Funcao",
+    regex: /(?:^|[.!?,]\s*|\se\s+)eu sou (?:um|uma)\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+  }
+]
+
+const SUSPICIOUS_FACT_VALUE_PATTERNS = [
+  /\bagora diga\b/i,
+  /\bqual (?:e|é)\b/i,
+  /\bcomo prefiro\b/i,
+  /\buma unica frase\b/i,
+  /\buma única frase\b/i,
+  /\blembra\b/i
+]
+
 function normalizeHistoryOptions(limitOrOptions = 10, maybeOptions = {}) {
   if (typeof limitOrOptions === "object" && limitOrOptions !== null) {
     return {
@@ -61,6 +93,115 @@ function buildConversationMetadata(metadata = {}) {
     streaming: Boolean(metadata.streaming),
     qualityScore: metadata.qualityScore ?? null
   }
+}
+
+function normalizeConversationEntry(entry = {}) {
+  if (entry?.role && entry?.content) {
+    return {
+      role: entry.role === "assistant" ? "assistant" : "user",
+      content: String(entry.content || "").trim(),
+      created_at: entry.created_at || entry.createdAt || new Date().toISOString()
+    }
+  }
+
+  return null
+}
+
+function conversationRowsToTurns(rows = []) {
+  return rows.flatMap(row => {
+    const createdAt = row.created_at || new Date().toISOString()
+    const turns = []
+
+    if (row.user_message) {
+      turns.push({
+        role: "user",
+        content: String(row.user_message).trim(),
+        created_at: createdAt
+      })
+    }
+
+    if (row.ai_response) {
+      turns.push({
+        role: "assistant",
+        content: String(row.ai_response).trim(),
+        created_at: createdAt
+      })
+    }
+
+    return turns
+  })
+}
+
+function mergeKnownFacts(existing = {}, incoming = {}) {
+  return Object.entries(sanitizeKnownFacts(incoming) || {}).reduce((acc, [key, value]) => {
+    if (typeof value === "string" && value.trim()) {
+      acc[key] = value.trim()
+    }
+    return acc
+  }, sanitizeKnownFacts(existing))
+}
+
+function sanitizeKnownFacts(facts = {}) {
+  return Object.entries(facts || {}).reduce((acc, [key, value]) => {
+    const normalizedValue = String(value || "").trim()
+    if (!normalizedValue) {
+      return acc
+    }
+
+    if (SUSPICIOUS_FACT_VALUE_PATTERNS.some(pattern => pattern.test(normalizedValue))) {
+      return acc
+    }
+
+    acc[key] = normalizedValue
+    return acc
+  }, {})
+}
+
+function extractFactsFromText(text = "") {
+  const input = String(text || "")
+  const facts = {}
+
+  FACT_PATTERNS.forEach(({ key, regex }) => {
+    const match = input.match(regex)
+    if (!match?.[1]) return
+
+    facts[key] = match[1]
+      .trim()
+      .replace(/[.?!]+$/, "")
+
+    if (SUSPICIOUS_FACT_VALUE_PATTERNS.some(pattern => pattern.test(facts[key]))) {
+      delete facts[key]
+    }
+  })
+
+  return facts
+}
+
+function extractKnownFactsFromHistory(history = []) {
+  return history.reduce((acc, entry) => {
+    if (entry?.role !== "user") return acc
+    return mergeKnownFacts(acc, extractFactsFromText(entry.content || ""))
+  }, {})
+}
+
+function buildRecentConversationText(history = [], limit = 6) {
+  if (!Array.isArray(history) || history.length === 0) {
+    return ""
+  }
+
+  return history
+    .slice(-limit)
+    .map(entry => `${entry.role === "assistant" ? "GIOM" : "Usuario"}: ${String(entry.content || "").trim()}`)
+    .join("\n")
+}
+
+function buildKnownFactsText(facts = {}) {
+  const safeFacts = sanitizeKnownFacts(facts)
+  const lines = FACT_PATTERNS
+    .filter(pattern => safeFacts[pattern.key])
+    .map(pattern => `${pattern.label}: ${safeFacts[pattern.key]}`)
+
+  return lines.join(" | ")
 }
 
 function summarizeLearningPatterns(patterns = []) {
@@ -511,33 +652,55 @@ export class GrootMemoryConnector {
         this.getLearningPatterns(userId, 6)
       ])
 
+      const persistedTurns = conversationRowsToTurns(history || [])
+      const sessionTurns = Array.isArray(options.conversationHistory)
+        ? options.conversationHistory.map(normalizeConversationEntry).filter(Boolean)
+        : []
+      const mergedTurns = [...persistedTurns, ...sessionTurns]
+      const knownFacts = mergeKnownFacts(
+        (profile?.preferences && typeof profile.preferences.knownFacts === "object") ? sanitizeKnownFacts(profile.preferences.knownFacts) : {},
+        extractKnownFactsFromHistory(mergedTurns)
+      )
+
       return {
         history: history.map(item => ({
           user: item.user_message,
           ai: item.ai_response,
           timestamp: item.created_at
         })),
+        conversationTurns: mergedTurns,
+        recentConversationText: buildRecentConversationText(mergedTurns, options.limit || 6),
         userProfile: profile.preferences,
-        contextSummary: this.generateContextSummary(history, options),
+        contextSummary: this.generateContextSummary(history, options, mergedTurns),
         learningSummary: summarizeLearningPatterns(patterns),
         learningPatterns: patterns,
+        knownFacts,
+        knownFactsText: buildKnownFactsText(knownFacts),
         summary: summary?.summary || ""
       }
     } catch (error) {
       console.error("❌ Erro ao buscar contexto:", error)
       return {
         history: [],
+        conversationTurns: [],
+        recentConversationText: "",
         userProfile: { style: "natural" },
         contextSummary: "Início de conversa",
+        knownFacts: {},
+        knownFactsText: "",
         summary: ""
       }
     }
   }
 
-  generateContextSummary(history, options = {}) {
-    if (history.length === 0) return "Início de conversa"
+  generateContextSummary(history, options = {}, mergedTurns = []) {
+    const sourceTurns = Array.isArray(mergedTurns) && mergedTurns.length > 0
+      ? mergedTurns.filter(entry => entry.role === "user").map(entry => ({ user_message: entry.content }))
+      : history
 
-    const topics = history.map(item => {
+    if (sourceTurns.length === 0) return "Início de conversa"
+
+    const topics = sourceTurns.map(item => {
       const keywords = item.user_message
         .toLowerCase()
         .split(" ")

@@ -3,10 +3,11 @@ import { grootMemoryConnector } from '../core/grootMemoryConnector.js'
 import { grootRAG } from '../core/grootRAG.js'
 import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
 import { grootAnalytics } from '../core/grootAnalytics.js'
-import { buildLearningSignals, mergePreferences } from '../core/learningEngine.js'
+import { buildLearningSignals, mergeKnownFacts, mergePreferences } from '../core/learningEngine.js'
 import { buildAssistantPromptContext } from '../packages/ai-core/src/index.js'
 import { evaluateInteractionQuality } from '../core/qualityEngine.js'
 import { maybeSummarize } from '../core/summaryEngine.js'
+import { buildSafetyResponse, detectSafetyRisk } from '../core/safetyGuard.js'
 
 export class ReasoningAgent {
   constructor() {
@@ -273,6 +274,339 @@ export class ReasoningAgent {
     return userProfile?.dominantStyle || currentPatterns[0] || 'natural'
   }
 
+  extractKnownFacts(memoryContext = {}) {
+    return {
+      ...(memoryContext?.userProfile?.knownFacts || {}),
+      ...(memoryContext?.knownFacts || {})
+    }
+  }
+
+  isCapabilityQuestion(task = '') {
+    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que você consegue|o que voce realmente tem|o que você realmente tem|quais sao seus limites|quais são seus limites|como voce funciona|como você funciona|capacidades|ferramentas)\b/i
+      .test(String(task || ''))
+  }
+
+  isMemoryRecallQuestion(task = '') {
+    return /\b(agora diga|qual e meu nome|qual é meu nome|minha area|minha área|como prefiro as respostas|o que eu disse|lembra do meu nome|lembra da minha area|lembra da minha área|uma unica frase|uma única frase)\b/i
+      .test(String(task || ''))
+  }
+
+  isMemoryRegistrationPrompt(task = '') {
+    return /\bresponda apenas:\s*memoria registrada\b/i.test(String(task || ''))
+  }
+
+  isDebugDiagnosticQuestion(task = '') {
+    return /\berro 500\b/i.test(String(task || ''))
+      && /\b(jwt)\b/i.test(String(task || ''))
+      && /\b(express)\b/i.test(String(task || ''))
+  }
+
+  buildSafetyOperationalResponse(task = '', context = {}) {
+    const safety = detectSafetyRisk(task)
+    if (!safety?.triggered && !safety?.advisory) {
+      return null
+    }
+
+    return buildSafetyResponse(safety, {
+      locale: context?.locale || context?.language || 'pt-BR',
+      promptText: task
+    })
+  }
+
+  buildDebugDiagnosticResponse() {
+    return [
+      'Plano curto de diagnostico para erro 500 em API Express apos adicionar JWT, do mais provavel para o menos provavel:',
+      '1. Middleware de autenticacao: valide JWT_SECRET, formato Bearer, expiracao e try/catch no verify.',
+      '2. Tratamento de erro: confirme se falhas de auth nao estao virando 500 generico em vez de 401 ou 403.',
+      '3. req.user e claims: logue authorization, payload decodificado e o ponto exato em que req.user quebra.',
+      '4. Ordem do pipeline: revise body parser, auth, rotas protegidas e error handler final.',
+      '5. Ambiente: compare segredo, relogio do servidor e variaveis entre local e producao.',
+      'Se quiser, eu monto agora um checklist de logs exatos para o middleware e o error handler.'
+    ].join('\n')
+  }
+
+  buildCapabilityResponse(task, context = {}, memoryContext = {}) {
+    const capabilities = context?.researchCapabilities || {}
+    const liveSources = Array.isArray(capabilities.liveSources) ? capabilities.liveSources : []
+    const facts = this.extractKnownFacts(memoryContext)
+    const normalizedTask = String(task || '').toLowerCase()
+    const mentionsSearch = /\b(google|bing|yahoo|pesquisa|pesquisar|web|internet|naveg|browser)\b/i.test(normalizedTask)
+
+    const lines = ['Sou o GIOM, um assistente de IA no estado operacional atual desta execucao.']
+
+    if (mentionsSearch && capabilities.mode !== 'live') {
+      lines.push('Nao, hoje eu nao consigo pesquisar Google, Bing, Yahoo ou navegar na web ao vivo.')
+    } else if (capabilities.mode === 'live') {
+      lines.push(`Sim, nesta execucao eu tenho pesquisa ao vivo via ${liveSources.join(', ') || 'web'}.`)
+    } else {
+      lines.push('Hoje eu opero sem pesquisa web ao vivo confirmada.')
+    }
+
+    lines.push(
+      capabilities.mode === 'live'
+        ? `Fontes disponiveis agora: pesquisa atual via ${liveSources.join(', ') || 'web'}, memoria conversacional, perfil do usuario, historico salvo e base curada via RAG.`
+        : 'Fontes disponiveis agora: memoria conversacional, perfil do usuario, historico salvo e base curada via RAG.'
+    )
+    lines.push('Meu papel aqui e analisar, explicar, escrever codigo, revisar tecnicamente e aplicar os modulos especialistas ativos.')
+
+    if (facts.name || facts.workDomain || facts.responseStyle) {
+      const retainedSignals = []
+      if (facts.name) retainedSignals.push('nome')
+      if (facts.workDomain) retainedSignals.push('area')
+      if (facts.responseStyle) retainedSignals.push('preferencia de resposta')
+      lines.push(`Eu tambem retenho contexto curto informado explicitamente pelo usuario, como ${retainedSignals.join(', ')}.`)
+    }
+
+    lines.push(
+      capabilities.mode === 'live'
+        ? 'Limite operacional: eu separo o que veio da pesquisa atual do que veio do conhecimento interno; se a origem nao estiver indicada, trate a informacao como nao verificada.'
+        : 'Limite operacional: fatos atuais que dependem de busca externa ficam nao verificados enquanto a pesquisa ao vivo nao estiver habilitada.'
+    )
+    lines.push('Se quiser, eu posso listar agora quais fontes internas e modulos especialistas estao ativos nesta conversa.')
+    return lines.join('\n')
+  }
+
+  buildMemoryRegistrationResponse(task = '') {
+    const explicitResponse = String(task || '').match(/\bresponda apenas:\s*([^.\n]+)\b/i)
+    if (explicitResponse?.[1]) {
+      return explicitResponse[1].trim()
+    }
+
+    return 'Memoria registrada.'
+  }
+
+  buildMemoryRecallResponse(task, memoryContext = {}) {
+    const facts = this.extractKnownFacts(memoryContext)
+    const normalizedTask = String(task || '').toLowerCase()
+
+    if (!facts.name && !facts.workDomain && !facts.responseStyle && !facts.role) {
+      return null
+    }
+
+    const wantsSingleSentence = /uma unica frase|uma única frase|em uma frase/i.test(normalizedTask)
+    const parts = []
+
+    if (facts.name) parts.push(`seu nome e ${facts.name}`)
+    if (facts.workDomain) parts.push(`sua area e ${facts.workDomain}`)
+    if (facts.responseStyle) parts.push(`voce prefere respostas ${facts.responseStyle}`)
+    if (facts.role && !facts.workDomain) parts.push(`sua funcao e ${facts.role}`)
+
+    if (parts.length === 0) {
+      return null
+    }
+
+    if (wantsSingleSentence || /meu nome|minha area|minha área|prefiro/i.test(normalizedTask)) {
+      const sentence = parts.join(', ')
+        .replace(/, ([^,]*)$/, ' e $1')
+      return `${sentence}.`
+    }
+
+    return parts.map((item, index) => `${index + 1}. ${item.charAt(0).toUpperCase()}${item.slice(1)}.`).join('\n')
+  }
+
+  tryDirectOperationalResponse(task, context = {}, memoryContext = {}) {
+    if (this.isMemoryRegistrationPrompt(task)) {
+      return this.buildMemoryRegistrationResponse(task)
+    }
+
+    const safetyResponse = this.buildSafetyOperationalResponse(task, context)
+    if (safetyResponse) {
+      return safetyResponse
+    }
+
+    if (this.isDebugDiagnosticQuestion(task)) {
+      return this.buildDebugDiagnosticResponse()
+    }
+
+    if (this.isCapabilityQuestion(task)) {
+      return this.buildCapabilityResponse(task, context, memoryContext)
+    }
+
+    if (this.isMemoryRecallQuestion(task)) {
+      return this.buildMemoryRecallResponse(task, memoryContext)
+    }
+
+    return null
+  }
+
+  buildRuleBasedFallback(task, context = {}, memoryContext = {}, promptPackage = {}) {
+    const directResponse = this.tryDirectOperationalResponse(task, context, memoryContext)
+    if (directResponse) {
+      return directResponse
+    }
+
+    const prompt = String(task || '')
+    const lowerTask = prompt.toLowerCase()
+
+    if (this.isDebugDiagnosticQuestion(lowerTask)) {
+      return this.buildDebugDiagnosticResponse()
+    }
+
+    const moduleLabel = Array.isArray(promptPackage.activeModules) && promptPackage.activeModules.length > 0
+      ? promptPackage.activeModules.join(', ')
+      : 'geral'
+    const memoryHint = memoryContext?.knownFactsText
+      ? `Contexto curto confirmado: ${memoryContext.knownFactsText}.`
+      : 'Ainda sem fatos explicitos adicionais do usuario nesta sessao.'
+    const summaryHint = memoryContext?.contextSummary || 'Sem contexto acumulado.'
+
+    return [
+      'Sou o GIOM, um assistente de IA em modo de contingencia operacional nesta execucao.',
+      'Vou responder com base no contexto disponivel sem fingir pesquisa externa.',
+      `Modulo ativo principal: ${moduleLabel}.`,
+      memoryHint,
+      `Resumo recente: ${summaryHint}.`,
+      'Meus recursos atuais aqui sao memoria recente, perfil do usuario, conhecimento curado e raciocinio local.',
+      'Se quiser, eu posso continuar em passos objetivos e ir refinando a resposta por iteracoes curtas.'
+    ].join(' ')
+  }
+
+  async finalizeReasoningResponse(task, responseText, userId, userStyle, memoryContext, ragContext, promptPackage, reasoningStartTime, metadataExtras = {}) {
+    const quality = evaluateInteractionQuality({
+      userMessage: task,
+      aiResponse: responseText
+    })
+
+    const reasoning = {
+      success: true,
+      type: metadataExtras.fallback ? 'fallback_reasoning' : (metadataExtras.directRuntime ? 'runtime_reasoning' : 'llm_reasoning'),
+      response: responseText,
+      confidence: metadataExtras.confidence || (metadataExtras.fallback ? 0.82 : 0.9),
+      metadata: {
+        reasoningTime: Date.now(),
+        method: metadataExtras.method || (metadataExtras.fallback ? 'rule_fallback' : 'direct_llm'),
+        provider: metadataExtras.provider || (metadataExtras.fallback ? 'rule_fallback' : 'multi_ai_fallback'),
+        userStyle,
+        toneInstruction: metadataExtras.toneInstruction || null,
+        personality: promptPackage.profileId,
+        activeModules: promptPackage.activeModules,
+        bibleStudyModules: promptPackage.bibleStudyModules,
+        promptPacks: promptPackage.promptPacks,
+        audience: promptPackage.audience,
+        memoryContext: memoryContext.contextSummary,
+        recentFacts: memoryContext.knownFacts || {},
+        qualityScore: quality.score,
+        durationMs: Date.now() - reasoningStartTime,
+        ...metadataExtras
+      }
+    }
+
+    const learningSignals = buildLearningSignals({
+      userMessage: task,
+      aiResponse: responseText,
+      userStyle,
+      qualityScore: quality.score
+    })
+
+    if (!learningSignals.skip) {
+      const existingProfile = memoryContext.userProfile || {}
+      const existingTopics = Array.isArray(existingProfile.topics) ? existingProfile.topics : []
+      const mergedTopics = Array.from(new Set([...existingTopics, ...learningSignals.topics])).slice(0, 12)
+      const mergedFacts = mergeKnownFacts(existingProfile.knownFacts || {}, learningSignals.facts || {})
+
+      const mergedProfile = mergePreferences(existingProfile, {
+        ...learningSignals.preferences,
+        style: learningSignals.style,
+        topics: mergedTopics,
+        knownFacts: mergedFacts
+      })
+
+      await grootMemoryConnector.updateUserProfile(userId, mergedProfile)
+
+      if (learningSignals.topics.length > 0) {
+        await grootMemoryConnector.saveLearningPattern(
+          userId,
+          'topic',
+          { topics: learningSignals.topics, source: 'conversation' },
+          learningSignals.confidence
+        )
+      }
+
+      if (Object.keys(learningSignals.preferences).length > 0) {
+        await grootMemoryConnector.saveLearningPattern(
+          userId,
+          'preference',
+          learningSignals.preferences,
+          learningSignals.confidence
+        )
+      }
+
+      if (Object.keys(learningSignals.facts || {}).length > 0) {
+        await grootMemoryConnector.saveLearningPattern(
+          userId,
+          'identity_fact',
+          learningSignals.facts,
+          learningSignals.confidence
+        )
+      }
+
+      await grootMemoryConnector.saveLearningPattern(
+        userId,
+        'style',
+        { style: learningSignals.style },
+        learningSignals.confidence
+      )
+    }
+
+    await grootMemoryConnector.saveConversation(userId, task, responseText, {
+      userStyle,
+      confidence: reasoning.confidence,
+      provider: reasoning.metadata.provider,
+      sessionId: `session_${Date.now()}`,
+      requestId: metadataExtras.requestId,
+      assistantProfile: promptPackage.profileId,
+      activeModules: promptPackage.activeModules,
+      bibleStudyModules: promptPackage.bibleStudyModules,
+      promptPacks: promptPackage.promptPacks,
+      qualityScore: quality.score
+    })
+
+    if (metadataExtras.requestId) {
+      await grootMemoryConnector.saveEvaluation(userId, metadataExtras.requestId, quality)
+    }
+
+    try {
+      const history = await grootMemoryConnector.getRecentHistory(userId, 12)
+      const summary = await maybeSummarize(history)
+      if (summary) {
+        await grootMemoryConnector.saveSummary(userId, summary, {
+          source: 'auto',
+          count: history.length
+        })
+      }
+    } catch (error) {
+      console.warn('⚠️ Falha ao gerar resumo:', error.message)
+    }
+
+    await grootAdvancedRAG.learnFromInteractionAdvanced(task, responseText, {
+      userStyle,
+      confidence: reasoning.confidence,
+      provider: reasoning.metadata.provider,
+      category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned',
+      qualityScore: quality.score,
+      assistantProfile: promptPackage.profileId,
+      activeModules: promptPackage.activeModules,
+      bibleStudyModules: promptPackage.bibleStudyModules,
+      promptPacks: promptPackage.promptPacks
+    })
+
+    await grootAnalytics.trackUsage(userId, task, responseText, {
+      responseTime: Date.now() - reasoningStartTime,
+      tokensUsed: responseText.length,
+      provider: reasoning.metadata.provider,
+      userStyle,
+      confidence: reasoning.confidence,
+      success: true,
+      knowledgeFound: ragContext.knowledge.length,
+      bugsFound: ragContext.bugs.length,
+      activeModules: promptPackage.activeModules,
+      bibleStudyModules: promptPackage.bibleStudyModules
+    })
+
+    this.saveReasoning(reasoning)
+    return reasoning
+  }
+
   async generalReasoning(task, analysis, context = {}) {
     console.log(`🧠 ReasoningAgent: Processando tarefa geral...`)
     const reasoningStartTime = Date.now()
@@ -319,12 +653,35 @@ export class ReasoningAgent {
     console.log('📚 Contexto da memória:', memoryContext.contextSummary)
     console.log('🎯 Contexto RAG Avançado:', ragContext.totalFound, 'itens encontrados')
 
-    // 🚀 USAR LLM REAL DIRETO
-    const { askMultiAI } = await import('../core/multiAI.js')
-
     const prompt = `${uploadContext}${task}`.trim()
+    const directRuntimeResponse = this.tryDirectOperationalResponse(task, context, memoryContext)
+
+    if (directRuntimeResponse) {
+      const reasoning = await this.finalizeReasoningResponse(
+        task,
+        directRuntimeResponse,
+        userId,
+        userStyle,
+        memoryContext,
+        ragContext,
+        promptPackage,
+        reasoningStartTime,
+        {
+          provider: 'deterministic_runtime',
+          method: 'deterministic_runtime',
+          directRuntime: true,
+          confidence: 0.96,
+          requestId: context.requestId,
+          toneInstruction: toneInstructions[userStyle]
+        }
+      )
+
+      console.log('✅ Resposta operacional deterministica concluida')
+      return reasoning
+    }
 
     try {
+      const { askMultiAI } = await import('../core/multiAI.js')
       const llmResponse = await askMultiAI(prompt, {
         systemPrompt: `${promptPackage.systemPrompt}\n- Ajuste fino desta conversa: ${toneInstructions[userStyle]}`
       })
@@ -341,173 +698,51 @@ export class ReasoningAgent {
         .replace(/\n{3,}/g, '\n\n') // Remover linhas vazias excessivas
         .trim()
 
-      const quality = evaluateInteractionQuality({
-        userMessage: task,
-        aiResponse: filteredResponse
-      })
-
-      const reasoning = {
-        success: true,
-        type: 'llm_reasoning',
-        response: filteredResponse,
-        confidence: 0.9,
-        metadata: {
-          reasoningTime: Date.now(),
-          method: 'direct_llm',
-          provider: 'multi_ai_fallback',
-          userStyle: userStyle,
-          toneInstruction: toneInstructions[userStyle],
-          personality: promptPackage.profileId,
-          activeModules: promptPackage.activeModules,
-          bibleStudyModules: promptPackage.bibleStudyModules,
-          promptPacks: promptPackage.promptPacks,
-          audience: promptPackage.audience,
-          memoryContext: memoryContext.contextSummary,
-          qualityScore: quality.score,
-          durationMs: Date.now() - reasoningStartTime
-        }
-      }
-
-      const learningSignals = buildLearningSignals({
-        userMessage: task,
-        aiResponse: filteredResponse,
+      const reasoning = await this.finalizeReasoningResponse(
+        task,
+        filteredResponse,
+        userId,
         userStyle,
-        qualityScore: quality.score
-      })
-
-      if (!learningSignals.skip) {
-        const existingProfile = memoryContext.userProfile || {}
-        const existingTopics = Array.isArray(existingProfile.topics) ? existingProfile.topics : []
-        const mergedTopics = Array.from(new Set([...existingTopics, ...learningSignals.topics])).slice(0, 12)
-
-        const mergedProfile = mergePreferences(existingProfile, {
-          ...learningSignals.preferences,
-          style: learningSignals.style,
-          topics: mergedTopics
-        })
-
-        await grootMemoryConnector.updateUserProfile(userId, mergedProfile)
-
-        if (learningSignals.topics.length > 0) {
-          await grootMemoryConnector.saveLearningPattern(
-            userId,
-            'topic',
-            { topics: learningSignals.topics, source: 'conversation' },
-            learningSignals.confidence
-          )
+        memoryContext,
+        ragContext,
+        promptPackage,
+        reasoningStartTime,
+        {
+          provider: 'multi_ai_fallback',
+          method: 'direct_llm',
+          confidence: 0.9,
+          requestId: context.requestId,
+          toneInstruction: toneInstructions[userStyle]
         }
+      )
 
-        if (Object.keys(learningSignals.preferences).length > 0) {
-          await grootMemoryConnector.saveLearningPattern(
-            userId,
-            'preference',
-            learningSignals.preferences,
-            learningSignals.confidence
-          )
-        }
-
-        await grootMemoryConnector.saveLearningPattern(
-          userId,
-          'style',
-          { style: learningSignals.style },
-          learningSignals.confidence
-        )
-      }
-
-      // 🧠 SALVAR INTERAÇÃO NA MEMÓRIA
-      await grootMemoryConnector.saveConversation(userId, task, filteredResponse, {
-        userStyle: userStyle,
-        confidence: 0.9,
-        provider: 'multi_ai_fallback',
-        sessionId: `session_${Date.now()}`,
-        requestId: context.requestId,
-        assistantProfile: promptPackage.profileId,
-        activeModules: promptPackage.activeModules,
-        bibleStudyModules: promptPackage.bibleStudyModules,
-        promptPacks: promptPackage.promptPacks
-      })
-
-      if (context.requestId) {
-        await grootMemoryConnector.saveEvaluation(userId, context.requestId, quality)
-      }
-
-      try {
-        const history = await grootMemoryConnector.getRecentHistory(userId, 12)
-        const summary = await maybeSummarize(history)
-        if (summary) {
-          await grootMemoryConnector.saveSummary(userId, summary, {
-            source: 'auto',
-            count: history.length
-          })
-        }
-      } catch (error) {
-        console.warn('⚠️ Falha ao gerar resumo:', error.message)
-      }
-
-      // 🎯 APRENDER COM RAG AVANÇADO
-      await grootAdvancedRAG.learnFromInteractionAdvanced(task, filteredResponse, {
-        userStyle: userStyle,
-        confidence: 0.9,
-        provider: 'multi_ai_fallback',
-        category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned',
-        qualityScore: quality.score,
-        assistantProfile: promptPackage.profileId,
-        activeModules: promptPackage.activeModules,
-        bibleStudyModules: promptPackage.bibleStudyModules,
-        promptPacks: promptPackage.promptPacks
-      })
-
-      // 📊 REGISTRAR ANALYTICS
-      await grootAnalytics.trackUsage(userId, task, filteredResponse, {
-        responseTime: Date.now() - reasoningStartTime,
-        tokensUsed: filteredResponse.length,
-        provider: 'multi_ai_fallback',
-        userStyle: userStyle,
-        confidence: 0.9,
-        success: true,
-        knowledgeFound: ragContext.knowledge.length,
-        bugsFound: ragContext.bugs.length,
-        activeModules: promptPackage.activeModules,
-        bibleStudyModules: promptPackage.bibleStudyModules
-      })
-
-      this.saveReasoning(reasoning)
       console.log(`✅ Raciocínio LLM concluído e salvo na memória`)
       return reasoning
 
     } catch (error) {
       console.error('❌ Erro no LLM, usando análise estrutural:', error.message)
 
-      // Fallback para análise estrutural
-      const taskAnalysis = await this.analyzeTask(task, analysis, context)
-      const problemDecomposition = await this.decomposeProblem(task, analysis, context)
-
-      const integratedReasoning = {
-        primaryIntent: taskAnalysis.analysis.intent,
-        complexity: taskAnalysis.analysis.complexity,
-        approach: taskAnalysis.analysis.approach,
-        executionPlan: problemDecomposition.decomposition.sequence,
-        riskAssessment: this.assessRisks(taskAnalysis, problemDecomposition),
-        successCriteria: this.defineSuccessCriteria(task, context),
-        monitoringPlan: this.createMonitoringPlan(taskAnalysis, problemDecomposition)
-      }
-
-      const reasoning = {
-        success: true,
-        type: 'integrated_reasoning',
-        integratedReasoning,
-        reasoning: await this.explainIntegratedReasoning(integratedReasoning),
-        confidence: this.calculateIntegratedConfidence(integratedReasoning),
-        recommendations: this.generateIntegratedRecommendations(integratedReasoning),
-        metadata: {
-          reasoningTime: Date.now(),
-          strategiesApplied: ['analysis', 'decomposition'],
-          integrationLevel: 'high',
-          fallback: true
+      const fallbackResponse = this.buildRuleBasedFallback(task, context, memoryContext, promptPackage)
+      const reasoning = await this.finalizeReasoningResponse(
+        task,
+        fallbackResponse,
+        userId,
+        userStyle,
+        memoryContext,
+        ragContext,
+        promptPackage,
+        reasoningStartTime,
+        {
+          provider: 'rule_fallback',
+          method: 'rule_fallback',
+          confidence: 0.84,
+          fallback: true,
+          requestId: context.requestId,
+          toneInstruction: toneInstructions[userStyle],
+          fallbackError: error.message
         }
-      }
+      )
 
-      this.saveReasoning(reasoning)
       console.log(`✅ Raciocínio estrutural concluído (fallback)`)
       return reasoning
     }

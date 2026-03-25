@@ -18,6 +18,34 @@ const SENSITIVE_PATTERNS = [
   /\b(roubar|furtar|fraudar|golpear|falsificar|hackear|invadir|phishing|malware|ransomware|roubar senha)\b/i
 ]
 
+const FACT_PATTERNS = [
+  {
+    key: 'name',
+    regex: /(?:^|[.!?,]\s*|\se\s+)meu nome (?:e|é)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40})(?=[,.!?]|$)/i
+  },
+  {
+    key: 'workDomain',
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu trabalho com|trabalho com|atuo com|minha area (?:e|é)|minha área (?:e|é))\s+(?!como\b|qual\b|diga\b|dizer\b)([^.,\n]{2,80}?)(?=\s+e\s+prefiro|\s+e\s+gosto|[.,\n]|$)/i
+  },
+  {
+    key: 'responseStyle',
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu\s+)?prefiro respostas?\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+  },
+  {
+    key: 'role',
+    regex: /(?:^|[.!?,]\s*|\se\s+)eu sou (?:um|uma)\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+  }
+]
+
+const SUSPICIOUS_FACT_VALUE_PATTERNS = [
+  /\bagora diga\b/i,
+  /\bqual (?:e|é)\b/i,
+  /\bcomo prefiro\b/i,
+  /\buma unica frase\b/i,
+  /\buma única frase\b/i,
+  /\blembra\b/i
+]
+
 export function isSensitive(text = '') {
   const input = String(text || '')
   return SENSITIVE_PATTERNS.some(pattern => pattern.test(input))
@@ -79,6 +107,53 @@ export function mergePreferences(existing = {}, updates = {}) {
   }
 }
 
+export function extractIdentityFacts(text = '') {
+  const input = String(text || '')
+  const facts = {}
+
+  FACT_PATTERNS.forEach(({ key, regex }) => {
+    const match = input.match(regex)
+    if (!match?.[1]) return
+
+    const cleanedValue = match[1]
+      .trim()
+      .replace(/[.?!]+$/, '')
+
+    if (!cleanedValue || SUSPICIOUS_FACT_VALUE_PATTERNS.some(pattern => pattern.test(cleanedValue))) {
+      return
+    }
+
+    facts[key] = cleanedValue
+  })
+
+  return facts
+}
+
+export function sanitizeKnownFacts(facts = {}) {
+  return Object.entries(facts || {}).reduce((acc, [key, value]) => {
+    const normalizedValue = String(value || '').trim()
+    if (!normalizedValue) {
+      return acc
+    }
+
+    if (SUSPICIOUS_FACT_VALUE_PATTERNS.some(pattern => pattern.test(normalizedValue))) {
+      return acc
+    }
+
+    acc[key] = normalizedValue
+    return acc
+  }, {})
+}
+
+export function mergeKnownFacts(existing = {}, incoming = {}) {
+  return Object.entries(sanitizeKnownFacts(incoming) || {}).reduce((acc, [key, value]) => {
+    if (typeof value === 'string' && value.trim()) {
+      acc[key] = value.trim()
+    }
+    return acc
+  }, sanitizeKnownFacts(existing))
+}
+
 export function buildLearningSignals({ userMessage, aiResponse, userStyle, qualityScore = 0.8 }) {
   if (isSensitive(userMessage) || isSensitive(aiResponse)) {
     return { skip: true, reason: 'sensitive_content' }
@@ -90,11 +165,13 @@ export function buildLearningSignals({ userMessage, aiResponse, userStyle, quali
 
   const topics = extractTopics(userMessage, 4)
   const preferences = detectPreferences(userMessage)
+  const facts = extractIdentityFacts(userMessage)
 
   return {
     skip: false,
     topics,
     preferences,
+    facts,
     style: userStyle || 'natural',
     confidence: Math.max(0.4, Math.min(0.9, qualityScore))
   }
