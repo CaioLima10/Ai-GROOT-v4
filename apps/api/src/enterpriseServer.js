@@ -20,6 +20,7 @@ import {
   listBibleStudyModules,
   listCompatModels,
   listDomainModules,
+  listPromptPacks,
   resolveCompatModel
 } from "../../../packages/shared-config/src/index.js"
 import {
@@ -29,6 +30,7 @@ import {
   grootMemoryConnector
 } from "../../../packages/ai-core/src/index.js"
 import { fetchBiblePassage } from "../../../core/bibleApi.js"
+import { buildSafetyResponse, detectSafetyRisk } from "../../../core/safetyGuard.js"
 import helmet from "helmet"
 import rateLimit from "express-rate-limit"
 import slowDown from "express-slow-down"
@@ -124,6 +126,53 @@ const uploadTextLimit = Number(process.env.UPLOAD_TEXT_LIMIT || 12000)
 const uploadOcrEnabled = process.env.UPLOAD_OCR_ENABLED === "true"
 const uploadOcrLang = process.env.OCR_LANG || "eng"
 const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
+const uploadPdfTextLimit = Number(process.env.UPLOAD_PDF_TEXT_LIMIT || uploadTextLimit)
+const imageGenerationModel = process.env.HUGGINGFACE_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
+const SUPPORTED_UPLOAD_ACCEPT = [
+  "image/*",
+  ".pdf",
+  ".txt",
+  ".md",
+  ".json",
+  ".js",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".html",
+  ".css",
+  ".csv",
+  ".sql"
+]
+
+function getImageGenerationToken() {
+  return process.env.HUGGINGFACE_API_KEY ||
+    process.env.HF_API_KEY ||
+    process.env.HUGGINGFACEHUB_API_TOKEN ||
+    null
+}
+
+function isImageGenerationEnabled() {
+  return Boolean(getImageGenerationToken())
+}
+
+function getUploadCapabilities() {
+  return {
+    accept: SUPPORTED_UPLOAD_ACCEPT,
+    supportedKinds: [
+      "text",
+      "code",
+      "pdf",
+      uploadOcrEnabled ? "image_ocr" : "image"
+    ],
+    supports: {
+      text: true,
+      code: true,
+      pdf: true,
+      image: true,
+      ocr: uploadOcrEnabled
+    }
+  }
+}
 
 async function ensureUploadDir() {
   try {
@@ -169,6 +218,12 @@ function isImageLike(name, type) {
   return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].some(ext => lower.endsWith(ext))
 }
 
+function isPdfLike(name, type) {
+  if (type === "application/pdf") return true
+  const lower = String(name || "").toLowerCase()
+  return lower.endsWith(".pdf")
+}
+
 async function extractTextFromImage(filePath) {
   if (!uploadOcrEnabled) return null
   try {
@@ -190,6 +245,60 @@ async function extractTextFromImage(filePath) {
   } catch (error) {
     console.error("❌ OCR falhou:", error.message)
     return null
+  }
+}
+
+async function extractTextFromPdf(filePath) {
+  try {
+    const pdfParseModule = await import("pdf-parse")
+    const pdfParse = pdfParseModule.default || pdfParseModule
+    const buffer = await fs.readFile(filePath)
+    const parsed = await pdfParse(buffer)
+    const text = String(parsed?.text || "")
+      .replace(/\u0000/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+
+    if (!text) return null
+
+    if (text.length > uploadPdfTextLimit) {
+      return `${text.slice(0, uploadPdfTextLimit)}\n... (truncado)`
+    }
+
+    return text
+  } catch (error) {
+    console.error("❌ Leitura de PDF falhou:", error.message)
+    return null
+  }
+}
+
+async function generateImageWithProvider(prompt, options = {}) {
+  const token = getImageGenerationToken()
+  if (!token) {
+    const error = new Error("Geração de imagens não configurada. Defina HUGGINGFACE_API_KEY no ambiente.")
+    error.statusCode = 503
+    error.code = "IMAGE_GENERATION_DISABLED"
+    throw error
+  }
+
+  const { HfInference } = await import("@huggingface/inference")
+  const client = new HfInference(token)
+  const image = await client.textToImage({
+    model: imageGenerationModel,
+    inputs: prompt,
+    parameters: {
+      negative_prompt: options.negativePrompt || "blurry, deformed, low quality, watermark, unreadable text"
+    }
+  })
+
+  const mimeType = image?.type || "image/png"
+  const buffer = Buffer.from(await image.arrayBuffer())
+
+  return {
+    mimeType,
+    base64: buffer.toString("base64"),
+    model: imageGenerationModel
   }
 }
 
@@ -310,6 +419,13 @@ async function buildPreparedAskPayload(req, requestId) {
       } catch {
         finalQuestion += `${label}\n(erro ao ler o arquivo)`
       }
+    } else if (isPdfLike(uploadEntry.name, uploadEntry.type)) {
+      const pdfText = await extractTextFromPdf(uploadEntry.path)
+      if (pdfText) {
+        finalQuestion += `${label}\nTexto extraído do PDF:\n${pdfText}`
+      } else {
+        finalQuestion += `${label}\n(PDF recebido, mas não consegui extrair texto útil)`
+      }
     } else if (isImageLike(uploadEntry.name, uploadEntry.type)) {
       const ocrText = await extractTextFromImage(uploadEntry.path)
       if (ocrText) {
@@ -369,7 +485,9 @@ app.get("/config", async (req, res) => {
       auth: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY),
       localModels: process.env.OLLAMA_ENABLED === "true",
       futureOpenAIReady: true,
-      streaming: true
+      streaming: true,
+      pdfParsing: true,
+      imageGeneration: isImageGenerationEnabled()
     },
     ai: {
       providerMode: process.env.GROOT_AI_PROVIDER || "auto",
@@ -379,7 +497,13 @@ app.get("/config", async (req, res) => {
       assistantProfiles: listAssistantProfiles(),
       domainModules: listDomainModules(),
       bibleStudyModules: listBibleStudyModules(),
-      compatModels: listCompatModels()
+      compatModels: listCompatModels(),
+      promptPacks: listPromptPacks(),
+      imageGeneration: {
+        enabled: isImageGenerationEnabled(),
+        provider: isImageGenerationEnabled() ? "huggingface" : "disabled",
+        model: imageGenerationModel
+      }
     },
     research: getResearchCapabilities(),
     safety: {
@@ -397,7 +521,8 @@ app.get("/config", async (req, res) => {
     uploads: {
       enabled: true,
       maxBytes: uploadMaxBytes,
-      ttlMinutes: uploadTtlMinutes
+      ttlMinutes: uploadTtlMinutes,
+      ...getUploadCapabilities()
     }
   })
 })
@@ -713,6 +838,43 @@ app.post("/upload", async (req, res) => {
   }
 })
 
+app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
+  try {
+    const prompt = String(req.body?.prompt || "").trim()
+    const style = String(req.body?.style || "").trim()
+    const locale = String(req.body?.locale || "pt-BR")
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt de imagem vazio", code: "EMPTY_IMAGE_PROMPT" })
+    }
+
+    const safety = detectSafetyRisk(prompt)
+    if (safety.triggered) {
+      return res.status(400).json({
+        error: buildSafetyResponse(safety, { locale }),
+        code: "IMAGE_PROMPT_BLOCKED",
+        safety
+      })
+    }
+
+    const fullPrompt = [prompt, style ? `Style guidance: ${style}` : ""]
+      .filter(Boolean)
+      .join("\n")
+
+    const image = await generateImageWithProvider(fullPrompt)
+
+    res.json({
+      success: true,
+      image
+    })
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || "Falha ao gerar imagem",
+      code: error.code || "IMAGE_GENERATION_FAILED"
+    })
+  }
+})
+
 // API principal com contexto enterprise
 app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
   const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -842,6 +1004,7 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
           assistantProfile: promptPackage.profileId,
           activeModules: promptPackage.activeModules,
           bibleStudyModules: promptPackage.bibleStudyModules,
+          promptPacks: promptPackage.promptPacks,
           streaming: true
         })
 

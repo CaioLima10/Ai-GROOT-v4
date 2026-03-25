@@ -360,6 +360,7 @@ export class ReasoningAgent {
           personality: promptPackage.profileId,
           activeModules: promptPackage.activeModules,
           bibleStudyModules: promptPackage.bibleStudyModules,
+          promptPacks: promptPackage.promptPacks,
           audience: promptPackage.audience,
           memoryContext: memoryContext.contextSummary,
           qualityScore: quality.score,
@@ -422,7 +423,8 @@ export class ReasoningAgent {
         requestId: context.requestId,
         assistantProfile: promptPackage.profileId,
         activeModules: promptPackage.activeModules,
-        bibleStudyModules: promptPackage.bibleStudyModules
+        bibleStudyModules: promptPackage.bibleStudyModules,
+        promptPacks: promptPackage.promptPacks
       })
 
       if (context.requestId) {
@@ -451,7 +453,8 @@ export class ReasoningAgent {
         qualityScore: quality.score,
         assistantProfile: promptPackage.profileId,
         activeModules: promptPackage.activeModules,
-        bibleStudyModules: promptPackage.bibleStudyModules
+        bibleStudyModules: promptPackage.bibleStudyModules,
+        promptPacks: promptPackage.promptPacks
       })
 
       // 📊 REGISTRAR ANALYTICS

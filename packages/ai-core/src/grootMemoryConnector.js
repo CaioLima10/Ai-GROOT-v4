@@ -56,6 +56,7 @@ function buildConversationMetadata(metadata = {}) {
     assistantProfile: metadata.assistantProfile || null,
     activeModules: Array.isArray(metadata.activeModules) ? metadata.activeModules : [],
     bibleStudyModules: Array.isArray(metadata.bibleStudyModules) ? metadata.bibleStudyModules : [],
+    promptPacks: Array.isArray(metadata.promptPacks) ? metadata.promptPacks : [],
     safety: metadata.safety || null,
     streaming: Boolean(metadata.streaming),
     qualityScore: metadata.qualityScore ?? null

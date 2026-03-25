@@ -10,10 +10,15 @@ const DEFAULT_PREFERENCES = {
   noEmojis: true,
   safetyLevel: "standard",
   ageGroup: "adult",
-  theme: localStorage.getItem("groot-theme") || "dark",
+  theme: localStorage.getItem("groot-theme") || "dracula",
   assistantProfile: "adaptive_teacher",
   activeModules: ["developer"],
-  bibleStudyModules: []
+  bibleStudyModules: [],
+  promptPacks: [
+    "chatgpt_reasoning",
+    "github_copilot_engineering",
+    "gemini_research"
+  ]
 }
 
 const VIEW_META = {
@@ -32,6 +37,7 @@ const elements = {
   pageTitle: document.getElementById("pageTitle"),
   pageEyebrow: document.getElementById("pageEyebrow"),
   backendStatus: document.getElementById("backendStatus"),
+  exportChatBtn: document.getElementById("exportChatBtn"),
   topbarAccountBtn: document.getElementById("topbarAccountBtn"),
   newChatBtn: document.getElementById("newChatBtn"),
   navItems: Array.from(document.querySelectorAll(".nav-item")),
@@ -46,10 +52,17 @@ const elements = {
   openLoginBtn: document.getElementById("openLoginBtn"),
   switchAccountBtn: document.getElementById("switchAccountBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
-  themeDarkBtn: document.getElementById("themeDarkBtn"),
+  themeDraculaBtn: document.getElementById("themeDraculaBtn"),
+  themeGithubBtn: document.getElementById("themeGithubBtn"),
+  themeDiscordBtn: document.getElementById("themeDiscordBtn"),
   themeLightBtn: document.getElementById("themeLightBtn"),
   chatView: document.getElementById("view-chat"),
   chat: document.getElementById("chat"),
+  chatInner: document.getElementById("chatStreamInner"),
+  chatProfileBadge: document.getElementById("chatProfileBadge"),
+  chatModulesBadge: document.getElementById("chatModulesBadge"),
+  chatResearchBadge: document.getElementById("chatResearchBadge"),
+  chatUploadsBadge: document.getElementById("chatUploadsBadge"),
   promptChips: Array.from(document.querySelectorAll(".prompt-chip")),
   composerStatus: document.getElementById("composerStatus"),
   authStatus: document.getElementById("authStatus"),
@@ -68,6 +81,9 @@ const elements = {
   helpBackendStatus: document.getElementById("helpBackendStatus"),
   helpAuthStatus: document.getElementById("helpAuthStatus"),
   helpUploadStatus: document.getElementById("helpUploadStatus"),
+  helpResearchStatus: document.getElementById("helpResearchStatus"),
+  helpPdfStatus: document.getElementById("helpPdfStatus"),
+  helpImageGenStatus: document.getElementById("helpImageGenStatus"),
   verbositySelect: document.getElementById("verbositySelect"),
   examplesToggle: document.getElementById("examplesToggle"),
   emojiToggle: document.getElementById("emojiToggle"),
@@ -75,6 +91,8 @@ const elements = {
   ageGroupSelect: document.getElementById("ageGroupSelect"),
   themeSelect: document.getElementById("themeSelect"),
   assistantProfileSelect: document.getElementById("assistantProfileSelect"),
+  promptPackToggles: Array.from(document.querySelectorAll("[data-prompt-pack-toggle]")),
+  promptPackHint: document.getElementById("promptPackHint"),
   moduleToggles: Array.from(document.querySelectorAll("[data-module-toggle]")),
   bibleStudySettings: document.getElementById("bibleStudySettings"),
   bibleStudyToggles: Array.from(document.querySelectorAll("[data-bible-study-toggle]")),
@@ -84,6 +102,9 @@ const elements = {
   settingsAuthMode: document.getElementById("settingsAuthMode"),
   settingsUserLabel: document.getElementById("settingsUserLabel"),
   settingsOauthLabel: document.getElementById("settingsOauthLabel"),
+  sidebarResearchStatus: document.getElementById("sidebarResearchStatus"),
+  sidebarUploadStatus: document.getElementById("sidebarUploadStatus"),
+  sidebarImageStatus: document.getElementById("sidebarImageStatus"),
   openLoginFromSettings: document.getElementById("openLoginFromSettings"),
   loginModal: document.getElementById("loginModal"),
   closeLoginBtn: document.getElementById("closeLoginBtn"),
@@ -168,8 +189,11 @@ function bindEvents() {
     openLoginModal()
   })
   elements.logoutBtn?.addEventListener("click", logout)
-  elements.themeDarkBtn?.addEventListener("click", () => setTheme("dark"))
+  elements.themeDraculaBtn?.addEventListener("click", () => setTheme("dracula"))
+  elements.themeGithubBtn?.addEventListener("click", () => setTheme("github_dark"))
+  elements.themeDiscordBtn?.addEventListener("click", () => setTheme("discord"))
   elements.themeLightBtn?.addEventListener("click", () => setTheme("light"))
+  elements.exportChatBtn?.addEventListener("click", exportChatAsPdf)
 
   elements.promptChips.forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -218,6 +242,11 @@ function bindEvents() {
   elements.saveSettingsBtn?.addEventListener("click", savePreferences)
   elements.assistantProfileSelect?.addEventListener("change", () => {
     updateProfileHint(getSelectedModulesFromUI())
+  })
+  elements.promptPackToggles.forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      updatePromptPackHint(getSelectedPromptPacksFromUI())
+    })
   })
   elements.moduleToggles.forEach((toggle) => {
     toggle.addEventListener("change", () => {
@@ -283,8 +312,95 @@ async function loadConfig() {
     state.config = await response.json()
     const maxBytes = state.config?.uploads?.maxBytes || 2_000_000
     elements.helpUploadStatus.textContent = `Até ${formatBytes(maxBytes)}`
+    applyUploadAccept()
+    refreshCapabilityUI()
   } catch {
     state.config = null
+    applyUploadAccept()
+    refreshCapabilityUI()
+  }
+}
+
+function getConfiguredUploadAccept() {
+  const accept = state.config?.uploads?.accept
+  if (Array.isArray(accept) && accept.length > 0) {
+    return accept.join(",")
+  }
+  if (typeof accept === "string" && accept.trim()) {
+    return accept
+  }
+  return "image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css,.csv,.sql"
+}
+
+function applyUploadAccept() {
+  if (elements.fileInput) {
+    elements.fileInput.accept = getConfiguredUploadAccept()
+  }
+}
+
+function describeResearchStatus() {
+  const liveSources = state.config?.research?.liveSources || []
+  if (liveSources.length > 0) {
+    return `Web ao vivo: ${liveSources.join(", ")}`
+  }
+  return "Memoria + RAG"
+}
+
+function describeUploadStatus() {
+  const supportedKinds = state.config?.uploads?.supportedKinds || []
+  if (supportedKinds.length > 0) {
+    return supportedKinds
+      .map((kind) => {
+        if (kind === "image_ocr") return "image/OCR"
+        return kind
+      })
+      .join(" | ")
+  }
+  return "text | code | pdf | image"
+}
+
+function refreshCapabilityUI() {
+  const profileName = elements.assistantProfileSelect?.selectedOptions?.[0]?.textContent || "Professor Genial"
+  const modules = getSelectedModulesFromUI()
+  const liveResearch = state.config?.research?.mode === "live"
+  const pdfReady = Boolean(state.config?.features?.pdfParsing || state.config?.uploads?.supports?.pdf)
+  const imageReady = Boolean(state.config?.features?.imageGeneration || state.config?.ai?.imageGeneration?.enabled)
+  const uploadLabel = state.config?.uploads?.maxBytes
+    ? `${describeUploadStatus()} • ${formatBytes(state.config.uploads.maxBytes)}`
+    : describeUploadStatus()
+
+  if (elements.chatProfileBadge) {
+    elements.chatProfileBadge.textContent = `Perfil: ${profileName}`
+  }
+  if (elements.chatModulesBadge) {
+    elements.chatModulesBadge.textContent = `Modulos: ${modules.join(", ") || "developer"}`
+  }
+  if (elements.chatResearchBadge) {
+    elements.chatResearchBadge.textContent = liveResearch
+      ? `Pesquisa: ${describeResearchStatus()}`
+      : "Pesquisa: memoria + RAG"
+  }
+  if (elements.chatUploadsBadge) {
+    elements.chatUploadsBadge.textContent = `Uploads: ${uploadLabel}`
+  }
+
+  if (elements.helpResearchStatus) {
+    elements.helpResearchStatus.textContent = liveResearch ? describeResearchStatus() : "Interna / curada"
+  }
+  if (elements.helpPdfStatus) {
+    elements.helpPdfStatus.textContent = pdfReady ? "Ativo" : "Inativo"
+  }
+  if (elements.helpImageGenStatus) {
+    elements.helpImageGenStatus.textContent = imageReady ? "Ativa" : "Aguardando provider"
+  }
+  if (elements.sidebarResearchStatus) {
+    elements.sidebarResearchStatus.textContent = liveResearch ? "Ao vivo" : "Interna"
+  }
+  if (elements.sidebarUploadStatus) {
+    elements.sidebarUploadStatus.textContent = pdfReady ? "PDF + imagem" : "Texto"
+  }
+  if (elements.sidebarImageStatus) {
+    elements.sidebarImageStatus.textContent = imageReady ? "Ativo" : "Desativado"
   }
 }
 
@@ -395,6 +511,7 @@ function updateHelpStatus() {
     : "Modo local"
   elements.helpUploadStatus.textContent =
     state.config?.uploads?.maxBytes ? `Até ${formatBytes(state.config.uploads.maxBytes)}` : "Disponível"
+  refreshCapabilityUI()
 }
 
 function updateAuthUI() {
@@ -426,6 +543,7 @@ function updateAuthUI() {
   elements.githubLoginBtn.style.opacity = state.supabase ? "1" : "0.65"
   renderPlanView()
   updateHelpStatus()
+  refreshCapabilityUI()
 }
 
 function renderPlanView() {
@@ -446,9 +564,23 @@ function applyPreferencesToUI() {
   elements.ageGroupSelect.value = state.preferences.ageGroup
   elements.themeSelect.value = state.preferences.theme
   elements.assistantProfileSelect.value = state.preferences.assistantProfile || DEFAULT_PREFERENCES.assistantProfile
+  applyPromptPackPreferences(state.preferences.promptPacks || DEFAULT_PREFERENCES.promptPacks)
   applyModulePreferences(state.preferences.activeModules || DEFAULT_PREFERENCES.activeModules)
   applyBibleStudyPreferences(state.preferences.bibleStudyModules || DEFAULT_PREFERENCES.bibleStudyModules)
   setTheme(state.preferences.theme)
+  refreshCapabilityUI()
+}
+
+function applyPromptPackPreferences(activePromptPacks = []) {
+  const selected = new Set(Array.isArray(activePromptPacks) && activePromptPacks.length
+    ? activePromptPacks
+    : DEFAULT_PREFERENCES.promptPacks)
+
+  elements.promptPackToggles.forEach((toggle) => {
+    toggle.checked = selected.has(toggle.dataset.promptPackToggle)
+  })
+
+  updatePromptPackHint(Array.from(selected))
 }
 
 function applyModulePreferences(activeModules = []) {
@@ -465,6 +597,15 @@ function applyBibleStudyPreferences(activeModules = []) {
   elements.bibleStudyToggles.forEach((toggle) => {
     toggle.checked = selected.has(toggle.dataset.bibleStudyToggle)
   })
+}
+
+function getSelectedPromptPacksFromUI() {
+  const promptPacks = elements.promptPackToggles
+    .filter((toggle) => toggle.checked)
+    .map((toggle) => toggle.dataset.promptPackToggle)
+
+  if (promptPacks.length > 0) return promptPacks
+  return [...DEFAULT_PREFERENCES.promptPacks]
 }
 
 function getSelectedModulesFromUI() {
@@ -499,6 +640,13 @@ function updateProfileHint(activeModules = []) {
     ? ` Foco bíblico: ${bibleModules.join(", ")}.`
     : ""
   elements.profileSettingsHint.textContent = `Perfil ativo: ${profileName}. Módulos: ${activeModules.join(", ") || "developer"}.${bibleHint}`
+  refreshCapabilityUI()
+}
+
+function updatePromptPackHint(activePromptPacks = []) {
+  if (!elements.promptPackHint) return
+  elements.promptPackHint.textContent = `Prompt packs ativos: ${activePromptPacks.join(", ")}. Eles refinam raciocinio, engenharia e pesquisa sem depender de prompts proprietarios de terceiros.`
+  refreshCapabilityUI()
 }
 
 async function savePreferences() {
@@ -510,13 +658,16 @@ async function savePreferences() {
     ageGroup: elements.ageGroupSelect.value,
     theme: elements.themeSelect.value,
     assistantProfile: elements.assistantProfileSelect.value,
+    promptPacks: getSelectedPromptPacksFromUI(),
     activeModules: getSelectedModulesFromUI(),
     bibleStudyModules: getSelectedBibleStudyModulesFromUI()
   }
 
   writeJson(getPreferencesKey(), state.preferences)
   setTheme(state.preferences.theme)
+  updatePromptPackHint(state.preferences.promptPacks)
   updateProfileHint(state.preferences.activeModules)
+  refreshCapabilityUI()
   setSettingsStatus("Preferências salvas localmente.")
 
   if (state.supabase && state.user) {
@@ -544,9 +695,12 @@ function setTheme(theme) {
   if (elements.themeSelect.value !== theme) {
     elements.themeSelect.value = theme
   }
-  elements.themeDarkBtn.classList.toggle("active", theme === "dark")
+  elements.themeDraculaBtn.classList.toggle("active", theme === "dracula")
+  elements.themeGithubBtn.classList.toggle("active", theme === "github_dark")
+  elements.themeDiscordBtn.classList.toggle("active", theme === "discord")
   elements.themeLightBtn.classList.toggle("active", theme === "light")
   writeJson(getPreferencesKey(), state.preferences)
+  refreshCapabilityUI()
 }
 
 async function initAuth() {
@@ -884,19 +1038,31 @@ function loadChatHistory() {
 }
 
 function saveChatHistory() {
-  writeJson(getHistoryKey(), state.chatHistory)
+  writeJson(
+    getHistoryKey(),
+    state.chatHistory.map((message) => ({
+      ...message,
+      imageDataUrl: message.imageDataUrl && message.imageDataUrl.length < 120_000
+        ? message.imageDataUrl
+        : null
+    }))
+  )
 }
 
 function resetChat() {
   state.chatHistory = []
   saveChatHistory()
-  elements.chat.innerHTML = ""
+  getChatContentNode().innerHTML = ""
   clearPendingFile()
   elements.textarea.value = ""
   autoResizeTextarea()
   syncChatMode()
   setView("chat")
   setComposerStatus("Novo chat pronto.")
+}
+
+function getChatContentNode() {
+  return elements.chatInner || elements.chat
 }
 
 function addMessageToHistory(role, content, meta = {}) {
@@ -906,16 +1072,18 @@ function addMessageToHistory(role, content, meta = {}) {
     content,
     createdAt: new Date().toISOString(),
     isError: Boolean(meta.isError),
-    requestId: meta.requestId || null
+    requestId: meta.requestId || null,
+    imageDataUrl: meta.imageDataUrl || null,
+    mimeType: meta.mimeType || null
   })
   saveChatHistory()
 }
 
 function renderChatHistory() {
-  elements.chat.innerHTML = ""
+  getChatContentNode().innerHTML = ""
 
   state.chatHistory.forEach((message) => {
-    elements.chat.appendChild(buildMessageNode(message))
+    getChatContentNode().appendChild(buildMessageNode(message))
   })
 
   syncChatMode()
@@ -937,6 +1105,18 @@ function buildMessageNode(message) {
   meta.className = "message-meta"
   meta.textContent = `${message.role === "user" ? "Você" : "GIOM"} • ${formatTime(message.createdAt)}`
 
+  let media = null
+  if (message.imageDataUrl) {
+    media = document.createElement("div")
+    media.className = "message-media"
+
+    const image = document.createElement("img")
+    image.src = message.imageDataUrl
+    image.alt = message.content || "Imagem gerada pelo GIOM"
+
+    media.appendChild(image)
+  }
+
   const text = document.createElement("div")
   text.className = "message-text"
   text.innerHTML = formatMessage(message.content)
@@ -946,6 +1126,9 @@ function buildMessageNode(message) {
   }
 
   body.appendChild(meta)
+  if (media) {
+    body.appendChild(media)
+  }
   body.appendChild(text)
   node.appendChild(avatar)
   node.appendChild(body)
@@ -979,16 +1162,30 @@ function appendThinkingMessage() {
 
   node.appendChild(avatar)
   node.appendChild(body)
-  elements.chat.appendChild(node)
+  getChatContentNode().appendChild(node)
   scrollChatToBottom()
   return node
 }
 
-function replaceThinkingMessage(node, content, isError = false) {
+function replaceThinkingMessage(node, content, isError = false, metaExtras = {}) {
   const meta = node.querySelector(".message-meta")
   const text = node.querySelector(".message-text")
   if (meta) {
     meta.textContent = `GIOM • ${formatTime(new Date().toISOString())}`
+  }
+  if (metaExtras.imageDataUrl) {
+    const existingMedia = node.querySelector(".message-media")
+    if (!existingMedia) {
+      const media = document.createElement("div")
+      media.className = "message-media"
+
+      const image = document.createElement("img")
+      image.src = metaExtras.imageDataUrl
+      image.alt = content || "Imagem gerada pelo GIOM"
+
+      media.appendChild(image)
+      node.querySelector(".message-body")?.insertBefore(media, text)
+    }
   }
   if (text) {
     text.innerHTML = formatMessage(content)
@@ -1023,6 +1220,10 @@ function scrollChatToBottom() {
   })
 }
 
+function removeThinkingMessage(node) {
+  node?.remove()
+}
+
 function autoResizeTextarea() {
   if (!elements.textarea) return
   elements.textarea.style.height = "auto"
@@ -1043,24 +1244,35 @@ async function sendMessage() {
   if (!rawText && !file) return
   if (state.isSending) return
 
+  const imageMode = isImageCommand(rawText)
   const userDisplayText = buildUserDisplayText(rawText, file)
 
   setView("chat")
   addMessageToHistory("user", userDisplayText)
-  elements.chat.appendChild(buildMessageNode(state.chatHistory[state.chatHistory.length - 1]))
+  getChatContentNode().appendChild(buildMessageNode(state.chatHistory[state.chatHistory.length - 1]))
   scrollChatToBottom()
 
-  const question = rawText || `Analise o arquivo "${file.name}" e resuma o que é importante.`
+  const question = imageMode
+    ? extractImagePrompt(rawText)
+    : (rawText || `Analise o arquivo "${file.name}" e resuma o que é importante.`)
 
   elements.textarea.value = ""
   autoResizeTextarea()
   syncChatMode()
   disableComposer(true)
-  setComposerStatus(file ? "Enviando anexo e consultando a IA..." : "Consultando a IA...")
+  setComposerStatus(
+    imageMode
+      ? "Gerando imagem..."
+      : (file ? "Enviando anexo e consultando a IA..." : "Consultando a IA...")
+  )
 
   const thinking = appendThinkingMessage()
 
   try {
+    if (imageMode && file) {
+      throw new Error("A geração de imagem ainda não usa anexo junto. Envie só o prompt com /image.")
+    }
+
     const upload = file ? await uploadPendingFile(file) : null
     const requestContext = {
       ageGroup: state.preferences.ageGroup,
@@ -1071,11 +1283,28 @@ async function sendMessage() {
       noEmojis: state.preferences.noEmojis,
       safetyLevel: state.preferences.safetyLevel,
       assistantProfile: state.preferences.assistantProfile,
+      promptPacks: state.preferences.promptPacks,
       activeModules: state.preferences.activeModules,
       bibleStudyModules: state.preferences.bibleStudyModules,
       uploadId: upload?.id || null,
       uploadName: upload?.name || null,
       uploadType: upload?.type || null
+    }
+
+    if (imageMode) {
+      const generated = await requestImageGeneration(question, requestContext)
+      const caption = `Imagem gerada para: ${question}`
+      replaceThinkingMessage(thinking, caption, false, {
+        imageDataUrl: generated.imageDataUrl
+      })
+      addMessageToHistory("assistant", caption, {
+        requestId: generated.payload?.requestId || null,
+        imageDataUrl: generated.imageDataUrl,
+        mimeType: generated.mimeType
+      })
+      await persistConversationRemote(userDisplayText, caption, generated.payload, null)
+      setComposerStatus("Imagem gerada.")
+      return
     }
 
     const { answer, payload } = await requestAssistantResponse(question, requestContext, (partialText) => {
@@ -1106,6 +1335,51 @@ async function sendMessage() {
     if (state.currentView === "memory") {
       renderMemoryView()
     }
+  }
+}
+
+function isImageCommand(text = "") {
+  return /^\/(?:image|img)\s+/i.test(String(text || "").trim())
+}
+
+function extractImagePrompt(text = "") {
+  return String(text || "").trim().replace(/^\/(?:image|img)\s+/i, "").trim()
+}
+
+async function requestImageGeneration(prompt, context = {}) {
+  const profileName = elements.assistantProfileSelect?.selectedOptions?.[0]?.textContent || "GIOM"
+  const style = [
+    `Visual language inspired by ${context.uiTheme || "dracula"} interface design`,
+    `Assistant profile: ${profileName}`,
+    `Focus areas: ${(context.activeModules || []).join(", ") || "general"}`
+  ].join(". ")
+
+  const response = await apiRequest("/generate/image", {
+    method: "POST",
+    headers: {
+      "X-User-Id": getScopeId()
+    },
+    body: JSON.stringify({
+      prompt,
+      style,
+      locale: context.locale || navigator.language
+    })
+  })
+
+  const payload = await safeJson(response)
+  if (!response.ok) {
+    throw new Error(payload?.error || "Falha ao gerar imagem.")
+  }
+
+  const image = payload?.image
+  if (!image?.base64) {
+    throw new Error("Resposta vazia da geração de imagem.")
+  }
+
+  return {
+    imageDataUrl: `data:${image.mimeType || "image/png"};base64,${image.base64}`,
+    mimeType: image.mimeType || "image/png",
+    payload
   }
 }
 
@@ -1289,9 +1563,44 @@ async function uploadPendingFile(file) {
   return payload
 }
 
+function getFileExtension(filename = "") {
+  const parts = String(filename || "").toLowerCase().split(".")
+  return parts.length > 1 ? `.${parts.pop()}` : ""
+}
+
+function isSupportedUploadFile(file) {
+  const acceptRules = getConfiguredUploadAccept()
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (acceptRules.length === 0) return true
+
+  const extension = getFileExtension(file.name)
+  return acceptRules.some((rule) => {
+    if (rule === "image/*") {
+      return String(file.type || "").startsWith("image/")
+    }
+    return extension === rule
+  })
+}
+
+function getUploadTypeLabel() {
+  const supportedKinds = state.config?.uploads?.supportedKinds || ["text", "code", "pdf", "image"]
+  return supportedKinds
+    .map((kind) => kind === "image_ocr" ? "image/OCR" : kind)
+    .join(", ")
+}
+
 function handleFileSelected(event) {
   const file = event.target.files?.[0]
   if (!file) return
+
+  if (!isSupportedUploadFile(file)) {
+    showToast(`Tipo de arquivo ainda não suportado. Tipos ativos: ${getUploadTypeLabel()}.`, "warning")
+    elements.fileInput.value = ""
+    return
+  }
 
   const maxBytes = state.config?.uploads?.maxBytes || 2_000_000
   if (file.size > maxBytes) {
@@ -1331,9 +1640,21 @@ function renderFilePreview() {
   }
 
   const file = state.pendingFile
+  const extension = getFileExtension(file.name)
+  const iconMap = {
+    ".pdf": "PDF",
+    ".md": "MD",
+    ".json": "{}",
+    ".js": "</>",
+    ".ts": "TS",
+    ".tsx": "TSX",
+    ".jsx": "JSX",
+    ".csv": "CSV",
+    ".sql": "SQL"
+  }
   const preview = state.pendingFileUrl
     ? `<img class="file-thumb" src="${state.pendingFileUrl}" alt="${escapeHtml(file.name)}">`
-    : `<div class="file-icon">📎</div>`
+    : `<div class="file-icon">${iconMap[extension] || "FILE"}</div>`
 
   elements.filePreview.classList.remove("hidden")
   elements.filePreview.innerHTML = `
@@ -1474,10 +1795,11 @@ async function renderMemoryView() {
 
   const patterns = [
     `Detalhamento: ${labelForVerbosity(state.preferences.verbosity)}`,
-    `Tema: ${state.preferences.theme === "dark" ? "Dark" : "Light"}`,
+    `Tema: ${labelForTheme(state.preferences.theme)}`,
     `Segurança: ${state.preferences.safetyLevel === "strict" ? "Restrita" : "Padrão"}`,
     `Faixa etária: ${state.preferences.ageGroup === "minor" ? "13-17" : "18+"}`,
     `Perfil da IA: ${state.preferences.assistantProfile || "adaptive_teacher"}`,
+    `Prompt packs: ${(state.preferences.promptPacks || DEFAULT_PREFERENCES.promptPacks).join(", ")}`,
     `Módulos: ${(state.preferences.activeModules || DEFAULT_PREFERENCES.activeModules).join(", ")}`,
     `Foco bíblico: ${(state.preferences.bibleStudyModules || []).join(", ") || "nenhum"}`,
     `Autenticação: ${state.supabase ? "Supabase / OAuth" : "Local"}`,
@@ -1539,6 +1861,7 @@ async function persistConversationRemote(userMessage, aiResponse, payload, uploa
         requestId: payload?.requestId || null,
         uploadName: upload?.name || null,
         assistantProfile: state.preferences.assistantProfile,
+        promptPacks: state.preferences.promptPacks,
         activeModules: state.preferences.activeModules,
         bibleStudyModules: state.preferences.bibleStudyModules
       }
@@ -1636,6 +1959,69 @@ function labelForVerbosity(value) {
   if (value === "short") return "Curto e objetivo"
   if (value === "detailed") return "Detalhado"
   return "Natural"
+}
+
+function labelForTheme(value) {
+  if (value === "dracula") return "Dracula"
+  if (value === "github_dark") return "GitHub Dark"
+  if (value === "discord") return "Discord Night"
+  if (value === "light") return "Light"
+  return value || "Dracula"
+}
+
+function exportChatAsPdf() {
+  if (!state.chatHistory.length) {
+    showToast("Converse com o GIOM antes de exportar.", "warning")
+    return
+  }
+
+  const exportWindow = window.open("", "_blank", "noopener,noreferrer")
+  if (!exportWindow) {
+    showToast("O navegador bloqueou a janela de exportacao.", "warning")
+    return
+  }
+
+  const cards = state.chatHistory
+    .map((message) => `
+      <article class="export-card ${message.role}">
+        <header>
+          <strong>${message.role === "user" ? "Voce" : "GIOM"}</strong>
+          <span>${escapeHtml(formatTime(message.createdAt))}</span>
+        </header>
+        ${message.imageDataUrl ? `<img src="${message.imageDataUrl}" alt="Imagem gerada">` : ""}
+        <div class="export-content">${formatMessage(message.content)}</div>
+      </article>
+    `)
+    .join("")
+
+  exportWindow.document.write(`
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <title>GIOM Export</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 32px; color: #111827; background: #ffffff; }
+          h1 { margin: 0 0 10px; }
+          p.meta { color: #4b5563; margin: 0 0 24px; }
+          .export-card { border: 1px solid #d1d5db; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+          .export-card.user { background: #eff6ff; }
+          .export-card header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; color: #4b5563; font-size: 13px; }
+          .export-card img { max-width: 100%; border-radius: 14px; margin-bottom: 12px; }
+          .export-content p { margin: 0 0 10px; }
+          .export-content pre { background: #111827; color: #f9fafb; padding: 14px; border-radius: 12px; overflow: auto; }
+          .export-content code { font-family: Consolas, monospace; }
+        </style>
+      </head>
+      <body>
+        <h1>GIOM Studio</h1>
+        <p class="meta">Exportado em ${escapeHtml(new Date().toLocaleString("pt-BR"))}</p>
+        ${cards}
+        <script>window.addEventListener("load", () => window.print())<\/script>
+      </body>
+    </html>
+  `)
+  exportWindow.document.close()
 }
 
 async function readFileAsBase64(file) {

@@ -6,6 +6,11 @@ import {
   AI_SAFETY_BOUNDARIES
 } from "../../shared-config/src/aiConstitution.js"
 import { getBibleStudyModules, inferBibleStudyModules } from "../../shared-config/src/bibleStudyModules.js"
+import {
+  DEFAULT_PROMPT_PACKS,
+  describePromptPacks,
+  getPromptPacks
+} from "../../shared-config/src/promptPacks.js"
 import { describeResearchCapabilities } from "../../shared-config/src/researchCapabilities.js"
 import { DEFAULT_ACTIVE_MODULES, getDomainModules, inferDomainModules } from "../../shared-config/src/domainModules.js"
 
@@ -154,8 +159,12 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
       )
     : []
   const bibleStudyModules = getBibleStudyModules(requestedBibleStudyModules)
+  const promptPacks = getPromptPacks(
+    context.promptPacks || storedPreferences.promptPacks || DEFAULT_PROMPT_PACKS
+  )
   const audience = resolveAudience(task, context, userStyle)
   const researchCapabilities = describeResearchCapabilities(context.researchCapabilities || {})
+  const promptPackSummary = describePromptPacks(promptPacks.map(promptPack => promptPack.id))
 
   const preferenceNotes = buildPreferenceNotes(
     {
@@ -191,6 +200,11 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
     : ""
 
   const domainExcellence = buildDomainExcellenceGuidance(activeModules)
+  const promptPackLines = promptPacks.length > 0
+    ? promptPacks
+        .map(promptPack => `- ${promptPack.label}: ${promptPack.instructions.join(" ")}`)
+        .join("\n")
+    : "- Use apenas a constituicao principal do GIOM."
 
   const systemPrompt = `Voce e GIOM, um assistente premium multiespecialista.
 
@@ -219,6 +233,11 @@ ESPECIALIZACOES ATIVAS:
 ${moduleLines}
 ${bibleModuleLines}
 
+PROMPT PACKS PROFISSIONAIS:
+- ${promptPackSummary.summary}
+${promptPackSummary.lines.map(item => `- ${item}`).join("\n")}
+${promptPackLines}
+
 PESQUISA E FERRAMENTAS:
 - ${researchCapabilities.summary}
 ${researchCapabilities.lines.map(item => `- ${item}`).join("\n")}
@@ -245,6 +264,7 @@ REGRAS DE SAIDA:
     profile,
     activeModules: activeModules.map(module => module.id),
     bibleStudyModules: bibleStudyModules.map(module => module.id),
+    promptPacks: promptPacks.map(promptPack => promptPack.id),
     audience,
     systemPrompt
   }
