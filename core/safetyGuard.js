@@ -163,8 +163,9 @@ function buildPtResponse(safety, context = {}) {
 
   if (safety.category === "self_harm") {
     return [
-      "Sou o GIOM, e nao posso ajudar com instrucoes de suicidio, automutilacao ou formas de morrer.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com instrucoes de suicidio, automutilacao ou formas de morrer.",
       askedFastMethod ? "Nao vou fornecer um metodo rapido, silencioso ou qualquer orientacao pratica para isso." : null,
+      "Meu papel aqui e apoiar passos seguros, cuidado imediato e busca de ajuda, nunca facilitar dano.",
       "Sinto muito que voce esteja passando por isso. Eu me importo com sua seguranca.",
       "Se voce estiver em perigo imediato, procure ajuda local agora.",
       "Se puder, fale com alguem de confianca ou com um profissional de saude.",
@@ -192,14 +193,16 @@ function buildPtResponse(safety, context = {}) {
 
   if (safety.category === "violence") {
     return [
-      "Sou o GIOM, e nao posso ajudar com violencia, morte ou agressao.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com violencia, morte ou agressao.",
+      "Meu papel aqui e ajudar com desescalada, protecao e saidas seguras, nao com dano.",
       "Se quiser, posso ajudar a desescalar a situacao, pensar em saidas seguras ou montar um plano de protecao."
     ].join("\n")
   }
 
   if (safety.category === "graphic_violence") {
     return [
-      "Sou o GIOM, e nao posso ajudar com mutilacao, tortura, gore ou violencia grafica.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com mutilacao, tortura, gore ou violencia grafica.",
+      "Meu papel aqui e protecao, moderacao e prevencao, nao detalhar crueldade.",
       "Posso ajudar com protecao, denuncia, moderacao, suporte a vitimas ou analise preventiva."
     ].join("\n")
   }
@@ -255,21 +258,24 @@ function buildPtResponse(safety, context = {}) {
 
   if (safety.category === "sexual_explicit") {
     return [
-      "Sou o GIOM, um assistente de IA com limites de seguranca, e nao posso ajudar com pornografia ou conteudo sexual explicito.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com pornografia ou conteudo sexual explicito.",
+      "Meu papel aqui e orientar com responsabilidade em saude, consentimento e seguranca.",
       "Posso ajudar com educacao sexual responsavel, consentimento, saude, relacionamentos ou seguranca online."
     ].join("\n")
   }
 
   if (safety.category === "sexual_minors") {
     return [
-      "Sou o GIOM, um assistente de IA com limites de seguranca, e nao posso ajudar com qualquer conteudo sexual envolvendo menores.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com qualquer conteudo sexual envolvendo menores.",
+      "Meu papel aqui e proteger criancas e adolescentes e orientar para canais oficiais de protecao.",
       "Se houver risco real para uma crianca ou adolescente, procure imediatamente um responsavel, autoridade local ou canal oficial de protecao."
     ].join("\n")
   }
 
   if (safety.category === "crime") {
     return [
-      "Sou o GIOM, um assistente de IA voltado a uso seguro, e nao posso ajudar com crimes, fraude, furto, falsificacao ou orientacoes para prejudicar terceiros.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com crimes, fraude, furto, falsificacao ou orientacoes para prejudicar terceiros.",
+      "Meu papel aqui e apoiar prevencao, recuperacao, conformidade e caminhos legais.",
       "Posso ajudar com prevencao, seguranca, recuperacao, conformidade, etica e caminhos legais."
     ].join("\n")
   }
@@ -278,26 +284,29 @@ function buildPtResponse(safety, context = {}) {
     const mentionsCredentials = /credenciais|senha|token|cookie|sess[aã]o/i.test(promptText)
     const askedEvasion = /esconder meus rastros|ocultar rastros|nao ser pego|não ser pego|evas[aã]o|evadir/i.test(promptText)
     return [
-      "Sou o GIOM, um assistente de IA para uso defensivo, e nao posso ajudar com invasao, phishing, malware, roubo de credenciais ou abuso cibernetico.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao para uso defensivo, e nao posso ajudar com invasao, phishing, malware, roubo de credenciais ou abuso cibernetico.",
       mentionsCredentials ? "Nao vou ajudar a roubar credenciais, senha, token ou sessao de usuarios." : null,
       askedEvasion ? "Tambem nao vou ajudar a esconder rastros, ocultar atividade ou evitar deteccao." : null,
+      "Meu papel aqui e fortalecer defesa, hardening, auditoria e resposta a incidentes, nunca facilitar abuso.",
       "Posso ajudar com defesa, hardening, auditoria, resposta a incidentes, deteccao e laboratorios seguros."
     ].filter(Boolean).join("\n")
   }
 
   if (safety.category === "terrorism") {
     return [
-      "Sou o GIOM, um assistente de IA com limites de seguranca, e nao posso ajudar com terrorismo, atentados, explosivos ou ataques.",
+      "Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar com terrorismo, atentados, explosivos ou ataques.",
       mentionsExplosives ? "Nao vou ajudar a planejar explosivos, atentado ou execucao de ataque." : null,
       askedEvasion ? "Tambem nao vou ajudar com evasao, ocultacao ou formas de nao ser pego." : null,
+      "Meu papel aqui e prevencao, protecao civil, resposta a incidentes e orientacao para canais oficiais.",
       "Posso ajudar com prevencao, protecao, resposta a incidentes, comunicacao de risco e canais oficiais de denuncia."
     ].filter(Boolean).join("\n")
   }
 
   if (safety.category === "youth_harm_influence") {
     return [
-      `Sou o GIOM, e nao posso ajudar a criar, promover ou espalhar desafios, jogos ou experiencias que incentivem suicidio, automutilacao, terror ou violencia${mentionsRoblox ? " no Roblox" : " em plataformas e comunidades online"}.`,
+      `Sou o GIOM, um assistente de IA operando com limites de seguranca nesta execucao, e nao posso ajudar a criar, promover ou espalhar desafios, jogos ou experiencias que incentivem suicidio, automutilacao, terror ou violencia${mentionsRoblox ? " no Roblox" : " em plataformas e comunidades online"}.`,
       mentionsChallenge ? "Nao vou ajudar com roteiro, script, recompensa, desafio secreto ou mecanica de engajamento para isso." : null,
+      "Meu papel aqui e proteger criancas e adolescentes com moderacao, design seguro e resposta preventiva.",
       "Posso ajudar com moderacao, protecao infantil, design seguro, filtros, fluxo de denuncia e orientacoes para pais, escolas e comunidades."
     ].filter(Boolean).join("\n")
   }
@@ -326,8 +335,9 @@ function buildEnResponse(safety, context = {}) {
 
   if (safety.category === "self_harm") {
     return [
-      "I am GIOM, and I cannot help with suicide methods, self-harm instructions, or ways to die.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with suicide methods, self-harm instructions, or ways to die.",
       askedFastMethod ? "I will not provide a fast, silent, or practical method for that." : null,
+      "My role here is to support safe next steps, immediate care, and help-seeking, never harm.",
       "I am really sorry you are feeling this way. Your safety matters.",
       "If you are in immediate danger, please seek local emergency help.",
       "If you can, reach out to someone you trust or a health professional.",
@@ -355,14 +365,16 @@ function buildEnResponse(safety, context = {}) {
 
   if (safety.category === "violence") {
     return [
-      "I am GIOM, and I cannot help with violence, killing, or assault.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with violence, killing, or assault.",
+      "My role here is de-escalation, protection, and safe planning, not harm.",
       "If you want, I can help you think through safe de-escalation and protection steps."
     ].join("\n")
   }
 
   if (safety.category === "graphic_violence") {
     return [
-      "I am GIOM, and I cannot help with mutilation, torture, gore, or graphic violence.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with mutilation, torture, gore, or graphic violence.",
+      "My role here is protection, moderation, and prevention, not cruelty details.",
       "I can help with protection, reporting, moderation, victim support, or prevention."
     ].join("\n")
   }
@@ -418,21 +430,24 @@ function buildEnResponse(safety, context = {}) {
 
   if (safety.category === "sexual_explicit") {
     return [
-      "I am GIOM, an AI assistant with safety limits, and I cannot help with pornographic or explicit sexual content.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with pornographic or explicit sexual content.",
+      "My role here is responsible guidance on health, consent, and safety.",
       "I can help with sexual health, consent, relationships, or online safety instead."
     ].join("\n")
   }
 
   if (safety.category === "sexual_minors") {
     return [
-      "I am GIOM, an AI assistant with safety limits, and I cannot help with any sexual content involving minors.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with any sexual content involving minors.",
+      "My role here is to protect children and teenagers and direct people to official protection channels.",
       "If a child or teenager may be at risk, please contact a trusted adult, local authority, or protection service immediately."
     ].join("\n")
   }
 
   if (safety.category === "crime") {
     return [
-      "I am GIOM, an AI assistant focused on safe use, and I cannot help with crimes, fraud, theft, forgery, or instructions to harm others.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with crimes, fraud, theft, forgery, or instructions to harm others.",
+      "My role here is prevention, recovery, compliance, and lawful guidance.",
       "I can help with prevention, recovery, compliance, ethics, and lawful alternatives."
     ].join("\n")
   }
@@ -441,26 +456,29 @@ function buildEnResponse(safety, context = {}) {
     const mentionsCredentials = /credentials|password|token|cookie|session/i.test(promptText)
     const askedEvasion = /hide my tracks|avoid detection|not get caught|evad|conceal/i.test(promptText)
     return [
-      "I am GIOM, an AI assistant for defensive use, and I cannot help with hacking, phishing, malware, credential theft, or cyber abuse.",
+      "I am GIOM, an AI assistant operating with safety limits in this run for defensive use, and I cannot help with hacking, phishing, malware, credential theft, or cyber abuse.",
       mentionsCredentials ? "I will not help steal credentials, passwords, tokens, or user sessions." : null,
       askedEvasion ? "I also will not help hide tracks, conceal activity, or avoid detection." : null,
+      "My role here is to strengthen defense, hardening, auditing, and incident response, never abuse.",
       "I can help with defensive security, hardening, detection, incident response, and safe lab setups."
     ].filter(Boolean).join("\n")
   }
 
   if (safety.category === "terrorism") {
     return [
-      "I am GIOM, an AI assistant with safety limits, and I cannot help with terrorism, attacks, explosives, or mass violence.",
+      "I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help with terrorism, attacks, explosives, or mass violence.",
       mentionsExplosives ? "I will not help plan explosives, an attack, or execution details." : null,
       askedEvasion ? "I also will not help with evasion, concealment, or avoiding capture." : null,
+      "My role here is prevention, public protection, incident response, and official reporting guidance.",
       "I can help with prevention, protection, incident response, risk communication, and official reporting options."
     ].filter(Boolean).join("\n")
   }
 
   if (safety.category === "youth_harm_influence") {
     return [
-      `I am GIOM, and I cannot help create, promote, or spread games, challenges, or experiences that encourage suicide, self-harm, terror, or violence${mentionsRoblox ? " on Roblox" : " on youth platforms or online communities"}.`,
+      `I am GIOM, an AI assistant operating with safety limits in this run, and I cannot help create, promote, or spread games, challenges, or experiences that encourage suicide, self-harm, terror, or violence${mentionsRoblox ? " on Roblox" : " on youth platforms or online communities"}.`,
       mentionsChallenge ? "I will not help with a script, reward loop, secret challenge, or engagement mechanic for that." : null,
+      "My role here is to protect children and teenagers through moderation, safe design, and preventive response.",
       "I can help with moderation, child safety, safe design, reporting flows, and guidance for parents, schools, or communities."
     ].filter(Boolean).join("\n")
   }
