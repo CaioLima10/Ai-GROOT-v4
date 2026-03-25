@@ -15,6 +15,7 @@ import {
   AI_KNOWLEDGE_SERVICE_SLUG,
   AI_MODEL_OWNER,
   AI_SERVICE_SLUG,
+  getResearchCapabilities,
   listAssistantProfiles,
   listBibleStudyModules,
   listCompatModels,
@@ -331,6 +332,7 @@ async function buildPreparedAskPayload(req, requestId) {
     userAgent: req.get("User-Agent"),
     ip: req.ip,
     userId,
+    researchCapabilities: getResearchCapabilities(context?.researchCapabilities || {}),
     timestamp: new Date().toISOString(),
     requestId
   }
@@ -378,6 +380,13 @@ app.get("/config", async (req, res) => {
       domainModules: listDomainModules(),
       bibleStudyModules: listBibleStudyModules(),
       compatModels: listCompatModels()
+    },
+    research: getResearchCapabilities(),
+    safety: {
+      explicitSexualContentBlocked: true,
+      crimesBlocked: true,
+      cyberAbuseBlocked: true,
+      selfHarmSupport: true
     },
     knowledge: {
       statusEndpoint: "/knowledge/status",

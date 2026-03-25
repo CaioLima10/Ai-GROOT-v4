@@ -447,7 +447,11 @@ export class ReasoningAgent {
         userStyle: userStyle,
         confidence: 0.9,
         provider: 'multi_ai_fallback',
-        category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned'
+        category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned',
+        qualityScore: quality.score,
+        assistantProfile: promptPackage.profileId,
+        activeModules: promptPackage.activeModules,
+        bibleStudyModules: promptPackage.bibleStudyModules
       })
 
       // 📊 REGISTRAR ANALYTICS

@@ -1,4 +1,4 @@
-# GROOT AI - Environment Variables Template
+# GIOM AI - Environment Variables Template
 # Copy this file to .env and fill with your actual values
 
 # LLM API Keys
@@ -24,7 +24,7 @@ OLLAMA_EMBEDDING_DIMENSIONS=768
 
 # Embeddings
 EMBEDDINGS_PROVIDER=auto
-LOCAL_EMBEDDING_DIMENSIONS=384
+LOCAL_EMBEDDING_DIMENSIONS=768
 OPENAI_EMBEDDING_DIMENSIONS=1536
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 
@@ -56,6 +56,16 @@ PORT=3000
 
 # Brain mode
 GROOT_MODE=quantum
+
+# Research / web capabilities
+RESEARCH_WEB_ENABLED=false
+BROWSER_AUTOMATION_ENABLED=false
+RESEARCH_GOOGLE_ENABLED=false
+RESEARCH_BING_ENABLED=false
+RESEARCH_YAHOO_ENABLED=false
+RESEARCH_SCHOLAR_ENABLED=false
+RESEARCH_NEWS_ENABLED=false
+RESEARCH_CODE_ENABLED=false
 
 # Security
 ALLOWED_ORIGINS=http://localhost:3000

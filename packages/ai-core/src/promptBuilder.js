@@ -1,5 +1,12 @@
 import { DEFAULT_ASSISTANT_PROFILE, getAssistantProfile } from "../../shared-config/src/assistantProfiles.js"
+import {
+  AI_LEARNING_RULES,
+  AI_OPERATING_PRINCIPLES,
+  AI_RESEARCH_RULES,
+  AI_SAFETY_BOUNDARIES
+} from "../../shared-config/src/aiConstitution.js"
 import { getBibleStudyModules, inferBibleStudyModules } from "../../shared-config/src/bibleStudyModules.js"
+import { describeResearchCapabilities } from "../../shared-config/src/researchCapabilities.js"
 import { DEFAULT_ACTIVE_MODULES, getDomainModules, inferDomainModules } from "../../shared-config/src/domainModules.js"
 
 function resolveAudience(task = "", context = {}, userStyle = "natural") {
@@ -39,6 +46,10 @@ function buildPreferenceNotes(preferences = {}, userStyle = "natural") {
     notes.push("Seja mais cauteloso em temas sensiveis.")
   }
 
+  if (preferences.ageGroup === "minor") {
+    notes.push("Considere que o usuario pode ser menor de idade e mantenha o conteudo estritamente apropriado.")
+  }
+
   if (userStyle === "urgent") {
     notes.push("Va ao ponto rapidamente e priorize a solucao utilizavel.")
   }
@@ -71,6 +82,61 @@ function buildAudienceGuidance(audience = "adaptive") {
   ]
 }
 
+function buildDomainExcellenceGuidance(activeModules = []) {
+  if (!Array.isArray(activeModules) || activeModules.length === 0) {
+    return []
+  }
+
+  const ids = new Set(activeModules.map(module => module.id))
+  const notes = []
+
+  if (ids.has("developer")) {
+    notes.push("Em software, atue como combinacao de staff engineer, debugger, arquiteto e code reviewer.")
+  }
+
+  if (ids.has("research")) {
+    notes.push("Em pesquisa, diferencie pergunta, evidencia, fonte, confianca, lacuna e sintese.")
+  }
+
+  if (ids.has("cybersecurity")) {
+    notes.push("Em ciberseguranca, permaneça estritamente no lado defensivo, legal e etico.")
+  }
+
+  if (ids.has("bible") || ids.has("history_archaeology")) {
+    notes.push("Em biblia, historia e arqueologia, separe texto, contexto, evidencia, tradicao e interpretacao.")
+  }
+
+  if (ids.has("math_science")) {
+    notes.push("Em matematica e ciencias, use metodo, definicoes, verificacao e transparencia sobre premissas.")
+  }
+
+  return notes
+}
+
+function buildLearningSummary(memoryContext = {}) {
+  const userProfile = memoryContext?.userProfile || {}
+  const topics = Array.isArray(userProfile.topics) ? userProfile.topics : []
+  const preferences = []
+
+  if (userProfile.style) preferences.push(`estilo ${userProfile.style}`)
+  if (userProfile.verbosity) preferences.push(`verbosidade ${userProfile.verbosity}`)
+  if (userProfile.locale) preferences.push(`locale ${userProfile.locale}`)
+  if (userProfile.assistantProfile) preferences.push(`perfil ${userProfile.assistantProfile}`)
+
+  const lines = []
+  if (topics.length > 0) {
+    lines.push(`Topicos recorrentes aprendidos: ${topics.slice(0, 8).join(", ")}.`)
+  }
+  if (preferences.length > 0) {
+    lines.push(`Preferencias aprendidas: ${preferences.join(", ")}.`)
+  }
+  if (memoryContext?.learningSummary) {
+    lines.push(`Padroes recentes: ${memoryContext.learningSummary}.`)
+  }
+
+  return lines.length > 0 ? lines.join(" ") : "Sem padroes aprendidos relevantes alem do contexto recente."
+}
+
 export function buildAssistantPrompt({ task = "", context = {}, memoryContext = {}, ragContext = {}, userStyle = "natural" }) {
   const storedPreferences = memoryContext?.userProfile || {}
   const profileId = context.assistantProfile || storedPreferences.assistantProfile || DEFAULT_ASSISTANT_PROFILE
@@ -89,6 +155,7 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
     : []
   const bibleStudyModules = getBibleStudyModules(requestedBibleStudyModules)
   const audience = resolveAudience(task, context, userStyle)
+  const researchCapabilities = describeResearchCapabilities(context.researchCapabilities || {})
 
   const preferenceNotes = buildPreferenceNotes(
     {
@@ -101,6 +168,7 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
   const memorySummary = memoryContext?.contextSummary
     ? `Contexto recente do usuario: ${memoryContext.contextSummary}.`
     : "Ainda sem contexto acumulado relevante."
+  const learnedSummary = buildLearningSummary(memoryContext)
 
   const ragSummary = ragContext?.enriched && ragContext?.context
     ? `Conhecimento recuperado: ${String(ragContext.context).slice(0, 900)}`
@@ -122,6 +190,8 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
         .join("\n")}`
     : ""
 
+  const domainExcellence = buildDomainExcellenceGuidance(activeModules)
+
   const systemPrompt = `Voce e GIOM, um assistente premium multiespecialista.
 
 IDENTIDADE E TOM:
@@ -133,17 +203,29 @@ IDENTIDADE E TOM:
 - Deixe assuntos muito dificeis faceis de entender.
 - Se o usuario pedir profundidade, entregue nivel avancado de verdade.
 
+CONSTITUICAO PROFISSIONAL:
+${AI_OPERATING_PRINCIPLES.map(item => `- ${item}`).join("\n")}
+${AI_RESEARCH_RULES.map(item => `- ${item}`).join("\n")}
+${AI_LEARNING_RULES.map(item => `- ${item}`).join("\n")}
+${AI_SAFETY_BOUNDARIES.map(item => `- ${item}`).join("\n")}
+
 COMPORTAMENTO:
 ${profile.instructions.map(item => `- ${item}`).join("\n")}
 ${buildAudienceGuidance(audience).map(item => `- ${item}`).join("\n")}
+${domainExcellence.map(item => `- ${item}`).join("\n")}
 ${preferenceNotes.map(item => `- ${item}`).join("\n")}
 
 ESPECIALIZACOES ATIVAS:
 ${moduleLines}
 ${bibleModuleLines}
 
-MEMORIA E CONTEXTO:
+PESQUISA E FERRAMENTAS:
+- ${researchCapabilities.summary}
+${researchCapabilities.lines.map(item => `- ${item}`).join("\n")}
+
+MEMORIA, APRENDIZADO E CONTEXTO:
 - ${memorySummary}
+- ${learnedSummary}
 - ${ragSummary}
 ${extraInstructions}
 
@@ -151,6 +233,9 @@ REGRAS DE SAIDA:
 - Responda no idioma principal do usuario, preferindo portugues do Brasil quando a conversa estiver em portugues.
 - Seja objetivo antes de ser longo.
 - Se houver risco, incerteza ou divergencia de escola, diga isso com clareza.
+- Em fatos atuais, legislacao, noticias, precos ou informacoes mutaveis, nao finja atualizacao se a pesquisa ao vivo nao estiver disponivel.
+- Em ciberseguranca, mantenha o foco em defesa, auditoria, resposta e prevencao.
+- Em conteudo sexual, trate apenas de educacao, saude, consentimento e seguranca; recuse pornografia explicita.
 - Quando apropriado, entregue passos, exemplos, tabelas curtas ou codigo.
 - Nao invente fontes nem afirmacoes factuais especificas sem base.
 - Nao pareca robotico, pedante ou artificialmente empolgado.`

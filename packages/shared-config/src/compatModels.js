@@ -12,6 +12,18 @@ export const COMPAT_MODELS = [
     modules: ["developer"]
   },
   {
+    id: "groot-1-research",
+    label: "GIOM Research",
+    profile: "research_mentor",
+    modules: ["research", "developer"]
+  },
+  {
+    id: "groot-1-security",
+    label: "GIOM Security",
+    profile: "senior_engineer",
+    modules: ["developer", "cybersecurity"]
+  },
+  {
     id: "groot-1-bible",
     label: "GIOM Bible",
     profile: "research_mentor",
@@ -40,8 +52,20 @@ export const COMPAT_MODELS = [
   {
     id: "groot-1-math",
     label: "GIOM Math & Science",
-    profile: "adaptive_teacher",
+    profile: "expert_polymath",
     modules: ["math_science"]
+  },
+  {
+    id: "groot-1-history",
+    label: "GIOM History",
+    profile: "research_mentor",
+    modules: ["history_archaeology", "bible"]
+  },
+  {
+    id: "groot-1-polymath",
+    label: "GIOM Polymath",
+    profile: "expert_polymath",
+    modules: ["developer", "research", "math_science", "cybersecurity"]
   },
   {
     id: "groot-1-games",

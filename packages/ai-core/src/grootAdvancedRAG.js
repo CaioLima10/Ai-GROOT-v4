@@ -1,5 +1,6 @@
 import fs from "fs/promises"
 import path from "path"
+import { detectSafetyRisk } from "../../../core/safetyGuard.js"
 import { grootEmbeddings } from "./grootEmbeddings.js"
 import { grootMemoryConnector } from "./grootMemoryConnector.js"
 import { resolveCategoriesFromModules } from "../../shared-config/src/knowledgeCategories.js"
@@ -153,6 +154,30 @@ function buildKnowledgePayload(content, metadata = {}) {
       created_at: new Date().toISOString()
     }
   }
+}
+
+function shouldSkipLearning(userMessage = "", aiResponse = "", metadata = {}) {
+  const userSafety = detectSafetyRisk(userMessage)
+  const responseSafety = detectSafetyRisk(aiResponse)
+
+  if (userSafety.triggered || responseSafety.triggered) {
+    return true
+  }
+
+  if (typeof metadata.qualityScore === "number" && metadata.qualityScore < 0.55) {
+    return true
+  }
+
+  const text = String(aiResponse || "").toLowerCase()
+  if (
+    text.includes("modo de contingencia") ||
+    text.includes("tente novamente em alguns instantes") ||
+    text.includes("resposta vazia")
+  ) {
+    return true
+  }
+
+  return false
 }
 
 function matchesKnowledgeRecord(record, payload) {
@@ -752,6 +777,13 @@ export class GrootAdvancedRAG {
   }
 
   async learnFromInteractionAdvanced(userMessage, aiResponse, metadata = {}) {
+    if (shouldSkipLearning(userMessage, aiResponse, metadata)) {
+      return {
+        skipped: true,
+        reason: "unsafe_or_low_quality"
+      }
+    }
+
     const contentType = this.detectContentType(userMessage, aiResponse)
 
     switch (contentType) {

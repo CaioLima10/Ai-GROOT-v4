@@ -45,6 +45,51 @@ function matchesSelections(metadata = {}, activeModules = [], bibleStudyModules 
   return recordBibleModules.length === 0 || recordBibleModules.some(moduleId => bibleStudyModules.includes(moduleId))
 }
 
+function buildConversationMetadata(metadata = {}) {
+  return {
+    timestamp: new Date().toISOString(),
+    style: metadata.userStyle || metadata.style,
+    confidence: metadata.confidence,
+    provider: metadata.provider,
+    session_id: metadata.sessionId,
+    request_id: metadata.requestId,
+    assistantProfile: metadata.assistantProfile || null,
+    activeModules: Array.isArray(metadata.activeModules) ? metadata.activeModules : [],
+    bibleStudyModules: Array.isArray(metadata.bibleStudyModules) ? metadata.bibleStudyModules : [],
+    safety: metadata.safety || null,
+    streaming: Boolean(metadata.streaming),
+    qualityScore: metadata.qualityScore ?? null
+  }
+}
+
+function summarizeLearningPatterns(patterns = []) {
+  if (!Array.isArray(patterns) || patterns.length === 0) {
+    return ""
+  }
+
+  return patterns
+    .slice(0, 6)
+    .map(pattern => {
+      if (pattern.pattern_type === "style" && pattern.pattern_data?.style) {
+        return `estilo ${pattern.pattern_data.style}`
+      }
+
+      if (pattern.pattern_type === "preference") {
+        return Object.entries(pattern.pattern_data || {})
+          .map(([key, value]) => `${key}:${value}`)
+          .join(", ")
+      }
+
+      if (pattern.pattern_type === "topic" && Array.isArray(pattern.pattern_data?.topics)) {
+        return `topicos ${pattern.pattern_data.topics.join(", ")}`
+      }
+
+      return pattern.pattern_type
+    })
+    .filter(Boolean)
+    .join(" | ")
+}
+
 export class GrootMemoryConnector {
   constructor() {
     this.supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : null
@@ -103,14 +148,7 @@ export class GrootMemoryConnector {
           user_id: userId,
           user_message: userMessage,
           ai_response: aiResponse,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            style: metadata.userStyle,
-            confidence: metadata.confidence,
-            provider: metadata.provider,
-            session_id: metadata.sessionId,
-            request_id: metadata.requestId
-          }
+          metadata: buildConversationMetadata(metadata)
         })
         .select()
 
@@ -350,7 +388,7 @@ export class GrootMemoryConnector {
     existing.push({
       user_message: userMessage,
       ai_response: aiResponse,
-      metadata,
+      metadata: buildConversationMetadata(metadata),
       created_at: new Date().toISOString()
     })
 
@@ -459,14 +497,15 @@ export class GrootMemoryConnector {
 
   async getContextForPrompt(userId = "default_user", options = {}) {
     try {
-      const [history, profile, summary] = await Promise.all([
+      const [history, profile, summary, patterns] = await Promise.all([
         this.getRecentHistory(userId, {
           limit: options.limit || 5,
           activeModules: options.activeModules || [],
           bibleStudyModules: options.bibleStudyModules || []
         }),
         this.getUserProfile(userId),
-        this.getLatestSummary(userId)
+        this.getLatestSummary(userId),
+        this.getLearningPatterns(userId, 6)
       ])
 
       return {
@@ -477,6 +516,8 @@ export class GrootMemoryConnector {
         })),
         userProfile: profile.preferences,
         contextSummary: this.generateContextSummary(history, options),
+        learningSummary: summarizeLearningPatterns(patterns),
+        learningPatterns: patterns,
         summary: summary?.summary || ""
       }
     } catch (error) {

@@ -12,7 +12,10 @@ const STOPWORDS = new Set([
 const SENSITIVE_PATTERNS = [
   /\b(suic(i|í)dio|me matar|quero morrer|tirar minha vida)\b/i,
   /\b(depress(a|ã)o|ansiedade|p(â|a)n(i|í)co|autoles(ã|a)o|auto[-\s]?agress(ã|a)o)\b/i,
-  /\b(abuso|ass(é|e)dio|viol(ê|e)ncia dom(é|e)stica)\b/i
+  /\b(abuso|ass(é|e)dio|viol(ê|e)ncia dom(é|e)stica)\b/i,
+  /\b(porn(o|ografia)?|nsfw|sexo expl[ií]cito|conte[uú]do adulto expl[ií]cito)\b/i,
+  /\b(crian(ç|c)a|menor de idade|adolescente)\b[\s\S]{0,40}\b(sexo|sexual|porn|nude)\b/i,
+  /\b(roubar|furtar|fraudar|golpear|falsificar|hackear|invadir|phishing|malware|ransomware|roubar senha)\b/i
 ]
 
 export function isSensitive(text = '') {

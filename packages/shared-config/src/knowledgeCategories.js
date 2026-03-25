@@ -21,7 +21,38 @@ export const MODULE_CATEGORY_MAP = {
     "devops",
     "curated"
   ],
+  research: [
+    "research",
+    "research_methodology",
+    "source_criticism",
+    "documentation",
+    "literature_review",
+    "web_research",
+    "current_awareness"
+  ],
+  cybersecurity: [
+    "security",
+    "cybersecurity",
+    "secure_coding",
+    "incident_response",
+    "threat_modeling",
+    "identity_access",
+    "cloud_security",
+    "network_security",
+    "forensics",
+    "compliance"
+  ],
   bible: bibleCategories,
+  history_archaeology: [
+    "history",
+    "historiography",
+    "archaeology",
+    "ancient_history",
+    "classical_world",
+    "ancient_near_east",
+    "biblical_history",
+    "biblical_archaeology"
+  ],
   games_logic: [
     "games_logic",
     "chess",
@@ -33,6 +64,8 @@ export const MODULE_CATEGORY_MAP = {
     "math_science",
     "mathematics",
     "logic",
+    "statistics",
+    "scientific_method",
     "physics",
     "chemistry",
     "biology",

@@ -26,6 +26,7 @@
     "enterprise": "node apps/api/src/server.js",
     "electron": "electron apps/desktop",
     "smoke:enterprise": "node scripts/smoke-enterprise.mjs",
+    "smoke:safety": "node scripts/smoke-safety.mjs",
     "kill-port": "npx kill-port 3000",
     "test": "node --test",
     "lint": "echo 'ESLint não configurado'",

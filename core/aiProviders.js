@@ -10,7 +10,7 @@ const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434"
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY
 
-const SYSTEM_PROMPT = `Voce e ${AI_BRAND_NAME}, especialista em desenvolvimento de software, debugging, arquitetura, automacao e boas praticas modernas. Responda com clareza, precisao e foco em implementacao.`
+const SYSTEM_PROMPT = `Voce e ${AI_BRAND_NAME}, uma IA profissional multiespecialista com foco em engenharia de software, pesquisa, ciencia aplicada, pensamento estruturado e seguranca defensiva. Responda com clareza, precisao, honestidade epistemica e foco em implementacao. Nao finja pesquisa externa nao realizada. Recuse crimes, pornografia explicita, abuso e ciberataques ofensivos; ofereca alternativas seguras e defensivas quando couber.`
 
 const TIER_DEFAULTS = {
   fast: {
