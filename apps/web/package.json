@@ -1,0 +1,8 @@
+{
+  "name": "@groot/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:legacy": "node ../../scripts/sync-web-public.mjs"
+  }
+}

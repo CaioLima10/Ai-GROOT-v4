@@ -19,7 +19,16 @@ function parseFrontMatter(text) {
   for (const line of lines) {
     const [key, ...rest] = line.split(':')
     if (!key || rest.length === 0) continue
-    metadata[key.trim()] = rest.join(':').trim()
+    const normalizedKey = key.trim()
+    const value = rest.join(':').trim()
+    if (['categories', 'modules', 'bibleStudyModules', 'keywords', 'tags'].includes(normalizedKey)) {
+      metadata[normalizedKey] = value
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
+      continue
+    }
+    metadata[normalizedKey] = value
   }
   const body = text.slice(match[0].length)
   return { metadata, body }
@@ -51,7 +60,10 @@ async function listFiles(dir) {
 
   for (const entry of entries) {
     const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) continue
+    if (entry.isDirectory()) {
+      files.push(...await listFiles(full))
+      continue
+    }
     if (entry.name.toLowerCase().endsWith('.md')) files.push(full)
   }
 
@@ -59,7 +71,7 @@ async function listFiles(dir) {
 }
 
 async function ingest() {
-  const { grootAdvancedRAG } = await import('../core/grootAdvancedRAG.js')
+  const { grootAdvancedRAG } = await import('../packages/ai-core/src/index.js')
   const sources = await loadSources()
   if (sources.length === 0) {
     console.log('⚠️ Nenhuma fonte aprovada encontrada.')
@@ -84,18 +96,22 @@ async function ingest() {
     const content = body.trim()
     if (!content) continue
 
-    await grootAdvancedRAG.addKnowledge(content, {
+    await grootAdvancedRAG.upsertKnowledge(content, {
       source: metadata.source,
       category: metadata.category || 'curated',
+      categories: metadata.categories || [],
+      language: metadata.language || 'pt',
       title: metadata.title || path.basename(file, '.md'),
       license: metadata.license || 'unknown',
-      curated: true
+      curated: true,
+      modules: metadata.modules || [],
+      bibleStudyModules: metadata.bibleStudyModules || []
     })
 
     total++
   }
 
-  console.log(`✅ Ingestão curada finalizada. Itens: ${total}`)
+  console.log(`✅ Sincronização curada finalizada. Itens: ${total}`)
 }
 
 ingest().catch(error => {

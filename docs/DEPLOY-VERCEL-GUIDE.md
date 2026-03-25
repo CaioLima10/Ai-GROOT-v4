@@ -1,4 +1,15 @@
-# 🚀 GUIA DEPLOY GROOT - VERCEL (FRONTEND FOCADO)
+# 🚀 GUIA DEPLOY GIOM - VERCEL (WEB ESTÁTICA)
+
+## 📋 QUANDO USAR
+
+Use Vercel para publicar a interface web oficial do monorepo em `apps/web/public`.
+
+Para a API principal do GIOM, prefira:
+- **Render**
+- **Railway**
+- **Zeabur**
+
+O backend oficial continua em `apps/api/src/server.js`.
 
 ## 📋 PASSO A PASSO
 
@@ -6,51 +17,42 @@
 - **Acesse**: https://vercel.com
 - **Clique**: "Sign Up"
 - **Use**: GitHub login
-- **Plano**: Hobby (grátis)
+- **Plano**: Hobby
 
-### 2️⃣ IMPORTAR PROJETO
+### 2️⃣ IMPORTAR O PROJETO
 1. **Dashboard**: "Add New" → "Project"
-2. **Import**: `Ai-GROOT` repository
-3. **Framework**: "Other" (Node.js)
-4. **Root Directory**: `.`
+2. **Import**: seu repositório do monorepo
+3. **Framework**: "Other"
+4. **Root Directory**: `apps/web/public`
 
 ### 3️⃣ CONFIGURAÇÃO
-```json
-// vercel.json
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "server-definitivo.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/server-definitivo.js"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "PORT": "3000"
-  }
-}
+Para o uso estático, não existe mais dependência de `server-definitivo.js`.
+
+O ponto oficial da web é:
+
+```text
+apps/web/public
 ```
 
+Arquivos principais:
+- `index.html`
+- `admin.html`
+- `chat.js`
+- `style.css`
+
 ### 4️⃣ VARIÁVEIS DE AMBIENTE
-No painel Vercel → "Settings" → "Environment Variables":
+Se a interface precisar conversar com uma API remota, configure apenas a URL pública do backend que estiver hospedado no Render, Railway ou Zeabur.
+
+Exemplo:
+
 ```env
-GROQ_API_KEY=sua_groq_api_key_aqui
-SUPABASE_URL=https://nyvljbcrfletvxqwprgb.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_DK_FRXaqyui-v6zFgXaJoQ_11wQxJpp
-JWT_SECRET=groot-jwt-secret-key-2024
+API_BASE_URL=https://sua-api-publica.com
 ```
 
 ### 5️⃣ DEPLOY
-- **Build**: Automático
-- **Deploy**: Automático
-- **URL**: `https://groot-ai.vercel.app`
+- **Build**: imediato para conteúdo estático
+- **Deploy**: automático após push
+- **URL**: gerada pelo Vercel
 
 ---
 
@@ -63,74 +65,26 @@ https://vercel.com/signup
 https://vercel.com/dashboard
 
 ### 🚀 GUIA OFICIAL:
-https://vercel.com/docs/concepts/projects
-
----
-
-## 📋 VANTAGENS DO VERCEL
-
-### ✅ GRÁTIO:
-- **100GB bandwidth/mês**
-- **Serverless functions**
-- **Edge deployment**
-- **SSL** automático
-- **Custom domains**
-
-### ✅ PERFORMANCE:
-- **Global CDN**
-- **Edge locations**
-- **Instant deployments**
-- **Preview branches**
+https://vercel.com/docs
 
 ---
 
 ## 📋 LIMITAÇÕES
 
-### ⚠️ SERVERLESS:
-- **Não roda servidor 24/7**
-- **Timeout**: 10 segundos (free)
-- **Cold starts**: Primeira requisição lenta
-- **Estado**: Sem persistência local
+### ⚠️ IMPORTANTE
+- Vercel não é o caminho principal para rodar esta API Node/streaming como servidor persistente
+- Para streaming, memória remota e runtime contínuo, use o backend oficial em outra plataforma
+- O Vercel aqui entra como hospedagem da camada web
 
 ---
 
-## 🎯 QUANDO USAR VERCEL
+## 🎯 RECOMENDAÇÃO
 
-### ✅ IDEAL PARA:
-- **Frontend focado**
-- **API serverless**
-- **Baixo tráfego**
-- **Performance crítica**
+### 🥇 MELHOR COMBINAÇÃO
+- **Frontend**: Vercel com `apps/web/public`
+- **Backend**: Render ou Railway com `apps/api/src/server.js`
 
-### ❌ NÃO IDEAL PARA:
-- **Servidor 24/7**
-- **Long-running processes**
-- **Estado local**
-- **WebSocket connections**
-
----
-
-## 🎉 RESULTADO ESPERADO
-
-**GROOT no Vercel (serverless)!**
-
-🌐 `https://groot-ai.vercel.app`
-
-🚀 IA funcional com limitações serverless
-
----
-
-## 💡 RECOMENDAÇÃO
-
-### 🥇 **RENDER** (Melhor para GROOT)
-- Servidor 24/7
-- PostgreSQL integrado
-- Fácil configuração
-
-### 🥈 **RAILWAY** (Alternativa)
-- Interface profissional
-- Logs detalhados
-
-### 🥉 **VERCEL** (Frontend focado)
-- Performance máxima
-- Serverless limitations
+### ✅ FONTE OFICIAL DO MONOREPO
+- Web: `apps/web/public`
+- API: `apps/api/src/server.js`
+- Desktop: `apps/desktop/src/main.cjs`

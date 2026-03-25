@@ -1,4 +1,4 @@
-// GROOT QUANTUM - INTEGRAÇÃO FINAL
+// GIOM QUANTUM - INTEGRAÇÃO FINAL
 // Substituto completo do grootCore.js com inteligência quântica
 
 import { reasoningAgent } from './agents/reasoningAgent.js'
@@ -9,7 +9,7 @@ const grootBrain = reasoningAgent
 // Função principal - askGroot
 export async function askGroot(prompt, context = {}) {
   try {
-    console.log(`🧠 GROOT Quântico processando: ${prompt.substring(0, 100)}...`)
+    console.log(`🧠 GIOM Quântico processando: ${prompt.substring(0, 100)}...`)
 
     // Processar com inteligência quântica
     const result = await grootBrain.run(prompt, {}, context)
@@ -24,7 +24,7 @@ export async function askGroot(prompt, context = {}) {
         response: result.response, // RESPOSTA REAL DO LLM
         timestamp: new Date().toISOString(),
         version: '9.0.0',
-        interactionId: `groot_${Date.now()}`,
+        interactionId: `giom_${Date.now()}`,
         processing: {
           inputLength: prompt.length,
           processingTime: Date.now() - (context.startTime || Date.now()),
@@ -46,7 +46,7 @@ export async function askGroot(prompt, context = {}) {
     }
 
   } catch (error) {
-    console.error('❌ Erro no GROOT Quântico:', error)
+    console.error('❌ Erro no GIOM Quântico:', error)
 
     return {
       success: false,
@@ -136,7 +136,7 @@ export async function diagnoseGroot() {
   }
 }
 
-console.log('🚀 GROOT QUANTUM - Sistema de Inteligência Suprema carregado!')
+console.log('🚀 GIOM QUANTUM - Sistema de Inteligência Suprema carregado!')
 console.log(`🧠 Cérebro Quântico: ${grootBrain.name} v9.0.0`)
 console.log(`⚡ Capacidades: ${grootBrain.capabilities.join(', ')}`)
 console.log(`🤖 Multi-AI: Groq + Gemini + Fallback`)

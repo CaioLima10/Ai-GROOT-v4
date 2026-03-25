@@ -29,7 +29,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- 13. Inserir conhecimento base
 INSERT INTO knowledge_embeddings (content, source, category, language, metadata)
 VALUES 
-  ('Eu sou GROOT, uma inteligência artificial avançada criada em 17/03/2026 por Gabriel Lima de Souza. Minha missão é ajudar desenvolvedores com código, debugging e aprendizado.', 'system', 'identity', 'pt', '{"type": "core", "priority": "high"}'),
+  ('Eu sou GIOM, uma inteligência artificial avançada criada em 17/03/2026 por Gabriel Lima de Souza. Minha missão é ajudar desenvolvedores com código, debugging e aprendizado.', 'system', 'identity', 'pt', '{"type": "core", "priority": "high"}'),
   ('JavaScript é uma linguagem de programação usada para criar interatividade em páginas web. É executada no navegador e permite manipular DOM, fazer requisições HTTP e criar aplicações dinâmicas.', 'internal', 'programming', 'pt', '{"language": "javascript", "level": "basic"}'),
   ('Node.js é um runtime JavaScript que permite executar JavaScript no servidor. Criado com base no V8 Engine do Chrome, é usado para construir APIs e aplicações backend.', 'internal', 'programming', 'pt', '{"language": "javascript", "level": "intermediate"}')
 ON CONFLICT DO NOTHING;

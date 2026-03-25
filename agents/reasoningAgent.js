@@ -4,6 +4,7 @@ import { grootRAG } from '../core/grootRAG.js'
 import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
 import { grootAnalytics } from '../core/grootAnalytics.js'
 import { buildLearningSignals, mergePreferences } from '../core/learningEngine.js'
+import { buildAssistantPromptContext } from '../packages/ai-core/src/index.js'
 import { evaluateInteractionQuality } from '../core/qualityEngine.js'
 import { maybeSummarize } from '../core/summaryEngine.js'
 
@@ -274,6 +275,7 @@ export class ReasoningAgent {
 
   async generalReasoning(task, analysis, context = {}) {
     console.log(`🧠 ReasoningAgent: Processando tarefa geral...`)
+    const reasoningStartTime = Date.now()
 
     // 📋 PROCESSAR UPLOAD SE EXISTIR
     let uploadContext = ""
@@ -289,88 +291,43 @@ export class ReasoningAgent {
     }
 
     const userId = context.userId || 'default_user'
-    const memoryContext = await grootMemoryConnector.getContextForPrompt(userId)
-    console.log('📚 Contexto da memória:', memoryContext.contextSummary)
+    const userStyle = this.detectUserStyle(task, userId)
 
-    // 🎯 ENRIQUECER COM RAG AVANÇADO
-    const ragContext = await grootAdvancedRAG.enrichQueryAdvanced(task)
+    const toneInstructions = {
+      casual: "Mantenha conversa natural e acessivel.",
+      urgent: "Priorize a solucao utilizavel e corte o excesso.",
+      detailed: "Organize a resposta em blocos claros e aprofunde quando for util.",
+      beginner: "Explique em passos simples e sem jargao desnecessario.",
+      natural: "Equilibre clareza, fluidez e precisao."
+    }
+
+    const {
+      memoryContext,
+      ragContext,
+      promptPackage
+    } = await buildAssistantPromptContext(task, {
+      ...context,
+      userId,
+      depthPreference: userStyle === 'detailed'
+        ? 'advanced'
+        : (userStyle === 'beginner' ? 'beginner' : 'adaptive')
+    }, {
+      limit: 6,
+      userStyle
+    })
+
+    console.log('📚 Contexto da memória:', memoryContext.contextSummary)
     console.log('🎯 Contexto RAG Avançado:', ragContext.totalFound, 'itens encontrados')
 
     // 🚀 USAR LLM REAL DIRETO
     const { askMultiAI } = await import('../core/multiAI.js')
 
-    const userStyle = this.detectUserStyle(task, userId)
-
-    const safetyNote = context?.safety?.category === 'mental_health'
-      ? 'Se o usuário demonstrar tristeza, ansiedade ou sofrimento, responda com empatia, encoraje buscar ajuda profissional e ofereça apoio. Não dê conselhos médicos específicos.'
-      : ''
-
-    const ageGuidance = context?.ageGroup === 'minor'
-      ? 'O usuário é menor de idade. Evite conteúdo adulto, linguagem imprópria e instruções perigosas. Foque em respostas educativas e seguras.'
-      : ''
-
-    const profilePreferences = memoryContext.userProfile || {}
-    const preferenceNotes = []
-
-    if (profilePreferences.verbosity === 'short') {
-      preferenceNotes.push('Responda de forma curta e objetiva.')
-    }
-
-    if (profilePreferences.verbosity === 'detailed') {
-      preferenceNotes.push('Responda com mais detalhes e explicações.')
-    }
-
-    if (profilePreferences.examples) {
-      preferenceNotes.push('Inclua exemplos práticos e código quando fizer sentido.')
-    }
-
-    if (profilePreferences.noEmojis) {
-      preferenceNotes.push('Não use emojis.')
-    }
-
-    if (profilePreferences.safetyLevel === 'strict') {
-      preferenceNotes.push('Seja mais cauteloso em temas sensíveis.')
-    }
-
-    const preferenceGuidance = preferenceNotes.length > 0
-      ? `Preferências do usuário: ${preferenceNotes.join(' ')}`
-      : ''
-
-    // 🎭 INSTRUÇÕES DE TOM - DEV EXPERIMENTE
-    const toneInstructions = {
-      casual: "Responda como um dev experiente conversando com outro dev. Direto, sem enrolação.",
-      urgent: "Vá direto ao ponto. Zero explicação desnecessária. Código + resultado.",
-      detailed: "Explique o necessário. Exemplo prático primeiro, depois detalhes se precisar.",
-      beginner: "Simples e direto. Analogia rápida se ajudar, mas não perca tempo.",
-      natural: "Conversa normal de dev. Como se estivesse explicando no trabalho."
-    }
-
-    // 🚀 PROMPT OTIMIZADO - DEV EXPERIMENTE
-    const prompt = `Você é um desenvolvedor experiente. Responda como tal.
-
-${toneInstructions[userStyle]}
-
-${uploadContext}
-📝 CONTEXTO:
-${memoryContext.history.slice(-3).map(h => `User: ${h.user}\nYou: ${h.ai}`).join('\n')}
-
-${ragContext.enriched ? `🔍 Info relevante: ${ragContext.context.substring(0, 200)}...` : ''}
-
-REGRAS DE COMPORTAMENTO:
-- VÁ DIRETO AO PONTO
-- 1 definição curta → exemplo → explicação se necessário
-- Sem "É um prazer", "Estou ansioso", etc.
-- Linguagem natural, como conversa real
-- Priorize código prático
-- Evite repetição
-- Seja útil, não didático
-
-PERGUNTA: ${task}
-
-Responda como um dev experiente. Direto e útil.`
+    const prompt = `${uploadContext}${task}`.trim()
 
     try {
-      const llmResponse = await askMultiAI(prompt)
+      const llmResponse = await askMultiAI(prompt, {
+        systemPrompt: `${promptPackage.systemPrompt}\n- Ajuste fino desta conversa: ${toneInstructions[userStyle]}`
+      })
 
       // 🧠 FILTRO DE NATURALIDADE - REMOVER ROBÔTISMO
       const filteredResponse = llmResponse
@@ -400,9 +357,13 @@ Responda como um dev experiente. Direto e útil.`
           provider: 'multi_ai_fallback',
           userStyle: userStyle,
           toneInstruction: toneInstructions[userStyle],
-          personality: 'adaptive_human',
+          personality: promptPackage.profileId,
+          activeModules: promptPackage.activeModules,
+          bibleStudyModules: promptPackage.bibleStudyModules,
+          audience: promptPackage.audience,
           memoryContext: memoryContext.contextSummary,
-          qualityScore: quality.score
+          qualityScore: quality.score,
+          durationMs: Date.now() - reasoningStartTime
         }
       }
 
@@ -453,12 +414,15 @@ Responda como um dev experiente. Direto e útil.`
       }
 
       // 🧠 SALVAR INTERAÇÃO NA MEMÓRIA
-      await grootMemoryConnector.saveConversation(userId, task, llmResponse, {
+      await grootMemoryConnector.saveConversation(userId, task, filteredResponse, {
         userStyle: userStyle,
         confidence: 0.9,
         provider: 'multi_ai_fallback',
         sessionId: `session_${Date.now()}`,
-        requestId: context.requestId
+        requestId: context.requestId,
+        assistantProfile: promptPackage.profileId,
+        activeModules: promptPackage.activeModules,
+        bibleStudyModules: promptPackage.bibleStudyModules
       })
 
       if (context.requestId) {
@@ -479,22 +443,25 @@ Responda como um dev experiente. Direto e útil.`
       }
 
       // 🎯 APRENDER COM RAG AVANÇADO
-      await grootAdvancedRAG.learnFromInteractionAdvanced(task, llmResponse, {
+      await grootAdvancedRAG.learnFromInteractionAdvanced(task, filteredResponse, {
         userStyle: userStyle,
         confidence: 0.9,
-        provider: 'multi_ai_fallback'
+        provider: 'multi_ai_fallback',
+        category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned'
       })
 
       // 📊 REGISTRAR ANALYTICS
-      await grootAnalytics.trackUsage(userId, task, llmResponse, {
-        responseTime: Date.now() - Date.now(),
-        tokensUsed: llmResponse.length,
+      await grootAnalytics.trackUsage(userId, task, filteredResponse, {
+        responseTime: Date.now() - reasoningStartTime,
+        tokensUsed: filteredResponse.length,
         provider: 'multi_ai_fallback',
         userStyle: userStyle,
         confidence: 0.9,
         success: true,
         knowledgeFound: ragContext.knowledge.length,
-        bugsFound: ragContext.bugs.length
+        bugsFound: ragContext.bugs.length,
+        activeModules: promptPackage.activeModules,
+        bibleStudyModules: promptPackage.bibleStudyModules
       })
 
       this.saveReasoning(reasoning)

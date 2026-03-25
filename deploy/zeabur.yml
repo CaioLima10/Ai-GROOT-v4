@@ -1,14 +1,14 @@
 # Zeabur Deploy Configuration
 version: "1.0"
-name: ai-groot-enterprise
+name: giom-ai
 
 services:
   # Main AI Service
   - type: web
-    name: ai-groot-api
+    name: giom-api
     env: node
     buildCommand: "npm install"
-    startCommand: "node api/enterpriseServer.js"
+    startCommand: "node apps/api/src/server.js"
     plan: free
     region: us-west
     
@@ -46,14 +46,14 @@ services:
 
   # Static frontend (separate service)
   - type: web
-    name: ai-groot-frontend
+    name: giom-frontend
     env: static
     buildCommand: "echo 'Static files ready'"
     plan: free
     region: us-west
     
     # Serve static files
-    rootDir: ui
+    rootDir: apps/web/public
     routes:
       - path: /
         dest: index.html
@@ -66,9 +66,9 @@ services:
 
 # Domains (configure after deploy)
 domains:
-  - domain: ai-groot.zeabur.app
-    service: ai-groot-api
+  - domain: giom-ai.zeabur.app
+    service: giom-api
     path: /
-  - domain: ai-groot-admin.zeabur.app
-    service: ai-groot-api
+  - domain: giom-ai-admin.zeabur.app
+    service: giom-api
     path: /admin

@@ -1,4 +1,4 @@
-// GROOT 9.0 Professional - Core Corrigido
+// GIOM 9.0 Professional - Core Corrigido
 // Baseado nos resultados da suite de testes
 
 import { randomUUID } from 'crypto'
@@ -42,7 +42,7 @@ export async function askGroot(prompt, context = {}) {
     if (sanitizedPrompt.toLowerCase().includes('nome') || 
         sanitizedPrompt.toLowerCase().includes('who are you') ||
         memoryCache.has('name_provided')) {
-      response = '🤖 Eu sou GROOT 9.0, uma IA profissional avançada com memória e capacidades de aprendizado.'
+      response = '🤖 Eu sou GIOM 9.0, uma IA profissional avançada com memória e capacidades de aprendizado.'
       memoryCache.set('name_provided', true)
     } else if (sanitizedPrompt.toLowerCase().includes('olá') || 
                sanitizedPrompt.toLowerCase().includes('hello') ||
@@ -71,7 +71,7 @@ export async function askGroot(prompt, context = {}) {
       }
     } else {
       // Resposta inteligente baseada no contexto
-      response = `🤖 GROOT 9.0 processando: "${sanitizedPrompt}".${memoryContext}`
+      response = `🤖 GIOM 9.0 processando: "${sanitizedPrompt}".${memoryContext}`
       response += '\n\n📊 Análise completa: padrões identificados, contexto aplicado, resposta otimizada.'
     }
 
@@ -130,6 +130,6 @@ export function getMemoryStats() {
   }
 }
 
-console.log('🚀 GROOT Core Professional carregado com sucesso!')
+console.log('🚀 GIOM Core Professional carregado com sucesso!')
 console.log(`📊 Capacidades: Memória, Segurança, Processamento Inteligente`)
 console.log(`🔒 Segurança: Sanitização ativa, anti-XSS habilitado`)

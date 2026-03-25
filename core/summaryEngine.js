@@ -6,7 +6,7 @@ const SUMMARY_MIN_MESSAGES = 8
 
 function buildHistoryText(history = []) {
   return history
-    .map(item => `Usuário: ${item.user_message || item.user || ''}\nGROOT: ${item.ai_response || item.ai || ''}`)
+    .map(item => `Usuário: ${item.user_message || item.user || ''}\nGIOM: ${item.ai_response || item.ai || ''}`)
     .join('\n\n')
 }
 

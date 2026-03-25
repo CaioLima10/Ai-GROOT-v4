@@ -1,4 +1,4 @@
-# 🚀 GUIA DEPLOY GROOT - RENDER (100% GRÁTITO)
+# 🚀 GUIA DEPLOY GIOM - RENDER (100% GRATUITO)
 
 ## 📋 PASSO A PASSO COMPLETO
 
@@ -19,16 +19,22 @@
 # Render.yaml (já criado no projeto)
 services:
   - type: web
-    name: groot-ai
+    name: giom-ai
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node server-definitivo.js
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: GROOT_MODE
+        value: quantum
+      - key: EMBEDDINGS_PROVIDER
+        value: local
+      - key: LOCAL_EMBEDDING_DIMENSIONS
+        value: 768
       - key: GROQ_API_KEY
         sync: false
       - key: SUPABASE_URL
@@ -44,6 +50,9 @@ No painel do Render → "Environment":
 ```env
 NODE_ENV=production
 PORT=10000
+GROOT_MODE=quantum
+EMBEDDINGS_PROVIDER=local
+LOCAL_EMBEDDING_DIMENSIONS=768
 GROQ_API_KEY=sua_groq_api_key_aqui
 SUPABASE_URL=https://nyvljbcrfletvxqwprgb.supabase.co
 SUPABASE_ANON_KEY=sb_publishable_DK_FRXaqyui-v6zFgXaJoQ_11wQxJpp
@@ -53,11 +62,11 @@ JWT_SECRET=groot-jwt-secret-key-2024
 ### 5️⃣ DEPLOY AUTOMÁTICO
 - **Build**: Automático ao conectar
 - **Deploy**: Automático após push
-- **URL**: `https://groot-ai.onrender.com`
+- **URL**: `https://giom-ai.onrender.com`
 
 ### 6️⃣ VERIFICAR DEPLOY
 - **Acesse**: URL gerada pelo Render
-- **Teste**: Conversa com GROOT
+- **Teste**: Conversa com GIOM
 - **Logs**: Verificar se está funcionando
 
 ---
@@ -101,13 +110,17 @@ https://render.com/docs/deploy-nodejs
 - Health checks
 
 ### ✅ URL FINAL:
-`https://groot-ai.onrender.com` (ou similar)
+`https://giom-ai.onrender.com` (ou similar)
 
 ### ✅ FEATURES:
 - Chat interface funcionando
 - Memória persistente
 - Embeddings avançados
 - Analytics em tempo real
+
+### ✅ FONTE OFICIAL NO MONOREPO:
+- Backend: `apps/api/src/server.js`
+- Frontend estático: `apps/web/public`
 
 ---
 
@@ -128,8 +141,8 @@ https://render.com/docs/deploy-nodejs
 
 ## 🎉 RESULTADO ESPERADO
 
-**GROOT online para o mundo usar!**
+**GIOM online para o mundo usar!**
 
-🌐 `https://groot-ai.onrender.com`
+🌐 `https://giom-ai.onrender.com`
 
 🚀 IA de desenvolvedor completa e funcional!

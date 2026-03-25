@@ -1,14 +1,1 @@
-const { app, BrowserWindow } = require("electron")
-
-function createWindow() {
-
-  const win = new BrowserWindow({
-    width: 1200,
-    height: 800
-  })
-
-  win.loadFile("ui/index.html")
-
-}
-
-app.whenReady().then(createWindow)
+require("../apps/desktop/src/main.cjs")

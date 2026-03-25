@@ -1,4 +1,4 @@
--- GROOT VECTOR DATABASE - pgvector Schema
+-- GIOM VECTOR DATABASE - pgvector Schema
 -- Execute no Supabase SQL Editor
 
 -- 1. Ativar extensão pgvector

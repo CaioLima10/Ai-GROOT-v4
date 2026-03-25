@@ -3,6 +3,11 @@ import { CacheManager } from "./CacheManager.js"
 import { RateLimiter } from "./RateLimiter.js"
 import { MetricsCollector } from "./MetricsCollector.js"
 import { Logger } from "./Logger.js"
+import {
+  AI_CACHE_PREFIX,
+  AI_ENTERPRISE_NAME,
+  AI_SERVICE_SLUG
+} from "../../packages/shared-config/src/brand.js"
 
 export class AIGateway {
   constructor() {
@@ -63,7 +68,7 @@ export class AIGateway {
 
   buildEnhancedPrompt(question, context) {
     const systemPrompt = `
-Você é Ai-GROOT Enterprise Edition - uma IA avançada de desenvolvimento de software.
+Você é ${AI_ENTERPRISE_NAME} - uma IA avançada de desenvolvimento de software.
 
 CAPACIDADES ESPECIALIZADAS:
 • Análise de código em 50+ linguagens
@@ -103,7 +108,7 @@ Responda como um engenheiro sênior especialista.
       timestamp: new Date().toISOString(),
       response: response,
       metadata: {
-        provider: 'ai-groot-enterprise',
+        provider: AI_SERVICE_SLUG,
         version: '2.0.0',
         context: context,
         processingTime: Date.now()
@@ -123,7 +128,7 @@ Responda como um engenheiro sênior especialista.
     const hash = await crypto.webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify({ question, context })))
     const hashArray = Array.from(new Uint8Array(hash))
     const hashString = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('')
-    return `ai-groot:${hashString}`
+    return `${AI_CACHE_PREFIX}:${hashString}`
   }
 
   generateResponseId() {
@@ -133,7 +138,7 @@ Responda como um engenheiro sênior especialista.
   async getHealthStatus() {
     return {
       status: 'healthy',
-      providers: aiProviders.providers.map(p => ({ name: p.name, enabled: p.enabled })),
+      providers: aiProviders.getProviderSummary(),
       cache: await this.cache.getStats(),
       rateLimiter: this.rateLimiter.getStats(),
       metrics: this.metrics.getSummary()

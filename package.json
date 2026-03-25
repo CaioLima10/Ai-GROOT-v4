@@ -3,7 +3,11 @@
   "version": "2.1.0",
   "description": "Ai-GROOT Enterprise Edition - IA avançada para desenvolvimento de software com NLP e aprendizado real",
   "type": "module",
-  "main": "api/enterpriseServer.js",
+  "main": "apps/api/src/server.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "overrides": {
     "xlsx": "0.18.5",
     "@nlpjs/xtables": {
@@ -14,11 +18,14 @@
     }
   },
   "scripts": {
-    "dev": "node api/enterpriseServer.js",
-    "start": "node api/enterpriseServer.js",
-    "dev:legacy": "node api/server.js",
-    "enterprise": "node api/enterpriseServer.js",
-    "electron": "electron .",
+    "web:sync": "node scripts/sync-web-public.mjs",
+    "dev": "node apps/api/src/server.js",
+    "start": "node apps/api/src/server.js",
+    "api:check": "npm --workspace @groot/api run check",
+    "dev:legacy": "node apps/api/src/legacyServer.js",
+    "enterprise": "node apps/api/src/server.js",
+    "electron": "electron apps/desktop",
+    "smoke:enterprise": "node scripts/smoke-enterprise.mjs",
     "kill-port": "npx kill-port 3000",
     "test": "node --test",
     "lint": "echo 'ESLint não configurado'",
@@ -34,6 +41,7 @@
     "deploy:oracle": "chmod +x deploy/oracle-cloud.sh && ./deploy/oracle-cloud.sh",
     "ai:test": "node debug-apis.js",
     "ai:train": "node core/aiTraining.js",
+    "knowledge:rebuild": "node scripts/rebuild-remote-embeddings.js",
     "knowledge:ingest": "node scripts/ingest-knowledge.js",
     "knowledge:curated": "node scripts/ingest-curated.js",
     "yvp:bibles": "node scripts/yvp-bibles.js",

@@ -1,237 +1,574 @@
 import axios from "axios"
 import dotenv from "dotenv"
+import { AI_BRAND_NAME, AI_ENTERPRISE_NAME } from "../packages/shared-config/src/brand.js"
 
 dotenv.config()
 
-const MODEL_TIER = (process.env.GROOT_MODEL_TIER || 'balanced').toLowerCase()
+const MODEL_TIER = (process.env.GROOT_MODEL_TIER || "balanced").toLowerCase()
+const PRIMARY_PROVIDER = (process.env.GROOT_AI_PROVIDER || "auto").toLowerCase()
+const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "")
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")
+const OPENROUTER_KEY = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY
+
+const SYSTEM_PROMPT = `Voce e ${AI_BRAND_NAME}, especialista em desenvolvimento de software, debugging, arquitetura, automacao e boas praticas modernas. Responda com clareza, precisao e foco em implementacao.`
 
 const TIER_DEFAULTS = {
   fast: {
-    groq: 'llama-3.1-8b-instant',
-    openrouter: 'google/gemma-2-9b-it:free',
-    gemini: 'gemini-2.5-flash'
+    ollama: "qwen3",
+    groq: "llama-3.1-8b-instant",
+    openrouter: "openrouter/free",
+    gemini: "gemini-2.5-flash-lite",
+    openai: "gpt-5-mini"
   },
   balanced: {
-    groq: 'llama-3.1-8b-instant',
-    openrouter: 'google/gemma-2-9b-it:free',
-    gemini: 'gemini-1.5-flash'
+    ollama: "qwen3",
+    groq: "llama-3.1-8b-instant",
+    openrouter: "openrouter/free",
+    gemini: "gemini-2.5-flash",
+    openai: "gpt-5-mini"
   },
   best: {
-    groq: 'llama-3.3-70b-versatile',
-    openrouter: 'anthropic/claude-opus-4-6-thinking',
-    gemini: 'gemini-3.1-pro-preview'
+    ollama: "gpt-oss",
+    groq: "llama-3.3-70b-versatile",
+    openrouter: "openai/gpt-oss-120b",
+    gemini: "gemini-2.5-pro",
+    openai: "gpt-5.4"
   }
 }
 
 const tier = TIER_DEFAULTS[MODEL_TIER] || TIER_DEFAULTS.balanced
 
-// Sistema de múltiplos providers com fallback automático - CORRIGIDO
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function uniqueByKey(list, key) {
+  const seen = new Set()
+  return list.filter(item => {
+    if (!item || seen.has(item[key])) return false
+    seen.add(item[key])
+    return true
+  })
+}
+
+function buildProviderError(name, error) {
+  const status = error?.response?.status
+  const details = error?.response?.data?.error?.message || error?.response?.data?.error || error?.message
+  return new Error(`${name}: ${status ? `${status} ` : ""}${details || "falhou"}`.trim())
+}
+
 export class AIProviders {
   constructor() {
-    const openRouterKey = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY
-    // SISTEMA MULTIPROVIDER CORRIGIDO
-    this.providers = [
+    this.openaiClient = null
+    this.ollamaStatus = {
+      checkedAt: 0,
+      available: false
+    }
+
+    this.providers = this.buildProviders()
+    this.logProviders()
+  }
+
+  buildProviders() {
+    const configured = [
       {
-        name: 'Groq',
-        priority: 1, // Principal - funciona!
+        key: "ollama",
+        name: "Ollama Local",
+        priority: 10,
+        enabled: process.env.OLLAMA_ENABLED === "true" || PRIMARY_PROVIDER === "ollama",
+        supports: {
+          local: true,
+          streaming: true,
+          tools: true,
+          structuredOutput: true,
+          openaiCompatible: false,
+          freeFirst: true
+        },
+        apiCall: this.askOllama.bind(this)
+      },
+      {
+        key: "groq",
+        name: "Groq",
+        priority: 20,
         enabled: !!process.env.GROQ_API_KEY,
+        supports: {
+          local: false,
+          streaming: true,
+          tools: true,
+          structuredOutput: true,
+          openaiCompatible: true,
+          freeFirst: true
+        },
         apiCall: this.askGroq.bind(this)
       },
       {
-        name: 'OpenRouter',
-        priority: 2, // Backup
-        enabled: !!openRouterKey && openRouterKey.length > 50,
+        key: "openrouter",
+        name: "OpenRouter",
+        priority: 30,
+        enabled: !!OPENROUTER_KEY,
+        supports: {
+          local: false,
+          streaming: true,
+          tools: true,
+          structuredOutput: true,
+          openaiCompatible: true,
+          freeFirst: true
+        },
         apiCall: this.askOpenRouter.bind(this)
       },
       {
-        name: 'Google Gemini',
-        priority: 3, // Terciário
+        key: "gemini",
+        name: "Google Gemini",
+        priority: 40,
         enabled: !!process.env.GEMINI_API_KEY,
-        apiCall: this.askGeminiCorrect.bind(this) // Método corrigido
+        supports: {
+          local: false,
+          streaming: true,
+          tools: true,
+          structuredOutput: true,
+          openaiCompatible: false,
+          freeFirst: true
+        },
+        apiCall: this.askGemini.bind(this)
+      },
+      {
+        key: "openai",
+        name: "OpenAI",
+        priority: 50,
+        enabled: !!process.env.OPENAI_API_KEY,
+        supports: {
+          local: false,
+          streaming: true,
+          tools: true,
+          structuredOutput: true,
+          openaiCompatible: true,
+          freeFirst: false
+        },
+        apiCall: this.askOpenAI.bind(this)
       }
-      // REMOVIDO: HuggingFace (410 Gone)
-    ].filter(p => p.enabled).sort((a, b) => a.priority - b.priority)
+    ]
 
-    console.log(`🤖 Ai-GROOT Enterprise - ${this.providers.length} providers ativos:`)
-    this.providers.forEach(p => console.log(`  ✅ ${p.name} (prioridade ${p.priority})`))
+    return configured.filter(provider => provider.enabled).sort((a, b) => a.priority - b.priority)
   }
 
-  async askMultiAI(question, maxRetries = 1) {
-    const startTime = Date.now()
-    console.log(`🤖 Ai-GROOT Enterprise - ${this.providers.length} providers disponíveis`)
+  logProviders() {
+    console.log(`🤖 ${AI_ENTERPRISE_NAME} - ${this.providers.length} providers configurados:`)
+    if (this.providers.length === 0) {
+      console.log("  ⚠️ Nenhum provider remoto/local configurado. Ativando fallback seguro.")
+      return
+    }
 
-    // Fallback inteligente SEM loop infinito
-    for (let i = 0; i < this.providers.length; i++) {
-      const provider = this.providers[i]
-      
-      try {
-        console.log(`🔄 [${i + 1}/${this.providers.length}] Tentando ${provider.name}...`)
-        
-        const result = await provider.apiCall(question)
-        
-        console.log(`✅ Sucesso com ${provider.name} (${Date.now() - startTime}ms)`)
-        return result
-        
-      } catch (error) {
-        console.error(`❌ Tentativa ${i + 1} falhou:`, error.message)
-        
-        // Se não for o último provider, continuar
-        if (i < this.providers.length - 1) {
-          const delay = Math.min(1000 * Math.pow(2, i), 3000)
-          console.log(`⏳ Aguardando ${delay}ms antes de tentar novamente...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
+    this.providers.forEach(provider => {
+      console.log(`  ✅ ${provider.name} (${provider.key})`)
+    })
+  }
+
+  getProviderSummary() {
+    return this.providers.map(provider => ({
+      key: provider.key,
+      name: provider.name,
+      enabled: provider.enabled,
+      supports: provider.supports
+    }))
+  }
+
+  getActiveProviders() {
+    if (this.providers.length === 0) return []
+    if (PRIMARY_PROVIDER === "auto") return [...this.providers]
+
+    const selected = this.providers.find(provider => provider.key === PRIMARY_PROVIDER)
+    if (!selected) return [...this.providers]
+
+    return uniqueByKey([selected, ...this.providers], "key")
+  }
+
+  async askMultiAI(question, options = {}, legacyMaxRetries = 1) {
+    let normalizedOptions = options
+    let maxRetries = legacyMaxRetries
+
+    if (typeof options === "number") {
+      normalizedOptions = {}
+      maxRetries = options
+    }
+
+    const providers = this.getActiveProviders()
+    const startTime = Date.now()
+
+    if (providers.length === 0) {
+      return this.getFallbackResponse(question)
+    }
+
+    for (let attempt = 0; attempt < Math.max(1, maxRetries); attempt++) {
+      for (let index = 0; index < providers.length; index++) {
+        const provider = providers[index]
+
+        try {
+          console.log(`🔄 [${index + 1}/${providers.length}] Tentando ${provider.name}...`)
+          const response = await provider.apiCall(question, normalizedOptions)
+          console.log(`✅ Sucesso com ${provider.name} (${Date.now() - startTime}ms)`)
+          return response
+        } catch (error) {
+          console.error(`❌ ${provider.name} falhou:`, error.message)
+
+          const isLastProvider = index === providers.length - 1
+          const isLastAttempt = attempt === Math.max(1, maxRetries) - 1
+
+          if (!isLastProvider || !isLastAttempt) {
+            const delay = Math.min(800 * (attempt + 1), 2000)
+            await sleep(delay)
+          }
         }
       }
     }
 
-    // Se todos falharem, retornar fallback controlado
-    console.log(`⚠️ Todos os providers falharam → modo fallback seguro`)
+    console.log("⚠️ Todos os providers falharam -> modo fallback seguro")
     return this.getFallbackResponse(question)
   }
 
   getFallbackResponse(question) {
-    return `Como um assistente de IA, estou enfrentando dificuldades técnicas temporárias. 
-
-Sobre sua pergunta: "${question.substring(0, 100)}${question.length > 100 ? '...' : ''}"
-
-Por favor, tente novamente em alguns minutos. Se o problema persistir, verifique as configurações das APIs.
-
----
-*Ai-GROOT Enterprise v9.0.0*`
+    const preview = String(question || "").slice(0, 100)
+    return `Estou em modo de contingencia no momento.\n\nPergunta recebida: "${preview}${preview.length === 100 ? "..." : ""}"\n\nTente novamente em alguns instantes ou revise as configuracoes de provider no .env.\n\n${AI_ENTERPRISE_NAME}`
   }
 
-  // OpenRouter API - CORRIGIDO
-  async askOpenRouter(question) {
-    console.log('🔍 OpenRouter: processando requisição...')
-    
-    const key = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY;
-    const model = process.env.OPENROUTER_MODEL || tier.openrouter;
-    
-    if (!key) {
-      throw new Error('OPENROUTER_KEY não encontrada no .env');
-    }
-    
-    if (key.length < 50) {
-      throw new Error('OPENROUTER_KEY inválida (muito curta - deve ter ~60 caracteres)');
+  buildMessages(question, options = {}) {
+    if (Array.isArray(options.messages) && options.messages.length > 0) {
+      return options.messages
     }
 
+    const systemPrompt = options.systemPrompt === null ? null : (options.systemPrompt || SYSTEM_PROMPT)
+    const messages = []
+
+    if (systemPrompt) {
+      messages.push({
+        role: "system",
+        content: systemPrompt
+      })
+    }
+
+    messages.push({
+      role: "user",
+      content: String(question || "")
+    })
+
+    return messages
+  }
+
+  buildOpenAICompatiblePayload(question, options, model, provider) {
     const payload = {
       model,
-      messages: [
-        {
-          role: "system",
-          content: "Você é Ai-GROOT, especialista em desenvolvimento de software, debugging e programação."
-        },
-        {
-          role: "user",
-          content: question
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000
+      messages: this.buildMessages(question, options),
+      temperature: options.temperature ?? 0.7
     }
 
-    const headers = {
-      "Authorization": `Bearer ${key}`,
-      "Content-Type": "application/json"
-      // REMOVIDO: HTTP-Referer e X-Title (causam problemas)
+    const maxTokens = options.maxTokens ?? options.max_tokens
+    if (maxTokens) {
+      payload.max_tokens = maxTokens
     }
+
+    if (Array.isArray(options.tools) && options.tools.length > 0) {
+      payload.tools = options.tools
+    }
+
+    if (options.toolChoice) {
+      payload.tool_choice = options.toolChoice
+    }
+
+    if (options.stream === true) {
+      payload.stream = true
+    }
+
+    if (options.responseFormat && provider !== "groq") {
+      payload.response_format = options.responseFormat
+    }
+
+    return payload
+  }
+
+  extractOpenAICompatibleText(response, providerName) {
+    const message = response?.data?.choices?.[0]?.message
+    const content = message?.content
+
+    if (typeof content === "string" && content.trim()) {
+      return content
+    }
+
+    if (Array.isArray(content)) {
+      const text = content
+        .map(item => item?.text || item?.content || "")
+        .filter(Boolean)
+        .join("")
+
+      if (text.trim()) return text
+    }
+
+    if (Array.isArray(message?.tool_calls) && message.tool_calls.length > 0) {
+      return JSON.stringify({
+        provider: providerName,
+        toolCalls: message.tool_calls
+      }, null, 2)
+    }
+
+    throw new Error(`Resposta invalida do ${providerName}`)
+  }
+
+  getOllamaHeaders() {
+    if (!process.env.OLLAMA_API_KEY) return { "Content-Type": "application/json" }
+    return {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OLLAMA_API_KEY}`
+    }
+  }
+
+  async checkOllamaAvailability() {
+    const now = Date.now()
+    const cacheTtlMs = 15 * 1000
+
+    if (now - this.ollamaStatus.checkedAt < cacheTtlMs) {
+      return this.ollamaStatus.available
+    }
+
+    try {
+      await axios.get(`${OLLAMA_BASE_URL}/api/tags`, {
+        headers: this.getOllamaHeaders(),
+        timeout: Number(process.env.OLLAMA_HEALTHCHECK_TIMEOUT_MS || 1200)
+      })
+      this.ollamaStatus = {
+        checkedAt: now,
+        available: true
+      }
+      return true
+    } catch {
+      this.ollamaStatus = {
+        checkedAt: now,
+        available: false
+      }
+      return false
+    }
+  }
+
+  async askOllama(question, options = {}) {
+    const available = await this.checkOllamaAvailability()
+    if (!available) {
+      throw new Error(`Ollama local nao respondeu em ${OLLAMA_BASE_URL}`)
+    }
+
+    const model = process.env.OLLAMA_MODEL || tier.ollama
+
+    try {
+      const response = await axios.post(
+        `${OLLAMA_BASE_URL}/api/chat`,
+        {
+          model,
+          messages: this.buildMessages(question, options),
+          stream: false,
+          tools: Array.isArray(options.tools) && options.tools.length > 0 ? options.tools : undefined,
+          format: options.format || undefined,
+          options: options.runtimeOptions || undefined
+        },
+        {
+          headers: this.getOllamaHeaders(),
+          timeout: Number(process.env.OLLAMA_TIMEOUT_MS || 120000)
+        }
+      )
+
+      const content = response?.data?.message?.content
+      if (typeof content === "string" && content.trim()) {
+        return content
+      }
+
+      if (Array.isArray(response?.data?.message?.tool_calls) && response.data.message.tool_calls.length > 0) {
+        return JSON.stringify({
+          provider: "ollama",
+          toolCalls: response.data.message.tool_calls
+        }, null, 2)
+      }
+
+      throw new Error("Resposta invalida do Ollama")
+    } catch (error) {
+      throw buildProviderError("Ollama", error)
+    }
+  }
+
+  async askGroq(question, options = {}) {
+    const model = process.env.GROQ_MODEL || tier.groq
+
+    try {
+      const response = await axios.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        this.buildOpenAICompatiblePayload(question, options, model, "groq"),
+        {
+          headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          timeout: Number(process.env.GROQ_TIMEOUT_MS || 25000)
+        }
+      )
+
+      return this.extractOpenAICompatibleText(response, "Groq")
+    } catch (error) {
+      throw buildProviderError("Groq", error)
+    }
+  }
+
+  async askOpenRouter(question, options = {}) {
+    const model = process.env.OPENROUTER_MODEL || tier.openrouter
 
     try {
       const response = await axios.post(
         "https://openrouter.ai/api/v1/chat/completions",
-        payload,
+        this.buildOpenAICompatiblePayload(question, options, model, "openrouter"),
         {
-          headers,
-          timeout: 30000
+          headers: {
+            "Authorization": `Bearer ${OPENROUTER_KEY}`,
+            "Content-Type": "application/json"
+          },
+          timeout: Number(process.env.OPENROUTER_TIMEOUT_MS || 30000)
         }
       )
 
-      if (!response.data?.choices?.[0]?.message?.content) {
-        throw new Error("Resposta inválida do OpenRouter");
-      }
-
-      return response.data.choices[0].message.content;
-      
+      return this.extractOpenAICompatibleText(response, "OpenRouter")
     } catch (error) {
-      if (error.response?.status === 401) {
-        throw new Error('401 Unauthorized - API key inválida ou expirada');
-      }
-      throw error;
+      throw buildProviderError("OpenRouter", error)
     }
   }
 
-  // Google Gemini API - CORRIGIDO
-  async askGeminiCorrect(question) {
-    try {
-      // Instalar: npm install @google/generative-ai
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const modelName = process.env.GEMINI_MODEL || tier.gemini;
-      const model = genAI.getGenerativeModel({ model: modelName });
-
-      const result = await model.generateContent(
-        `Você é Ai-GROOT, especialista em desenvolvimento de software. Responda como um assistente técnico moderno.\n\n${question}`
-      );
-
-      if (!result.response?.text()) {
-        throw new Error("Resposta inválida do Gemini");
-      }
-
-      return result.response.text();
-      
-    } catch (error) {
-      if (error.message.includes('API key')) {
-        throw new Error('GEMINI_API_KEY inválida');
-      }
-      throw error;
+  toGeminiContents(question, options = {}) {
+    if (Array.isArray(options.messages) && options.messages.length > 0) {
+      return options.messages.map(message => ({
+        role: message.role === "assistant" ? "model" : "user",
+        parts: [{ text: String(message.content || "") }]
+      }))
     }
-  }
 
-  // Groq API - OTIMIZADO
-  async askGroq(question) {
-    console.log('🔍 Groq: processando requisição...')
-
-    const model = process.env.GROQ_MODEL || tier.groq
-    const response = await axios.post(
-      "https://api.groq.com/openai/v1/chat/completions",
+    return [
       {
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "Você é Ai-GROOT, especialista em desenvolvimento de software. Forneça respostas técnicas, precisas e com exemplos práticos. Use const/let em vez de var. Prefira JavaScript moderno e frameworks atuais."
+        role: "user",
+        parts: [{ text: String(question || "") }]
+      }
+    ]
+  }
+
+  toGeminiTools(tools = []) {
+    const declarations = tools
+      .filter(tool => tool?.type === "function" && tool.function?.name)
+      .map(tool => ({
+        name: tool.function.name,
+        description: tool.function.description || "",
+        parameters: tool.function.parameters || {
+          type: "object",
+          properties: {}
+        }
+      }))
+
+    if (declarations.length === 0) return undefined
+    return [{ functionDeclarations: declarations }]
+  }
+
+  extractGeminiText(data) {
+    const parts = data?.candidates?.[0]?.content?.parts || []
+    const text = parts
+      .map(part => part?.text || "")
+      .filter(Boolean)
+      .join("")
+
+    if (text.trim()) {
+      return text
+    }
+
+    const functionCalls = parts
+      .filter(part => part?.functionCall)
+      .map(part => part.functionCall)
+
+    if (functionCalls.length > 0) {
+      return JSON.stringify({
+        provider: "gemini",
+        functionCalls
+      }, null, 2)
+    }
+
+    throw new Error("Resposta invalida do Gemini")
+  }
+
+  async askGemini(question, options = {}) {
+    const model = process.env.GEMINI_MODEL || tier.gemini
+    const payload = {
+      systemInstruction: options.systemPrompt === null
+        ? undefined
+        : {
+            parts: [
+              {
+                text: options.systemPrompt || SYSTEM_PROMPT
+              }
+            ]
           },
-          {
-            role: "user",
-            content: question
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
+      contents: this.toGeminiContents(question, options),
+      generationConfig: {
+        temperature: options.temperature ?? 0.7,
+        maxOutputTokens: options.maxTokens ?? 2000
       },
-      {
-        headers: {
-          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        timeout: 25000
-      }
-    )
-
-    if (!response.data?.choices?.[0]?.message?.content) {
-      throw new Error("Resposta inválida do Groq")
+      tools: this.toGeminiTools(options.tools)
     }
 
-    return response.data.choices[0].message.content
+    try {
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          timeout: Number(process.env.GEMINI_TIMEOUT_MS || 30000)
+        }
+      )
+
+      return this.extractGeminiText(response.data)
+    } catch (error) {
+      throw buildProviderError("Gemini", error)
+    }
+  }
+
+  async getOpenAIClient() {
+    if (this.openaiClient) return this.openaiClient
+
+    const sdk = await import("openai")
+    this.openaiClient = new sdk.OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: OPENAI_BASE_URL
+    })
+    return this.openaiClient
+  }
+
+  async askOpenAI(question, options = {}) {
+    const model = process.env.OPENAI_MODEL || tier.openai
+
+    try {
+      const client = await this.getOpenAIClient()
+      const response = await client.chat.completions.create(
+        this.buildOpenAICompatiblePayload(question, options, model, "openai")
+      )
+
+      const content = response?.choices?.[0]?.message?.content
+      if (typeof content === "string" && content.trim()) {
+        return content
+      }
+
+      if (Array.isArray(response?.choices?.[0]?.message?.tool_calls) && response.choices[0].message.tool_calls.length > 0) {
+        return JSON.stringify({
+          provider: "openai",
+          toolCalls: response.choices[0].message.tool_calls
+        }, null, 2)
+      }
+
+      throw new Error("Resposta invalida do OpenAI")
+    } catch (error) {
+      throw buildProviderError("OpenAI", error)
+    }
   }
 }
 
-// Instância global
 export const aiProviders = new AIProviders()
 
-// Função legado para compatibilidade
-export async function askMultiAI(question) {
-  return await aiProviders.askMultiAI(question)
+export async function askMultiAI(question, options) {
+  return aiProviders.askMultiAI(question, options)
 }

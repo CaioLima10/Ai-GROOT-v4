@@ -1,0 +1,13 @@
+{
+  "name": "@groot/api",
+  "private": true,
+  "type": "module",
+  "main": "./src/server.js",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "legacy": "node src/legacyServer.js",
+    "smart": "node src/smartServer.js",
+    "check": "node --check src/server.js"
+  }
+}

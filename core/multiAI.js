@@ -8,8 +8,8 @@ const MAX_RETRIES = 3
 const TIMEOUT = 30000 // 30 segundos
 
 // Sistema legado mantido para compatibilidade
-export async function askMultiAI(question) {
-  return await aiProviders.askMultiAI(question)
+export async function askMultiAI(question, options = {}) {
+  return await aiProviders.askMultiAI(question, options)
 }
 
 // export async function askMultiAI(question) {

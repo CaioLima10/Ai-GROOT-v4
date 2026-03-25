@@ -1,0 +1,7 @@
+export const AI_BRAND_NAME = "GIOM"
+export const AI_STUDIO_NAME = "GIOM Studio"
+export const AI_ENTERPRISE_NAME = "GIOM Enterprise"
+export const AI_SERVICE_SLUG = "giom-enterprise"
+export const AI_KNOWLEDGE_SERVICE_SLUG = "giom-knowledge"
+export const AI_MODEL_OWNER = "giom"
+export const AI_CACHE_PREFIX = "giom"

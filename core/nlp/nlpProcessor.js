@@ -87,7 +87,7 @@ class NLPProcessor {
     const responses = {
       greeting: [
         "Oi! Estou ótimo, pronto para ajudar com código! E você?",
-        "Olá! Sou Ai-GROOT, sua IA de desenvolvimento. Em que posso ajudar?",
+        "Olá! Sou GIOM, sua IA de desenvolvimento. Em que posso ajudar?",
         "E aí! Tudo certo? Vamos programar algo incrível hoje!"
       ],
       code_help: [

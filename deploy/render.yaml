@@ -2,14 +2,14 @@
 services:
   # Main AI API Service
   - type: web
-    name: ai-groot-enterprise
+    name: giom-ai
     env: node
     plan: free
     region: oregon
     
     # Build and start commands
     buildCommand: "npm install"
-    startCommand: "node api/enterpriseServer.js"
+    startCommand: "npm run start"
     
     # Environment variables
     envVars:
@@ -17,6 +17,12 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: GROOT_MODE
+        value: quantum
+      - key: EMBEDDINGS_PROVIDER
+        value: local
+      - key: LOCAL_EMBEDDING_DIMENSIONS
+        value: 768
       - key: GEMINI_API_KEY
         sync: false # Configure in Render dashboard
       - key: OPENROUTER_KEY
@@ -54,7 +60,7 @@ services:
 
   # PostgreSQL Database (free tier)
   - type: pserv
-    name: ai-groot-db
+    name: giom-ai-db
     plan: free
     region: oregon
     databaseName: aigroot
@@ -66,6 +72,6 @@ services:
 
 # Custom domains (configure after deploy)
 domains:
-  - domain: ai-groot.onrender.com
-    service: ai-groot-enterprise
+  - domain: giom-ai.onrender.com
+    service: giom-ai
     path: /

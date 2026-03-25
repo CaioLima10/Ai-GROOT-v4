@@ -1,4 +1,5 @@
 import { aiProfile } from '../config/aiProfile.js'
+import { AI_ENTERPRISE_NAME } from "../packages/shared-config/src/brand.js"
 
 /**
  * Sistema profissional de formatação de respostas
@@ -155,14 +156,14 @@ export class ResponseFormatter {
   }
 
   /**
-   * Adiciona prefixo personalizado do Ai-GROOT
+   * Adiciona prefixo personalizado do GIOM
    */
   addGrootPrefix(text) {
     if (!text || text.trim() === '') {
-      return aiProfile.description || "🤖 Ai-GROOT Enterprise"
+      return aiProfile.description || `🤖 ${AI_ENTERPRISE_NAME}`
     }
     
-    return `🤖 Ai-GROOT Enterprise\n\n${text}`
+    return `🤖 ${AI_ENTERPRISE_NAME}\n\n${text}`
   }
 
   /**
@@ -172,7 +173,7 @@ export class ResponseFormatter {
     const normalizedText = this.normalizeResponse(text)
     
     // Se já tiver prefixo, não duplicar
-    if (normalizedText.includes('🤖 Ai-GROOT Enterprise')) {
+    if (normalizedText.includes(`🤖 ${AI_ENTERPRISE_NAME}`)) {
       return normalizedText
     }
     

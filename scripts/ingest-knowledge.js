@@ -10,6 +10,32 @@ const __dirname = path.dirname(__filename)
 
 const DEFAULT_DIR = path.resolve(__dirname, '..', 'knowledge')
 
+function parseFrontMatter(text) {
+  const match = String(text || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/i)
+  if (!match) return { metadata: {}, body: String(text || '') }
+
+  const metadata = {}
+  match[1].split(/\r?\n/).forEach(line => {
+    const [key, ...rest] = line.split(':')
+    if (!key || rest.length === 0) return
+    const normalizedKey = key.trim()
+    const value = rest.join(':').trim()
+    if (['categories', 'modules', 'bibleStudyModules', 'keywords', 'tags'].includes(normalizedKey)) {
+      metadata[normalizedKey] = value
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
+      return
+    }
+    metadata[normalizedKey] = value
+  })
+
+  return {
+    metadata,
+    body: String(text || '').slice(match[0].length)
+  }
+}
+
 function parseArgs() {
   const args = process.argv.slice(2)
   const config = {
@@ -73,15 +99,22 @@ async function loadDocument(filePath) {
     return Array.isArray(data) ? data : [data]
   }
 
+  const { metadata, body } = parseFrontMatter(raw)
+
   return [{
-    title: path.basename(filePath, ext),
-    content: raw,
-    category: path.basename(path.dirname(filePath))
+    title: metadata.title || path.basename(filePath, ext),
+    content: body,
+    category: metadata.category || path.basename(path.dirname(filePath)),
+    language: metadata.language || 'pt',
+    categories: metadata.categories || [],
+    modules: metadata.modules || [],
+    bibleStudyModules: metadata.bibleStudyModules || [],
+    source: metadata.source || 'local'
   }]
 }
 
 async function ingest() {
-  const { grootAdvancedRAG } = await import('../core/grootAdvancedRAG.js')
+  const { grootAdvancedRAG } = await import('../packages/ai-core/src/index.js')
   const config = parseArgs()
   console.log(`📥 Ingestão iniciada em: ${config.dir}`)
   if (config.dryRun) console.log('🧪 Modo dry-run ativo (não grava no Supabase)')
@@ -103,12 +136,15 @@ async function ingest() {
         totalChunks++
         if (config.dryRun) continue
 
-        await grootAdvancedRAG.addKnowledge(chunk, {
-          source: 'local',
+        await grootAdvancedRAG.upsertKnowledge(chunk, {
+          source: doc.source || 'local',
           category,
-          language: 'pt',
+          categories: doc.categories || [],
+          language: doc.language || 'pt',
           title: doc.title || path.basename(file),
-          file: path.relative(config.dir, file)
+          file: path.relative(config.dir, file),
+          modules: doc.modules || [],
+          bibleStudyModules: doc.bibleStudyModules || []
         })
       }
     }

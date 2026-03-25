@@ -1,4 +1,4 @@
--- GROOT DATABASE SCHEMA - Supabase SQL
+-- GIOM DATABASE SCHEMA - Supabase SQL
 -- Execute este SQL no painel do Supabase
 
 -- Tabela de conversas
@@ -110,13 +110,13 @@ CREATE TRIGGER update_knowledge_base_updated_at BEFORE UPDATE ON knowledge_base
 
 -- Inserir perfil inicial para usuário padrão
 INSERT INTO user_profiles (user_id, preferences)
-VALUES ('default_user', '{"style": "natural", "name": "Usuário", "level": "beginner"}')
+VALUES ('default_user', '{"style": "natural", "name": "Usuário", "level": "beginner", "assistantProfile": "adaptive_teacher", "activeModules": ["developer"], "bibleStudyModules": []}')
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Inserir conhecimento base
 INSERT INTO knowledge_base (title, content, source, category, metadata)
 VALUES 
-  ('GROOT Identity', 'Eu sou GROOT, uma inteligência artificial avançada criada em 17/03/2026 por Gabriel Lima de Souza. Minha missão é ajudar desenvolvedores com código, debugging e aprendizado.', 'system', 'identity', '{"type": "core", "priority": "high"}'),
+  ('GIOM Identity', 'Eu sou GIOM, uma inteligência artificial avançada criada em 17/03/2026 por Gabriel Lima de Souza. Minha missão é ajudar desenvolvedores com código, debugging e aprendizado.', 'system', 'identity', '{"type": "core", "priority": "high"}'),
   ('JavaScript Basics', 'JavaScript é uma linguagem de programação usada para criar interatividade em páginas web. É executada no navegador e permite manipular DOM, fazer requisições HTTP e criar aplicações dinâmicas.', 'internal', 'programming', '{"language": "javascript", "level": "basic"}'),
   ('Node.js', 'Node.js é um runtime JavaScript que permite executar JavaScript no servidor. Criado com base no V8 Engine do Chrome, é usado para construir APIs e aplicações backend.', 'internal', 'programming', '{"language": "javascript", "level": "intermediate"}')
 ON CONFLICT DO NOTHING;

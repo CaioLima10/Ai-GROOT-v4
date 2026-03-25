@@ -1,4 +1,4 @@
--- GROOT VECTOR DATABASE - pgvector Schema (CORRIGIDO)
+-- GIOM VECTOR DATABASE - pgvector Schema (CORRIGIDO)
 -- Execute no Supabase SQL Editor
 
 -- 1. Ativar extensão pgvector
@@ -277,7 +277,7 @@ END $$;
 -- 13. Inserir conhecimento base (só se não existir)
 INSERT INTO knowledge_embeddings (content, embedding, source, category, language, metadata)
 SELECT 
-  'Eu sou GROOT, uma inteligência artificial avançada criada em 17/03/2026 por Gabriel Lima de Souza. Minha missão é ajudar desenvolvedores com código, debugging e aprendizado.',
+  'Eu sou GIOM, uma inteligência artificial avançada criada em 17/03/2026 por Gabriel Lima de Souza. Minha missão é ajudar desenvolvedores com código, debugging e aprendizado.',
   (SELECT embedding FROM knowledge_embeddings WHERE source = 'system' LIMIT 1), -- Usar embedding existente se houver
   'system',
   'identity',

@@ -1,0 +1,8 @@
+{
+  "name": "@groot/desktop",
+  "private": true,
+  "main": "./src/main.cjs",
+  "scripts": {
+    "start": "electron ."
+  }
+}

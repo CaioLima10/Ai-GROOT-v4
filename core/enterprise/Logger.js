@@ -1,3 +1,5 @@
+import { AI_SERVICE_SLUG } from "../../packages/shared-config/src/brand.js"
+
 export class Logger {
   constructor() {
     this.levels = {
@@ -74,7 +76,7 @@ export class Logger {
       '@level': level.toLowerCase(),
       '@request_id': requestId,
       '@event': event,
-      '@service': 'ai-groot-enterprise',
+      '@service': AI_SERVICE_SLUG,
       '@version': '2.0.0',
       ...metadata
     }
