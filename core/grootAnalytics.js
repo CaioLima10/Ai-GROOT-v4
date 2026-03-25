@@ -6,6 +6,7 @@ export class GrootAnalytics {
     this.supabase = grootMemoryConnector.supabase
     this.metrics = new Map()
     this.enabled = !!this.supabase
+    this.disabledReason = null
   }
 
   // 📊 REGISTRAR USO
@@ -44,6 +45,12 @@ export class GrootAnalytics {
       console.log(`📊 Uso registrado: ${userId}`)
       return data[0]
     } catch (error) {
+      if (String(error?.message || '').includes("Could not find the table 'public.usage_analytics'")) {
+        this.enabled = false
+        this.disabledReason = 'missing_usage_analytics'
+        console.warn('⚠️ Analytics desativado: tabela usage_analytics ausente no Supabase.')
+        return null
+      }
       console.error('❌ Erro ao registrar uso:', error.message)
       return null
     }

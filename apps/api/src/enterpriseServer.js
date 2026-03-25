@@ -20,14 +20,18 @@ import {
   listBibleStudyModules,
   listCompatModels,
   listDomainModules,
+  listEvaluationDimensions,
+  listEvaluationPacks,
   listPromptPacks,
   resolveCompatModel
 } from "../../../packages/shared-config/src/index.js"
 import {
   buildAssistantPromptContext,
+  evaluateConversationTurn,
   grootAdvancedRAG,
   grootEmbeddings,
-  grootMemoryConnector
+  grootMemoryConnector,
+  runConversationBenchmark
 } from "../../../packages/ai-core/src/index.js"
 import { fetchBiblePassage } from "../../../core/bibleApi.js"
 import { buildSafetyResponse, detectSafetyRisk } from "../../../core/safetyGuard.js"
@@ -382,6 +386,42 @@ function estimateUsage(text = "") {
   }
 }
 
+function normalizeAnswerText(answer) {
+  const responseText = typeof answer === "string"
+    ? answer
+    : (answer?.response ?? answer?.answer ?? "")
+
+  return String(responseText || "").trim()
+}
+
+async function askGiom(question, context = {}) {
+  const answer = await askGroot(question, context)
+  const responseText = normalizeAnswerText(answer)
+
+  if (!responseText) {
+    throw new Error("Resposta vazia da IA")
+  }
+
+  return responseText
+}
+
+async function persistEvaluationArtifacts(userId, requestId, evaluation, metadata = {}) {
+  await grootMemoryConnector.saveEvaluation(userId, requestId, evaluation)
+  await grootMemoryConnector.saveLearningPattern(
+    userId,
+    "conversation_eval",
+    {
+      requestId,
+      score: evaluation.score,
+      status: evaluation.status,
+      issues: evaluation.issues,
+      dimensions: evaluation.dimensions,
+      metadata
+    },
+    evaluation.score
+  )
+}
+
 function writeSSE(res, event, payload) {
   res.write(`event: ${event}\n`)
   res.write(`data: ${JSON.stringify(payload)}\n\n`)
@@ -511,6 +551,11 @@ app.get("/config", async (req, res) => {
       crimesBlocked: true,
       cyberAbuseBlocked: true,
       selfHarmSupport: true
+    },
+    evaluation: {
+      dimensions: listEvaluationDimensions(),
+      packs: listEvaluationPacks(),
+      note: "Consciencia operacional mede autodescricao correta de capacidades e limites, nao sentiencia real."
     },
     knowledge: {
       statusEndpoint: "/knowledge/status",
@@ -1067,6 +1112,150 @@ app.post("/feedback", async (req, res) => {
     res.json({ success: true })
   } catch (error) {
     res.status(500).json({ error: "Falha ao salvar feedback" })
+  }
+})
+
+app.get("/evaluation/packs", requireAdmin, (_req, res) => {
+  res.json({
+    dimensions: listEvaluationDimensions(),
+    packs: listEvaluationPacks(),
+    note: "Consciencia operacional avalia honestidade sobre capacidades e limites, sem alegar consciencia real."
+  })
+})
+
+app.post("/evaluation/conversation", requireAdmin, async (req, res) => {
+  const requestId = `eval_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+
+  try {
+    const { message, context = {}, history = [], tags = [], sessionId } = req.body || {}
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({
+        error: "Mensagem obrigatoria para avaliacao",
+        code: "EVAL_MESSAGE_REQUIRED"
+      })
+    }
+
+    const evaluationUserId = String(sessionId || req.get("X-User-Id") || req.ip || "evaluation_user")
+    const researchCapabilities = getResearchCapabilities(context?.researchCapabilities || {})
+    const preparedContext = {
+      ...context,
+      userId: evaluationUserId,
+      requestId,
+      evaluationMode: true,
+      conversationHistory: Array.isArray(history) ? history : [],
+      researchCapabilities
+    }
+
+    const responseText = await askGiom(String(message), preparedContext)
+    const evaluation = evaluateConversationTurn({
+      userMessage: String(message),
+      aiResponse: responseText,
+      history: Array.isArray(history) ? history : [],
+      researchCapabilities,
+      tags: Array.isArray(tags) ? tags : []
+    })
+
+    await persistEvaluationArtifacts(evaluationUserId, requestId, evaluation, {
+      mode: "conversation_lab",
+      contextKeys: Object.keys(context || {}),
+      tags: Array.isArray(tags) ? tags : []
+    })
+
+    res.json({
+      success: true,
+      requestId,
+      sessionId: evaluationUserId,
+      response: responseText,
+      evaluation,
+      capabilities: {
+        research: researchCapabilities
+      }
+    })
+  } catch (error) {
+    aiGateway.logger.error(requestId, "EVALUATION_CONVERSATION_FAILED", {
+      error: error.message
+    })
+    res.status(500).json({
+      error: "Falha ao avaliar conversa",
+      details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      code: "EVALUATION_FAILED",
+      requestId
+    })
+  }
+})
+
+app.post("/evaluation/run", requireAdmin, async (req, res) => {
+  const benchmarkId = `benchmark_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+
+  try {
+    const { packId = "core_diagnostics" } = req.body || {}
+    const benchmarkUserId = `${benchmarkId}_user`
+
+    const benchmark = await runConversationBenchmark({
+      packId,
+      researchCapabilities: getResearchCapabilities(),
+      requestTurn: async ({ scenario, turn, history }) => {
+        const requestId = `bench_${scenario.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const context = {
+          ...(turn.context || {}),
+          userId: benchmarkUserId,
+          requestId,
+          evaluationMode: true,
+          evaluationScenario: scenario.id,
+          conversationHistory: history,
+          researchCapabilities: getResearchCapabilities(turn.context?.researchCapabilities || {})
+        }
+
+        const answer = await askGiom(turn.question, context)
+        return {
+          answer,
+          requestId
+        }
+      }
+    })
+
+    for (const turn of benchmark.turns) {
+      const evaluationRequestId = turn.metadata?.requestId || `${benchmarkId}_${turn.scenarioId}`
+      await persistEvaluationArtifacts(benchmarkUserId, evaluationRequestId, turn.evaluation, {
+        mode: "benchmark_turn",
+        packId,
+        scenarioId: turn.scenarioId
+      })
+    }
+
+    await grootMemoryConnector.saveLearningPattern(
+      benchmarkUserId,
+      "conversation_benchmark_summary",
+      {
+        benchmarkId,
+        packId,
+        summary: benchmark.summary,
+        turns: benchmark.turns.map((turn) => ({
+          scenarioId: turn.scenarioId,
+          score: turn.evaluation.score,
+          issues: turn.evaluation.issues
+        }))
+      },
+      benchmark.summary.score
+    )
+
+    res.json({
+      success: true,
+      benchmarkId,
+      sessionId: benchmarkUserId,
+      ...benchmark
+    })
+  } catch (error) {
+    aiGateway.logger.error(benchmarkId, "BENCHMARK_FAILED", {
+      error: error.message
+    })
+    res.status(500).json({
+      error: "Falha ao rodar benchmark do GIOM",
+      details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      code: "BENCHMARK_FAILED",
+      benchmarkId
+    })
   }
 })
 
