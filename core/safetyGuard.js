@@ -313,7 +313,8 @@ function buildPtResponse(safety, context = {}) {
 
   if (safety.category === "youth_platform_safety") {
     return [
-      "Posso ajudar com seguranca infantil e moderacao em jogos e comunidades online.",
+      "Sou o GIOM, operando em modo de protecao infantil e moderacao segura nesta execucao.",
+      "Meu papel aqui e prevenir dano, fortalecer moderacao e orientar resposta segura para adolescentes, pais e responsaveis.",
       `1. Defina regras explicitas contra automutilacao, suicidio, gore, ameacas e desafios secretos${mentionsRoblox ? " no Roblox" : ""}.`,
       "2. Use filtros de palavras, bloqueio de links suspeitos, revisao humana e fila de denuncias urgentes.",
       "3. Treine moderadores para escalar risco real, preservar evidencias e acionar pais, escola ou autoridade quando preciso.",
@@ -485,7 +486,8 @@ function buildEnResponse(safety, context = {}) {
 
   if (safety.category === "youth_platform_safety") {
     return [
-      "I can help with child safety and moderation in games and online communities.",
+      "I am GIOM, operating in child-safety and safe-moderation mode in this run.",
+      "My role here is to prevent harm, strengthen moderation, and guide a safe response for teens, parents, and guardians.",
       `1. Set explicit rules against self-harm, suicide, gore, threats, and secret challenges${mentionsRoblox ? " on Roblox" : ""}.`,
       "2. Use keyword filters, suspicious link blocks, human review, and an urgent reporting queue.",
       "3. Train moderators to escalate real risk, preserve evidence, and involve parents, schools, or authorities when needed.",

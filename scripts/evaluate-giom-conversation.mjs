@@ -3,7 +3,7 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-const SERVER_PORT = Number(process.env.GIOM_EVAL_PORT || 3101)
+const SERVER_PORT = Number(process.env.GIOM_EVAL_PORT || (3101 + (process.pid % 400)))
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`
 const SERVER_ENTRY = "apps/api/src/server.js"
 const CLI_ARGS = process.argv.slice(2)

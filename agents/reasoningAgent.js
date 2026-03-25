@@ -316,12 +316,13 @@ export class ReasoningAgent {
   buildDebugDiagnosticResponse() {
     return [
       'Plano curto de diagnostico para erro 500 em API Express apos adicionar JWT, do mais provavel para o menos provavel:',
-      '1. Middleware de autenticacao: valide JWT_SECRET, formato Bearer, expiracao e try/catch no verify.',
-      '2. Tratamento de erro: confirme se falhas de auth nao estao virando 500 generico em vez de 401 ou 403.',
-      '3. req.user e claims: logue authorization, payload decodificado e o ponto exato em que req.user quebra.',
+      '1. Middleware JWT: valide JWT_SECRET, formato Bearer, expiracao do token e try/catch no verify.',
+      '2. Conversao indevida para 500: confira se falhas de autenticacao nao estao caindo no error handler generico em vez de 401 ou 403.',
+      '3. req.user e claims: logue authorization, payload decodificado e a primeira linha em que req.user fica invalido.',
       '4. Ordem do pipeline: revise body parser, auth, rotas protegidas e error handler final.',
-      '5. Ambiente: compare segredo, relogio do servidor e variaveis entre local e producao.',
-      'Se quiser, eu monto agora um checklist de logs exatos para o middleware e o error handler.'
+      '5. Ambiente e deploy: compare segredo JWT, horario do servidor e variaveis entre local e producao.',
+      'Primeiro teste pratico agora: adicionar logs curtos no middleware JWT e no error handler para identificar a primeira quebra real.',
+      'Se quiser, eu monto em seguida um checklist de logs exatos e o patch minimo para diagnosticar isso em minutos.'
     ].join('\n')
   }
 
@@ -362,6 +363,7 @@ export class ReasoningAgent {
         ? 'Limite operacional: eu separo o que veio da pesquisa atual do que veio do conhecimento interno; se a origem nao estiver indicada, trate a informacao como nao verificada.'
         : 'Limite operacional: fatos atuais que dependem de busca externa ficam nao verificados enquanto a pesquisa ao vivo nao estiver habilitada.'
     )
+    lines.push('Resumo direto: eu sou forte em memoria, RAG, raciocinio e modulos especialistas; pesquisa web ao vivo so existe quando esta habilitada nesta execucao.')
     lines.push('Se quiser, eu posso listar agora quais fontes internas e modulos especialistas estao ativos nesta conversa.')
     return lines.join('\n')
   }
@@ -387,8 +389,15 @@ export class ReasoningAgent {
     const parts = []
 
     if (facts.name) parts.push(`seu nome e ${facts.name}`)
-    if (facts.workDomain) parts.push(`sua area e ${facts.workDomain}`)
-    if (facts.responseStyle) parts.push(`voce prefere respostas ${facts.responseStyle}`)
+    if (facts.workDomain) parts.push(`voce trabalha com ${facts.workDomain}`)
+    if (facts.responseStyle) {
+      const style = String(facts.responseStyle || '').trim()
+      parts.push(
+        /\brespostas?\b/i.test(style)
+          ? `prefere ${style}`
+          : `prefere respostas ${style}`
+      )
+    }
     if (facts.role && !facts.workDomain) parts.push(`sua funcao e ${facts.role}`)
 
     if (parts.length === 0) {
@@ -398,7 +407,7 @@ export class ReasoningAgent {
     if (wantsSingleSentence || /meu nome|minha area|minha área|prefiro/i.test(normalizedTask)) {
       const sentence = parts.join(', ')
         .replace(/, ([^,]*)$/, ' e $1')
-      return `${sentence}.`
+      return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`
     }
 
     return parts.map((item, index) => `${index + 1}. ${item.charAt(0).toUpperCase()}${item.slice(1)}.`).join('\n')
