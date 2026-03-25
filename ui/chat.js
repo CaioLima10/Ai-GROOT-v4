@@ -1,978 +1,488 @@
-const button = document.getElementById("sendBtn")
-const textarea = document.getElementById("msg")
-const chat = document.getElementById("chat")
-const themeToggle = document.getElementById("themeToggle")
-const ageModal = document.getElementById("ageModal")
-const ageBanner = document.getElementById("ageBanner")
-const ageBadge = document.getElementById("ageBadge")
-const loginBtn = document.getElementById("loginBtn")
-const loginModal = document.getElementById("loginModal")
-const closeLogin = document.getElementById("closeLogin")
-const emailInput = document.getElementById("emailInput")
-const passwordInput = document.getElementById("passwordInput")
-const emailLogin = document.getElementById("emailLogin")
-const emailSignup = document.getElementById("emailSignup")
-const googleLogin = document.getElementById("googleLogin")
-const githubLogin = document.getElementById("githubLogin")
-const loginStatus = document.getElementById("loginStatus")
-const userName = document.getElementById("userName")
-const userRole = document.getElementById("userRole")
-const userAvatar = document.getElementById("userAvatar")
-const userDropdown = document.getElementById("userDropdown")
-const logoutBtn = document.getElementById("logoutBtn")
-const switchAccount = document.getElementById("switchAccount")
-const newChat = document.getElementById("newChat")
-const navItems = document.querySelectorAll(".nav-item")
-const viewChat = document.getElementById("view-chat")
-const viewMemory = document.getElementById("view-memory")
-const viewDocs = document.getElementById("view-docs")
-const viewSettings = document.getElementById("view-settings")
-const viewMetrics = document.getElementById("view-metrics")
-const memoryList = document.getElementById("memoryList")
-const learningList = document.getElementById("learningList")
-const verbositySelect = document.getElementById("verbositySelect")
-const examplesToggle = document.getElementById("examplesToggle")
-const emojiToggle = document.getElementById("emojiToggle")
-const safetySelect = document.getElementById("safetySelect")
-const saveSettings = document.getElementById("saveSettings")
-const settingsStatus = document.getElementById("settingsStatus")
-const refreshMetrics = document.getElementById("refreshMetrics")
-const metricTotal = document.getElementById("metricTotal")
-const metricSuccess = document.getElementById("metricSuccess")
-const metricAvg = document.getElementById("metricAvg")
-const metricCache = document.getElementById("metricCache")
-const metricUptime = document.getElementById("metricUptime")
-const adminKeyInput = document.getElementById("adminKeyInput")
-const saveAdminKey = document.getElementById("saveAdminKey")
-const metricsStatus = document.getElementById("metricsStatus")
-const providersList = document.getElementById("providersList")
-const errorsList = document.getElementById("errorsList")
-const uploadBtn = document.getElementById("uploadBtn")
-const fileInput = document.getElementById("fileInput")
-const uploadStatus = document.getElementById("uploadStatus")
+const API_CONFIG = {
+  BASE_URL: ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "http://localhost:3000" : "",
+  TIMEOUT: 45000
+}
+
+const DEFAULT_PREFERENCES = {
+  verbosity: "natural",
+  examples: true,
+  noEmojis: true,
+  safetyLevel: "standard",
+  ageGroup: "adult",
+  theme: localStorage.getItem("groot-theme") || "dark"
+}
+
+const VIEW_META = {
+  chat: { title: "Chat", eyebrow: "Workspace" },
+  memory: { title: "Memória", eyebrow: "Histórico" },
+  plan: { title: "Plano", eyebrow: "Conta" },
+  help: { title: "Ajuda", eyebrow: "Suporte" },
+  settings: { title: "Configurações", eyebrow: "Preferências" }
+}
+
+const elements = {
+  appShell: document.getElementById("appShell"),
+  body: document.body,
+  sidebarScrim: document.getElementById("sidebarScrim"),
+  mobileMenuBtn: document.getElementById("mobileMenuBtn"),
+  pageTitle: document.getElementById("pageTitle"),
+  pageEyebrow: document.getElementById("pageEyebrow"),
+  backendStatus: document.getElementById("backendStatus"),
+  topbarAccountBtn: document.getElementById("topbarAccountBtn"),
+  newChatBtn: document.getElementById("newChatBtn"),
+  navItems: Array.from(document.querySelectorAll(".nav-item")),
+  profileTrigger: document.getElementById("profileTrigger"),
+  profileMenu: document.getElementById("profileMenu"),
+  userAvatar: document.getElementById("userAvatar"),
+  userName: document.getElementById("userName"),
+  userRole: document.getElementById("userRole"),
+  menuAvatar: document.getElementById("menuAvatar"),
+  menuName: document.getElementById("menuName"),
+  menuPlan: document.getElementById("menuPlan"),
+  openLoginBtn: document.getElementById("openLoginBtn"),
+  switchAccountBtn: document.getElementById("switchAccountBtn"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  themeDarkBtn: document.getElementById("themeDarkBtn"),
+  themeLightBtn: document.getElementById("themeLightBtn"),
+  chatView: document.getElementById("view-chat"),
+  chat: document.getElementById("chat"),
+  promptChips: Array.from(document.querySelectorAll(".prompt-chip")),
+  composerStatus: document.getElementById("composerStatus"),
+  authStatus: document.getElementById("authStatus"),
+  textarea: document.getElementById("msg"),
+  sendBtn: document.getElementById("sendBtn"),
+  attachBtn: document.getElementById("attachBtn"),
+  fileInput: document.getElementById("fileInput"),
+  filePreview: document.getElementById("filePreview"),
+  voiceBtn: document.getElementById("voiceBtn"),
+  memoryBadge: document.getElementById("memoryBadge"),
+  memoryList: document.getElementById("memoryList"),
+  learningList: document.getElementById("learningList"),
+  currentPlanName: document.getElementById("currentPlanName"),
+  planCurrentCard: document.getElementById("planCurrentCard"),
+  planActionButtons: Array.from(document.querySelectorAll("[data-plan-action]")),
+  helpBackendStatus: document.getElementById("helpBackendStatus"),
+  helpAuthStatus: document.getElementById("helpAuthStatus"),
+  helpUploadStatus: document.getElementById("helpUploadStatus"),
+  verbositySelect: document.getElementById("verbositySelect"),
+  examplesToggle: document.getElementById("examplesToggle"),
+  emojiToggle: document.getElementById("emojiToggle"),
+  safetySelect: document.getElementById("safetySelect"),
+  ageGroupSelect: document.getElementById("ageGroupSelect"),
+  themeSelect: document.getElementById("themeSelect"),
+  saveSettingsBtn: document.getElementById("saveSettings"),
+  settingsStatus: document.getElementById("settingsStatus"),
+  settingsAuthMode: document.getElementById("settingsAuthMode"),
+  settingsUserLabel: document.getElementById("settingsUserLabel"),
+  settingsOauthLabel: document.getElementById("settingsOauthLabel"),
+  openLoginFromSettings: document.getElementById("openLoginFromSettings"),
+  loginModal: document.getElementById("loginModal"),
+  closeLoginBtn: document.getElementById("closeLoginBtn"),
+  emailInput: document.getElementById("emailInput"),
+  passwordInput: document.getElementById("passwordInput"),
+  emailLoginBtn: document.getElementById("emailLogin"),
+  emailSignupBtn: document.getElementById("emailSignup"),
+  googleLoginBtn: document.getElementById("googleLogin"),
+  githubLoginBtn: document.getElementById("githubLogin"),
+  loginStatus: document.getElementById("loginStatus"),
+  toastStack: document.getElementById("toastStack")
+}
+
+const views = {
+  chat: document.getElementById("view-chat"),
+  memory: document.getElementById("view-memory"),
+  plan: document.getElementById("view-plan"),
+  help: document.getElementById("view-help"),
+  settings: document.getElementById("view-settings")
+}
 
 const state = {
-  theme: localStorage.getItem("groot-theme") || "dark",
-  ageGroup: localStorage.getItem("groot-age-group") || null,
+  config: null,
+  health: null,
   supabase: null,
   user: null,
-  preferences: {},
-  adminProtected: false,
-  lastUpload: null,
-  currentChatHistory: []
+  authBackend: "local",
+  currentView: "chat",
+  preferences: { ...DEFAULT_PREFERENCES },
+  chatHistory: [],
+  pendingFile: null,
+  pendingFileUrl: null,
+  isSending: false,
+  speechRecognition: null,
+  isRecording: false
 }
 
-// Funções para gerenciar histórico por usuário
-function getUserStorageKey() {
-  const userId = state.user?.email || "visitante"
-  return `groot-chat-history-${userId.replace(/[^a-zA-Z0-9]/g, "_")}`
+document.addEventListener("DOMContentLoaded", init)
+
+async function init() {
+  bindEvents()
+  hydratePreferences()
+  applyPreferencesToUI()
+  setTheme(state.preferences.theme || DEFAULT_PREFERENCES.theme)
+  loadChatHistory()
+  renderChatHistory()
+  await loadConfig()
+  await initAuth()
+  initSpeechRecognition()
+  await loadSystemHealth()
+  await renderMemoryView()
+  renderPlanView()
+  updateHelpStatus()
+  updateAuthUI()
+  setView("chat")
 }
 
-function saveChatHistory() {
-  const key = getUserStorageKey()
-  try {
-    localStorage.setItem(key, JSON.stringify(state.currentChatHistory))
-  } catch (e) {
-    console.warn("Erro ao salvar histórico:", e)
-  }
-}
+function bindEvents() {
+  elements.newChatBtn?.addEventListener("click", resetChat)
+  elements.mobileMenuBtn?.addEventListener("click", () => toggleSidebar())
+  elements.sidebarScrim?.addEventListener("click", () => toggleSidebar(false))
 
-function loadChatHistory() {
-  const key = getUserStorageKey()
-  try {
-    const saved = localStorage.getItem(key)
-    if (saved) {
-      state.currentChatHistory = JSON.parse(saved)
-      renderChatHistory()
-    } else {
-      state.currentChatHistory = []
-      chat.innerHTML = ""
-    }
-  } catch (e) {
-    console.warn("Erro ao carregar histórico:", e)
-    state.currentChatHistory = []
-    chat.innerHTML = ""
-  }
-}
-
-function renderChatHistory() {
-  chat.innerHTML = ""
-  state.currentChatHistory.forEach(msg => {
-    const message = document.createElement("div")
-    message.className = `message ${msg.role}${msg.isError ? " error" : ""}`
-    message.innerHTML = formatMessage(msg.content)
-    chat.appendChild(message)
+  elements.navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      setView(item.dataset.view || "chat")
+      toggleSidebar(false)
+    })
   })
-  chat.scrollTop = chat.scrollHeight
-}
 
-function addToHistory(role, content, isError = false) {
-  state.currentChatHistory.push({ role, content, isError, timestamp: Date.now() })
-  saveChatHistory()
-}
-
-document.body.dataset.theme = state.theme
-
-button.addEventListener("click", send)
-textarea.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault()
-    send()
-  }
-})
-
-themeToggle.addEventListener("click", toggleTheme)
-loginBtn.addEventListener("click", () => showModal(loginModal))
-
-// Fechar modal com botão X
-if (closeLogin) {
-  closeLogin.addEventListener("click", (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    loginModal.classList.add("hidden")
-    console.log("Modal fechado!")
+  elements.profileTrigger?.addEventListener("click", (event) => {
+    event.stopPropagation()
+    toggleProfileMenu()
   })
-}
 
-// Fechar modal ao clicar fora
-loginModal.addEventListener("click", (event) => {
-  if (event.target === loginModal) {
-    loginModal.classList.add("hidden")
-  }
-})
-newChat.addEventListener("click", () => {
-  chat.innerHTML = ""
-  state.currentChatHistory = []
-  saveChatHistory()
-})
+  elements.profileMenu?.addEventListener("click", handleProfileMenuClick)
+  elements.topbarAccountBtn?.addEventListener("click", handleAccountShortcut)
+  elements.openLoginBtn?.addEventListener("click", openLoginModal)
+  elements.openLoginFromSettings?.addEventListener("click", openLoginModal)
+  elements.switchAccountBtn?.addEventListener("click", () => {
+    closeProfileMenu()
+    openLoginModal()
+  })
+  elements.logoutBtn?.addEventListener("click", logout)
+  elements.themeDarkBtn?.addEventListener("click", () => setTheme("dark"))
+  elements.themeLightBtn?.addEventListener("click", () => setTheme("light"))
 
-if (uploadBtn && fileInput) {
-  uploadBtn.addEventListener("click", () => fileInput.click())
-  fileInput.addEventListener("change", handleUpload)
-}
+  elements.promptChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      elements.textarea.value = chip.dataset.prompt || ""
+      autoResizeTextarea()
+      syncChatMode()
+      elements.textarea.focus()
+    })
+  })
 
-navItems.forEach((item) => {
-  item.addEventListener("click", () => setView(item.dataset.view))
-})
+  elements.textarea?.addEventListener("input", () => {
+    autoResizeTextarea()
+    syncChatMode()
+  })
 
-ageModal.addEventListener("click", (event) => {
-  if (event.target === ageModal) {
-    hideModal(ageModal)
-    return
-  }
-  if (event.target.dataset.age) {
-    setAgeGroup(event.target.dataset.age)
-  }
-})
-
-loginModal.addEventListener("click", (event) => {
-  if (event.target === loginModal) {
-    hideModal(loginModal)
-  }
-})
-
-ageBadge.addEventListener("click", () => showModal(ageModal))
-
-function showModal(modal) {
-  modal.classList.remove("hidden")
-  modal.style.display = "flex"
-}
-
-function hideModal(modal) {
-  modal.classList.add("hidden")
-  modal.style.display = "none"
-}
-
-function setUploadStatus(message, isError = false) {
-  if (!uploadStatus) return
-  uploadStatus.textContent = message || ""
-  uploadStatus.classList.toggle("error", !!isError)
-}
-
-function setLoginStatus(message, isError = false) {
-  if (!loginStatus) return
-  loginStatus.textContent = message || ""
-  loginStatus.classList.toggle("error", !!isError)
-}
-
-function cleanAuthUrl() {
-  const hash = window.location.hash || ""
-  const search = window.location.search || ""
-  const hasAuthHash = hash.includes("access_token") || hash.includes("refresh_token") || hash.includes("error_description")
-  const hasAuthCode = search.includes("code=") || search.includes("error_description")
-  if (hasAuthHash || hasAuthCode) {
-    history.replaceState({}, document.title, window.location.pathname)
-  }
-}
-
-function toggleTheme() {
-  state.theme = state.theme === "dark" ? "light" : "dark"
-  document.body.dataset.theme = state.theme
-  localStorage.setItem("groot-theme", state.theme)
-}
-
-function setAgeGroup(group) {
-  state.ageGroup = group
-  localStorage.setItem("groot-age-group", group)
-  updateAgeUI()
-  hideModal(ageModal)
-}
-
-function updateAgeUI() {
-  if (!state.ageGroup) {
-    ageBanner.classList.add("hidden")
-    ageBadge.textContent = "Idade"
-    return
-  }
-
-  const isMinor = state.ageGroup === "minor"
-  ageBadge.textContent = isMinor ? "Menor" : "18+"
-  ageBanner.textContent = isMinor
-    ? "Modo jovem ativo: linguagem e conteúdo filtrados para segurança."
-    : "Modo adulto ativo: respostas completas e técnicas."
-  ageBanner.classList.remove("hidden")
-}
-
-function initAgeGate() {
-  const birthMonth = document.getElementById("birthMonth")
-  const birthYear = document.getElementById("birthYear")
-  const confirmAgeBtn = document.getElementById("confirmAge")
-
-  if (birthYear) {
-    const currentYear = new Date().getFullYear()
-    // Ano máximo é o ano atual - 13 (para maior de 13 anos)
-    // Não incluir o ano atual para evitar menores de 13 anos
-    const maxYear = currentYear - 13
-    for (let year = maxYear; year >= 1950; year--) {
-      const option = document.createElement("option")
-      option.value = year
-      option.textContent = year
-      birthYear.appendChild(option)
+  elements.textarea?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      sendMessage()
     }
-  }
+  })
 
-  if (confirmAgeBtn) {
-    confirmAgeBtn.addEventListener("click", () => {
-      const month = birthMonth?.value
-      const year = birthYear?.value
+  elements.sendBtn?.addEventListener("click", sendMessage)
+  elements.attachBtn?.addEventListener("click", () => elements.fileInput?.click())
+  elements.fileInput?.addEventListener("change", handleFileSelected)
+  elements.voiceBtn?.addEventListener("click", toggleVoiceInput)
 
-      if (!month || !year) {
-        alert("Por favor, selecione mês e ano de nascimento.")
-        return
+  elements.chat?.addEventListener("click", async (event) => {
+    const copyButton = event.target.closest("[data-copy]")
+    if (!copyButton) return
+    await copyText(decodeURIComponent(copyButton.dataset.copy || ""))
+    showToast("Conteúdo copiado.", "success")
+  })
+
+  elements.loginModal?.addEventListener("click", (event) => {
+    if (event.target === elements.loginModal) {
+      closeLoginModal()
+    }
+  })
+
+  elements.closeLoginBtn?.addEventListener("click", closeLoginModal)
+  elements.emailLoginBtn?.addEventListener("click", handleEmailLogin)
+  elements.emailSignupBtn?.addEventListener("click", handleEmailSignup)
+  elements.googleLoginBtn?.addEventListener("click", () => handleOAuthLogin("google"))
+  elements.githubLoginBtn?.addEventListener("click", () => handleOAuthLogin("github"))
+  elements.saveSettingsBtn?.addEventListener("click", savePreferences)
+
+  elements.planActionButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.planAction
+      if (action === "settings") {
+        setView("settings")
+      } else {
+        showToast("Estrutura de billing pronta na interface, mas sem gateway real conectado ainda.", "warning")
       }
-
-      const birthDate = new Date(parseInt(year), parseInt(month) - 1)
-      const age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-
-      const group = age >= 18 ? "adult" : "minor"
-      state.ageGroup = group
-      state.birthMonth = month
-      state.birthYear = year
-      state.age = age
-
-      localStorage.setItem("groot-age-group", group)
-      localStorage.setItem("groot-birth-month", month)
-      localStorage.setItem("groot-birth-year", year)
-      localStorage.setItem("groot-age", age.toString())
-
-      updateAgeUI()
-      ageModal.classList.add("hidden")
-      ageModal.style.display = "none"
     })
-  }
-
-  // Carregar dados salvos
-  const savedAgeGroup = localStorage.getItem("groot-age-group")
-  if (savedAgeGroup) {
-    state.ageGroup = savedAgeGroup
-    state.birthMonth = localStorage.getItem("groot-birth-month")
-    state.birthYear = localStorage.getItem("groot-birth-year")
-    state.age = parseInt(localStorage.getItem("groot-age") || "0")
-  }
-
-  updateAgeUI()
-  if (!state.ageGroup) {
-    ageModal.classList.remove("hidden")
-    ageModal.style.display = "flex"
-  }
-}
-
-function escapeHtml(text) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
-}
-
-function formatMessage(text) {
-  const blocks = []
-  let safe = String(text || "")
-
-  // Detectar e formatar LINKS
-  safe = safe.replace(/(https?:\/\/[^\s<]+)/gi, (match, url) => {
-    const urlId = `url_${Date.now()}_${Math.random().toString(36).substr(0, 6)}`
-    blocks.push({ type: 'url', content: url, id: urlId })
-    return `__URL_${urlId}__`
   })
 
-  // Detectar e formatar BLOCOS DE CÓDIGO
-  safe = safe.replace(/```(\w*)\n?([\s\S]*?)\n?```/g, (match, lang, code) => {
-    const index = blocks.length
-    blocks.push({ type: 'code', content: code.trim(), language: lang || 'text' })
-    return `__CODE_BLOCK_${index}__`
-  })
-
-  // Detectar e formatar CÓDIGO INLINE
-  safe = safe.replace(/`([^`]+)`/g, (match, code) => {
-    const codeId = `code_${Date.now()}_${Math.random().toString(36).substr(0, 6)}`
-    blocks.push({ type: 'inline-code', content: code.trim(), id: codeId })
-    return `__INLINE_CODE_${codeId}__`
-  })
-
-  // Detectar DOCUMENTOS (menções a arquivos, documentos, etc.)
-  safe = safe.replace(/\[([^\]]+\.(pdf|doc|docx|txt|md|csv|xlsx|ppt|pptx)[^\]]*)\]/gi, (match, doc) => {
-    const docId = `doc_${Date.now()}_${Math.random().toString(36).substr(0, 6)}`
-    blocks.push({ type: 'document', content: doc, id: docId })
-    return `__DOCUMENT_${docId}__`
-  })
-
-  safe = escapeHtml(safe).replace(/\n/g, "<br>")
-
-  // Renderizar blocos especiais
-  blocks.forEach((block, index) => {
-    if (block.type === 'url') {
-      safe = safe.replace(`__URL_${block.id}__`, `
-        <div class="link-block">
-          <a href="${block.content}" target="_blank" rel="noopener noreferrer" class="link-content">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 13a5 5 0 0 0 7.54 5.54l1.04 1.01L10 14.54l1.04 1.01A5 5 0 0 0 10 13z"/>
-              <path d="M18 9h-6V4h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/>
-            </svg>
-            <span class="link-text">${block.content.length > 50 ? block.content.substring(0, 47) + '...' : block.content}</span>
-          </a>
-          <button class="copy-btn" onclick="copyToClipboard('${block.content.replace(/'/g, "\\'")}', 'link')" title="Copiar link">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/>
-            </svg>
-          </button>
-        </div>
-      `)
-    } else if (block.type === 'code') {
-      safe = safe.replace(`__CODE_BLOCK_${index}__`, `
-        <div class="code-block">
-          <div class="code-header">
-            <span class="code-language">${block.language}</span>
-            <button class="copy-btn" onclick="copyToClipboard(\`${block.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`, 'code')" title="Copiar código">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/>
-              </svg>
-            </button>
-          </div>
-          <pre class="code-content"><code class="language-${block.language}">${highlightCode(block.content, block.language)}</code></pre>
-        </div>
-      `)
-    } else if (block.type === 'inline-code') {
-      safe = safe.replace(`__INLINE_CODE_${block.id}__`, `
-        <code class="inline-code" onclick="copyToClipboard('${block.content.replace(/'/g, "\\'")}', 'inline-code')" title="Copiar código">
-          ${escapeHtml(block.content)}
-        </code>
-      `)
-    } else if (block.type === 'document') {
-      safe = safe.replace(`__DOCUMENT_${block.id}__`, `
-        <div class="document-block">
-          <div class="document-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M14,2H6A2,2 0 0,0 4,2V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-            </svg>
-          </div>
-          <span class="document-name">${block.content}</span>
-          <button class="copy-btn" onclick="copyToClipboard('${block.content}', 'document')" title="Copiar nome do documento">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1"/>
-            </svg>
-          </button>
-        </div>
-      `)
-    } else {
-      // Código antigo para blocos normais
-      safe = safe.replace(`__CODE_BLOCK_${index}__`, `<pre><code>${escapeHtml(block.content)}</code></pre>`)
+  document.addEventListener("click", (event) => {
+    if (!elements.profileMenu?.contains(event.target) && !elements.profileTrigger?.contains(event.target)) {
+      closeProfileMenu()
     }
   })
 
-  return safe
-}
-
-// Função global para accordion
-window.toggleAccordion = function (sectionId) {
-  const content = document.getElementById(sectionId)
-  const allContents = document.querySelectorAll('.accordion-content')
-  const allIcons = document.querySelectorAll('.accordion-icon')
-
-  // Toggle current section
-  content.classList.toggle('hidden')
-
-  // Rotate icon
-  const icon = content.previousElementSibling.querySelector('.accordion-icon')
-  if (icon) {
-    icon.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)'
-  }
-}
-
-// Função global para copiar para clipboard
-window.copyToClipboard = function (text, type = 'text') {
-  // Fallback para navegadores que não suportam clipboard API
-  const fallbackCopyTextToClipboard = (text) => {
-    const textArea = document.createElement("textarea")
-    textArea.value = text
-    textArea.style.position = "fixed"
-    textArea.style.left = "-999999px"
-    textArea.style.top = "-999999px"
-    document.body.appendChild(textArea)
-    textArea.focus()
-    textArea.select()
-
-    try {
-      const successful = document.execCommand('copy')
-      if (successful) {
-        showToast(type)
-      }
-    } catch (err) {
-      console.error('Fallback: Erro ao copiar:', err)
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeLoginModal()
+      closeProfileMenu()
+      toggleSidebar(false)
     }
-
-    document.body.removeChild(textArea)
-  }
-
-  const showToast = (type) => {
-    // Feedback visual
-    const toast = document.createElement('div')
-    toast.className = 'copy-toast'
-    toast.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M20 6L9 17l-5-5"/>
-        <path d="M20 6l-7 7"/>
-      </svg>
-      ${type === 'code' ? 'Código copiado!' : type === 'link' ? 'Link copiado!' : 'Texto copiado!'}
-    `
-    document.body.appendChild(toast)
-
-    setTimeout(() => {
-      toast.style.opacity = '0'
-      setTimeout(() => document.body.removeChild(toast), 300)
-    }, 2000)
-  }
-
-  // Tentar usar clipboard API primeiro
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast(type)
-    }).catch(err => {
-      console.error('Clipboard API falhou, usando fallback:', err)
-      fallbackCopyTextToClipboard(text)
-    })
-  } else {
-    // Usar fallback direto
-    fallbackCopyTextToClipboard(text)
-  }
-}
-
-// Função para syntax highlighting
-function highlightCode(code, language) {
-  // Mapeamento de linguagens para cores VSCode
-  const syntaxColors = {
-    // JavaScript
-    javascript: {
-      keywords: ['function', 'const', 'let', 'var', 'if', 'else', 'for', 'while', 'return', 'class', 'import', 'export', 'default', 'async', 'await', 'try', 'catch', 'throw', 'new', 'this'],
-      types: ['String', 'Number', 'Boolean', 'Array', 'Object', 'Promise', 'Date', 'RegExp', 'Error'],
-      functions: ['console', 'fetch', 'setTimeout', 'setInterval', 'parseInt', 'parseFloat', 'JSON', 'Math'],
-      strings: /(["'`])([^"'`]*)\1/g,
-      comments: /\/\/.*$/gm,
-      blockComments: /\/\*[\s\S]*?\*\//g,
-      numbers: /\b\d+\.?\d*\b/g
-    },
-    // Python
-    python: {
-      keywords: ['def', 'class', 'if', 'elif', 'else', 'for', 'while', 'return', 'import', 'from', 'as', 'try', 'except', 'finally', 'with', 'lambda', 'yield', 'async', 'await'],
-      types: ['str', 'int', 'float', 'bool', 'list', 'dict', 'tuple', 'set', 'None', 'True', 'False'],
-      functions: ['print', 'len', 'range', 'enumerate', 'zip', 'map', 'filter', 'sorted', 'sum', 'max', 'min', 'abs', 'round'],
-      strings: /(["'`])([^"'`]*)\1/g,
-      comments: /#.*$/gm,
-      blockComments: /'''[\s\S]*?'''/g,
-      numbers: /\b\d+\.?\d*\b/g
-    },
-    // CSS
-    css: {
-      keywords: ['color', 'background', 'margin', 'padding', 'border', 'width', 'height', 'display', 'position', 'font-size', 'font-weight', 'text-align', 'flex', 'grid'],
-      properties: /([a-zA-Z-]+)(\s*:)/g,
-      values: /:\s*([^;]+)/g,
-      selectors: /([.#]?[a-zA-Z-]+)(\s*{)/g,
-      comments: /\/\*[\s\S]*?\*\//g,
-      numbers: /\b\d+(px|em|rem|%|vh|vw|pt|pc|in|cm|mm|ex|ch|vmin|vmax|deg|rad|turn|s|ms)\b/g
-    },
-    // HTML
-    html: {
-      tags: /(&lt;\/?)([a-zA-Z-]+)([^&gt;]*&gt;)/g,
-      attributes: /([a-zA-Z-]+)(=)/g,
-      comments: /&lt;!--[\s\S]*?--&gt;/g,
-      strings: /(["'])([^"']*)\1/g
-    }
-  }
-
-  const lang = syntaxColors[language.toLowerCase()] || syntaxColors.javascript
-  let highlighted = code
-
-  // Escape HTML primeiro
-  highlighted = highlighted
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  // Aplicar cores
-  if (lang.comments) {
-    highlighted = highlighted.replace(lang.comments, '<span class="token comment">$&</span>')
-  }
-  if (lang.blockComments) {
-    highlighted = highlighted.replace(lang.blockComments, '<span class="token comment">$&</span>')
-  }
-  if (lang.strings) {
-    highlighted = highlighted.replace(lang.strings, '<span class="token string">$&</span>')
-  }
-  if (lang.numbers) {
-    highlighted = highlighted.replace(lang.numbers, '<span class="token number">$&</span>')
-  }
-  if (lang.keywords) {
-    lang.keywords.forEach(keyword => {
-      const regex = new RegExp(`\\b${keyword}\\b`, 'g')
-      highlighted = highlighted.replace(regex, '<span class="token keyword">' + keyword + '</span>')
-    })
-  }
-  if (lang.types) {
-    lang.types.forEach(type => {
-      const regex = new RegExp(`\\b${type}\\b`, 'g')
-      highlighted = highlighted.replace(regex, '<span class="token type">' + type + '</span>')
-    })
-  }
-  if (lang.functions) {
-    lang.functions.forEach(func => {
-      const regex = new RegExp(`\\b${func}\\b`, 'g')
-      highlighted = highlighted.replace(regex, '<span class="token function">' + func + '</span>')
-    })
-  }
-
-  return highlighted
-}
-
-function appendMessage(role, content, isError = false, meta = {}) {
-  const message = document.createElement("div")
-  message.className = `message ${role}${isError ? " error" : ""}`
-
-  // Criar avatar
-  const avatar = document.createElement("div")
-  avatar.className = "message-avatar"
-  if (role === "ai") {
-    avatar.textContent = "🌳"
-  } else {
-    avatar.textContent = "👤"
-  }
-
-  // Criar content wrapper
-  const messageContent = document.createElement("div")
-  messageContent.className = "message-content"
-  messageContent.innerHTML = formatMessage(content)
-
-  // Montar mensagem estilo ChatGPT
-  message.appendChild(avatar)
-  message.appendChild(messageContent)
-
-  if (role === "ai" && !isError && meta.requestId) {
-    const feedback = document.createElement("div")
-    feedback.className = "feedback"
-    const up = document.createElement("button")
-    const down = document.createElement("button")
-    up.textContent = "Útil"
-    down.textContent = "Não útil"
-    up.className = "ghost small"
-    down.className = "ghost small"
-    up.addEventListener("click", async () => {
-      await sendFeedback(meta.requestId, 1)
-      up.disabled = true
-      down.disabled = true
-    })
-    down.addEventListener("click", async () => {
-      await sendFeedback(meta.requestId, 0)
-      up.disabled = true
-      down.disabled = true
-    })
-    feedback.appendChild(up)
-    feedback.appendChild(down)
-    message.appendChild(feedback)
-  }
-  chat.appendChild(message)
-  chat.scrollTop = chat.scrollHeight
-
-  // Salvar no histórico do usuário
-  addToHistory(role, content, isError)
-}
-
-function setView(view) {
-  const map = {
-    chat: viewChat,
-    memory: viewMemory,
-    metrics: viewMetrics,
-    docs: viewDocs,
-    settings: viewSettings
-  }
-
-  Object.values(map).forEach((el) => el.classList.remove("active"))
-  map[view]?.classList.add("active")
-
-  navItems.forEach((item) => {
-    item.classList.toggle("active", item.dataset.view === view)
   })
-
-  if (view === "memory") {
-    loadMemory()
-  }
-
-  if (view === "metrics") {
-    loadMetrics()
-  }
-
-  if (view === "settings") {
-    loadPreferences()
-  }
 }
 
-function renderEmpty(list, message) {
-  list.innerHTML = ""
-  const item = document.createElement("div")
-  item.className = "list-item"
-  item.textContent = message
-  list.appendChild(item)
-}
-
-function truncate(text, max = 120) {
-  const value = String(text || "")
-  return value.length > max ? `${value.slice(0, max)}...` : value
-}
-
-function formatDuration(seconds) {
-  if (!seconds || Number.isNaN(seconds)) return "0s"
-  if (seconds < 60) return `${seconds.toFixed(0)}s`
-  const minutes = Math.floor(seconds / 60)
-  const rest = Math.floor(seconds % 60)
-  return `${minutes}m ${rest}s`
-}
-
-async function loadMetrics() {
-  metricsStatus.textContent = ""
-  const adminKey = localStorage.getItem("groot-admin-key")
-  if (adminKey) {
-    adminKeyInput.value = adminKey
-  }
-
-  const headers = {}
-  if (adminKey) {
-    headers["X-Admin-Key"] = adminKey
-  }
-
-  if (state.adminProtected && !adminKey) {
-    metricsStatus.textContent = "Admin key necessária para visualizar métricas."
-    return
-  }
+async function apiRequest(endpoint, options = {}) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT)
 
   try {
-    const response = await fetch("/metrics/json", { headers })
-    if (response.status === 401) {
-      metricsStatus.textContent = "Admin key necessária para ver métricas."
-      return
-    }
-    if (!response.ok) {
-      metricsStatus.textContent = "Erro ao carregar métricas."
-      return
-    }
-
-    const data = await response.json()
-    const summary = data.summary || {}
-
-    metricTotal.textContent = summary.requests?.total ?? 0
-    const successRate = summary.requests?.total
-      ? ((summary.requests.successful / summary.requests.total) * 100).toFixed(1)
-      : 0
-    metricSuccess.textContent = `${successRate}%`
-    metricAvg.textContent = `${summary.requests?.avgResponseTime ?? 0}ms`
-    metricCache.textContent = `${summary.cache?.hitRate ?? 0}%`
-    metricUptime.textContent = formatDuration(summary.uptime || 0)
-
-    providersList.innerHTML = ""
-    const providers = data.providers || {}
-    const providerEntries = Object.entries(providers)
-    if (providerEntries.length === 0) {
-      renderEmpty(providersList, "Sem dados de providers.")
-    } else {
-      providerEntries.forEach(([name, stats]) => {
-        const node = document.createElement("div")
-        node.className = "list-item"
-        node.innerHTML = `
-          <div class="list-title">${name}</div>
-          <div class="list-body">Requests: ${stats.requests} | Sucesso: ${stats.successRate}%</div>
-          <div class="list-meta">Tempo médio: ${stats.avgResponseTime || 0}ms</div>
-        `
-        providersList.appendChild(node)
-      })
-    }
-
-    errorsList.innerHTML = ""
-    const errors = data.errors || {}
-    const errorEntries = Object.entries(errors)
-    if (errorEntries.length === 0) {
-      renderEmpty(errorsList, "Nenhum erro recente.")
-    } else {
-      errorEntries.forEach(([type, stats]) => {
-        const node = document.createElement("div")
-        node.className = "list-item"
-        node.innerHTML = `
-          <div class="list-title">${type}</div>
-          <div class="list-body">Ocorrências: ${stats.count}</div>
-          <div class="list-meta">${stats.recentSample?.message || ""}</div>
-        `
-        errorsList.appendChild(node)
-      })
-    }
-  } catch (error) {
-    metricsStatus.textContent = "Falha ao carregar métricas."
-  }
-}
-
-async function loadMemory() {
-  if (!state.supabase || !state.user) {
-    renderEmpty(memoryList, "Faça login para ver sua memória.")
-    renderEmpty(learningList, "Faça login para ver seus padrões.")
-    return
-  }
-
-  const { data: memory, error } = await state.supabase
-    .from("conversations")
-    .select("*")
-    .eq("user_id", state.user.id)
-    .order("created_at", { ascending: false })
-    .limit(20)
-
-  if (error) {
-    renderEmpty(memoryList, "Não foi possível carregar a memória.")
-  } else if (!memory?.length) {
-    renderEmpty(memoryList, "Sem conversas por enquanto.")
-  } else {
-    memoryList.innerHTML = ""
-    memory.forEach((item) => {
-      const node = document.createElement("div")
-      node.className = "list-item"
-      node.innerHTML = `
-        <div class="list-title">${truncate(item.user_message, 80)}</div>
-        <div class="list-body">${truncate(item.ai_response, 140)}</div>
-        <div class="list-meta">${new Date(item.created_at).toLocaleString()}</div>
-      `
-      memoryList.appendChild(node)
-    })
-  }
-
-  const { data: patterns, error: patternError } = await state.supabase
-    .from("learning_patterns")
-    .select("*")
-    .eq("user_id", state.user.id)
-    .order("created_at", { ascending: false })
-    .limit(10)
-
-  if (patternError) {
-    renderEmpty(learningList, "Não foi possível carregar padrões.")
-  } else if (!patterns?.length) {
-    renderEmpty(learningList, "Sem padrões aprendidos ainda.")
-  } else {
-    learningList.innerHTML = ""
-    patterns.forEach((item) => {
-      const node = document.createElement("div")
-      node.className = "list-item"
-      node.innerHTML = `
-        <div class="list-title">${item.pattern_type}</div>
-        <div class="list-body">${truncate(JSON.stringify(item.pattern_data), 140)}</div>
-        <div class="list-meta">${new Date(item.created_at).toLocaleString()}</div>
-      `
-      learningList.appendChild(node)
-    })
-  }
-}
-
-async function loadPreferences() {
-  settingsStatus.textContent = ""
-  if (!state.supabase || !state.user) {
-    settingsStatus.textContent = "Faça login para ajustar preferências."
-    return
-  }
-
-  const { data, error } = await state.supabase
-    .from("user_profiles")
-    .select("preferences")
-    .eq("user_id", state.user.id)
-    .single()
-
-  if (error && error.code !== "PGRST116") {
-    settingsStatus.textContent = "Erro ao carregar preferências."
-    return
-  }
-
-  const prefs = data?.preferences || {}
-  state.preferences = prefs
-  verbositySelect.value = prefs.verbosity || "natural"
-  examplesToggle.checked = !!prefs.examples
-  emojiToggle.checked = !prefs.noEmojis
-  safetySelect.value = prefs.safetyLevel || "standard"
-}
-
-saveSettings.addEventListener("click", async () => {
-  settingsStatus.textContent = ""
-  if (!state.supabase || !state.user) {
-    settingsStatus.textContent = "Faça login para salvar."
-    return
-  }
-
-  const prefs = {
-    ...state.preferences,
-    verbosity: verbositySelect.value,
-    examples: examplesToggle.checked,
-    noEmojis: !emojiToggle.checked,
-    safetyLevel: safetySelect.value
-  }
-
-  const { error } = await state.supabase
-    .from("user_profiles")
-    .upsert({
-      user_id: state.user.id,
-      preferences: prefs,
-      updated_at: new Date().toISOString()
-    })
-
-  if (error) {
-    settingsStatus.textContent = "Erro ao salvar."
-  } else {
-    settingsStatus.textContent = "Preferências salvas."
-    state.preferences = prefs
-  }
-})
-
-saveAdminKey.addEventListener("click", () => {
-  const value = adminKeyInput.value.trim()
-  if (value) {
-    localStorage.setItem("groot-admin-key", value)
-    metricsStatus.textContent = "Admin key salva localmente."
-  } else {
-    localStorage.removeItem("groot-admin-key")
-    metricsStatus.textContent = "Admin key removida."
-  }
-})
-
-refreshMetrics.addEventListener("click", () => {
-  loadMetrics()
-})
-
-async function send() {
-  const message = textarea.value.trim()
-  if (!message) return
-
-  appendMessage("user", message)
-  textarea.value = ""
-
-  try {
-    const response = await fetch("/ask", {
-      method: "POST",
+    return await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        "X-User-Id": state.user?.id || localStorage.getItem("groot-user-id") || "default_user"
-      },
-      body: JSON.stringify({
-        question: message,
-        context: {
-          ageGroup: state.ageGroup,
-          uiTheme: state.theme,
-          locale: navigator.language,
-          uploadId: state.lastUpload?.id || null,
-          uploadName: state.lastUpload?.name || null,
-          uploadType: state.lastUpload?.type || null
-        }
-      })
+        ...(options.headers || {})
+      }
     })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    if (data.error) {
-      appendMessage("ai", `Erro: ${data.error}`, true)
-    } else if (data.response) {
-      appendMessage("ai", data.response, false, { requestId: data.requestId })
-    } else {
-      appendMessage("ai", "Resposta inválida da IA", true)
-    }
-    if (state.lastUpload) {
-      state.lastUpload = null
-      setUploadStatus("")
-    }
-  } catch (error) {
-    console.error("Erro no frontend:", error)
-    appendMessage("ai", `Falha ao comunicar com Ai-GROOT: ${error.message}`, true)
-  }
-}
-
-async function sendFeedback(requestId, rating) {
-  try {
-    await fetch("/feedback", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Id": state.user?.id || localStorage.getItem("groot-user-id") || "default_user"
-      },
-      body: JSON.stringify({
-        requestId,
-        rating
-      })
-    })
-  } catch (error) {
-    console.warn("Falha ao enviar feedback:", error.message)
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
 async function loadConfig() {
   try {
-    const response = await fetch("/config")
-    if (!response.ok) {
-      return null
-    }
-    return await response.json()
-  } catch (error) {
-    console.warn("Falha ao carregar config:", error.message)
-    return null
+    const response = await apiRequest("/config")
+    if (!response.ok) return
+    state.config = await response.json()
+    const maxBytes = state.config?.uploads?.maxBytes || 2_000_000
+    elements.helpUploadStatus.textContent = `Até ${formatBytes(maxBytes)}`
+  } catch {
+    state.config = null
   }
 }
 
-async function initAuth() {
-  const config = await loadConfig()
-  if (config) {
-    state.adminProtected = !!config.adminProtected
+async function loadSystemHealth() {
+  try {
+    const response = await apiRequest("/health")
+    if (!response.ok) throw new Error("Backend offline")
+    state.health = await response.json()
+    elements.backendStatus.textContent = "Backend online"
+    elements.helpBackendStatus.textContent = `${state.health.service || "Ai-GROOT"} • online`
+  } catch {
+    state.health = null
+    elements.backendStatus.textContent = "Backend indisponível"
+    elements.helpBackendStatus.textContent = "Indisponível"
   }
-  if (!config?.supabaseUrl || !config?.supabaseAnonKey || !window.supabase) {
-    loginBtn.textContent = "Entrar"
-    loginBtn.disabled = true
-    userRole.textContent = "Auth indisponível"
+}
+
+function setView(view) {
+  state.currentView = view in views ? view : "chat"
+
+  Object.entries(views).forEach(([name, node]) => {
+    node.classList.toggle("active", name === state.currentView)
+  })
+
+  elements.navItems.forEach((item) => {
+    item.classList.toggle("active", item.dataset.view === state.currentView)
+  })
+
+  const meta = VIEW_META[state.currentView]
+  elements.pageTitle.textContent = meta.title
+  elements.pageEyebrow.textContent = meta.eyebrow
+
+  if (state.currentView === "memory") renderMemoryView()
+  if (state.currentView === "plan") renderPlanView()
+  if (state.currentView === "help") updateHelpStatus()
+  if (state.currentView === "settings") {
+    applyPreferencesToUI()
+    updateAuthUI()
+  }
+}
+
+function toggleSidebar(force) {
+  const open = typeof force === "boolean" ? force : !elements.appShell.classList.contains("sidebar-open")
+  elements.appShell.classList.toggle("sidebar-open", open)
+  elements.sidebarScrim.classList.toggle("hidden", !open)
+}
+
+function toggleProfileMenu(force) {
+  const open = typeof force === "boolean" ? force : elements.profileMenu.classList.contains("hidden")
+  elements.profileMenu.classList.toggle("hidden", !open)
+  elements.profileTrigger?.setAttribute("aria-expanded", String(open))
+}
+
+function closeProfileMenu() {
+  toggleProfileMenu(false)
+}
+
+function handleProfileMenuClick(event) {
+  const button = event.target.closest("[data-action]")
+  if (!button) return
+
+  if (button.dataset.action === "profile-settings") setView("settings")
+  if (button.dataset.action === "profile-plan") setView("plan")
+  if (button.dataset.action === "profile-help") setView("help")
+  closeProfileMenu()
+}
+
+function handleAccountShortcut() {
+  if (state.user) {
+    setView("settings")
+    return
+  }
+  openLoginModal()
+}
+
+function openLoginModal() {
+  closeProfileMenu()
+  elements.loginModal.classList.remove("hidden")
+  elements.emailInput?.focus()
+}
+
+function closeLoginModal() {
+  elements.loginModal.classList.add("hidden")
+  setLoginStatus("")
+}
+
+function setLoginStatus(message, isError = false) {
+  if (!elements.loginStatus) return
+  elements.loginStatus.textContent = message
+  elements.loginStatus.style.color = isError ? "var(--danger)" : "var(--muted)"
+}
+
+function setSettingsStatus(message, isError = false) {
+  if (!elements.settingsStatus) return
+  elements.settingsStatus.textContent = message
+  elements.settingsStatus.style.color = isError ? "var(--danger)" : "var(--muted)"
+}
+
+function setComposerStatus(message, isError = false) {
+  if (!elements.composerStatus) return
+  elements.composerStatus.textContent = message
+  elements.composerStatus.style.color = isError ? "var(--danger)" : "var(--muted)"
+}
+
+function updateHelpStatus() {
+  elements.helpAuthStatus.textContent = state.supabase
+    ? (state.user ? "Supabase autenticado" : "Supabase disponível")
+    : "Modo local"
+  elements.helpUploadStatus.textContent =
+    state.config?.uploads?.maxBytes ? `Até ${formatBytes(state.config.uploads.maxBytes)}` : "Disponível"
+}
+
+function updateAuthUI() {
+  const user = state.user
+  const displayName = getUserDisplayName()
+  const planName = getUserPlan()
+  const roleLabel = user ? `${getProviderLabel(user.provider)} • ${planName}` : "Modo local"
+
+  elements.userAvatar.textContent = getUserInitial()
+  elements.userName.textContent = displayName
+  elements.userRole.textContent = roleLabel
+  elements.menuAvatar.textContent = getUserInitial()
+  elements.menuName.textContent = displayName
+  elements.menuPlan.textContent = `Plano ${planName}`
+  elements.topbarAccountBtn.textContent = user ? "Conta" : "Entrar"
+  elements.authStatus.textContent = state.supabase
+    ? "OAuth GitHub e Google disponível."
+    : "Login local ativo. OAuth depende do Supabase."
+  elements.settingsAuthMode.textContent = state.supabase ? "Supabase" : "Local"
+  elements.settingsUserLabel.textContent = user ? user.email : "Visitante"
+  elements.settingsOauthLabel.textContent = state.supabase ? "Disponível" : "Aguardando configuração"
+
+  elements.openLoginBtn.classList.toggle("hidden", Boolean(user))
+  elements.switchAccountBtn.classList.toggle("hidden", !user)
+  elements.logoutBtn.classList.toggle("hidden", !user)
+  elements.googleLoginBtn.disabled = !state.supabase
+  elements.githubLoginBtn.disabled = !state.supabase
+  elements.googleLoginBtn.style.opacity = state.supabase ? "1" : "0.65"
+  elements.githubLoginBtn.style.opacity = state.supabase ? "1" : "0.65"
+  renderPlanView()
+  updateHelpStatus()
+}
+
+function renderPlanView() {
+  elements.currentPlanName.textContent = getUserPlan()
+  elements.planCurrentCard.classList.add("current")
+}
+
+function hydratePreferences() {
+  const stored = readJson(getPreferencesKey(), DEFAULT_PREFERENCES)
+  state.preferences = { ...DEFAULT_PREFERENCES, ...stored }
+}
+
+function applyPreferencesToUI() {
+  elements.verbositySelect.value = state.preferences.verbosity
+  elements.examplesToggle.checked = Boolean(state.preferences.examples)
+  elements.emojiToggle.checked = !state.preferences.noEmojis
+  elements.safetySelect.value = state.preferences.safetyLevel
+  elements.ageGroupSelect.value = state.preferences.ageGroup
+  elements.themeSelect.value = state.preferences.theme
+  setTheme(state.preferences.theme)
+}
+
+async function savePreferences() {
+  state.preferences = {
+    verbosity: elements.verbositySelect.value,
+    examples: elements.examplesToggle.checked,
+    noEmojis: !elements.emojiToggle.checked,
+    safetyLevel: elements.safetySelect.value,
+    ageGroup: elements.ageGroupSelect.value,
+    theme: elements.themeSelect.value
+  }
+
+  writeJson(getPreferencesKey(), state.preferences)
+  setTheme(state.preferences.theme)
+  setSettingsStatus("Preferências salvas localmente.")
+
+  if (state.supabase && state.user) {
+    try {
+      const { error } = await state.supabase
+        .from("user_profiles")
+        .upsert({
+          user_id: state.user.id,
+          preferences: state.preferences,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+      setSettingsStatus("Preferências salvas no Supabase.")
+    } catch {
+      setSettingsStatus("Salvei localmente, mas falhei ao sincronizar com o Supabase.", true)
+    }
+  }
+}
+
+function setTheme(theme) {
+  state.preferences.theme = theme
+  elements.body.dataset.theme = theme
+  localStorage.setItem("groot-theme", theme)
+  if (elements.themeSelect.value !== theme) {
+    elements.themeSelect.value = theme
+  }
+  elements.themeDarkBtn.classList.toggle("active", theme === "dark")
+  elements.themeLightBtn.classList.toggle("active", theme === "light")
+  writeJson(getPreferencesKey(), state.preferences)
+}
+
+async function initAuth() {
+  const canUseSupabase = Boolean(
+    state.config?.supabaseUrl &&
+    state.config?.supabaseAnonKey &&
+    window.supabase &&
+    typeof window.supabase.createClient === "function"
+  )
+
+  if (!canUseSupabase) {
+    state.supabase = null
+    state.authBackend = "local"
+    restoreLegacyLocalSession()
     return
   }
 
-  state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+  state.supabase = window.supabase.createClient(state.config.supabaseUrl, state.config.supabaseAnonKey, {
     auth: {
       flowType: "pkce",
       persistSession: true,
@@ -981,215 +491,956 @@ async function initAuth() {
     }
   })
 
-  const { data } = await state.supabase.auth.getSession()
-  state.user = data?.session?.user || null
-  updateUserUI()
-  loadChatHistory() // Carregar histórico do usuário atual
-  cleanAuthUrl()
+  state.authBackend = "supabase"
 
-  state.supabase.auth.onAuthStateChange((_event, session) => {
-    state.user = session?.user || null
-    updateUserUI()
-    if (state.user) {
-      loadPreferences()
-      loadChatHistory() // Carregar histórico do usuário
-      loginModal.classList.add("hidden")
-      loginModal.style.display = "none"
+  try {
+    const { data } = await state.supabase.auth.getSession()
+    if (data?.session?.user) {
+      await setCurrentUser(data.session.user, "supabase")
+    }
+  } catch {
+    state.supabase = null
+    state.authBackend = "local"
+    restoreLegacyLocalSession()
+    return
+  }
+
+  state.supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (session?.user) {
+      await setCurrentUser(session.user, "supabase")
+      closeLoginModal()
+    } else if (state.supabase) {
+      await setCurrentUser(null)
     }
     cleanAuthUrl()
   })
 
-  emailLogin.addEventListener("click", async () => {
-    setLoginStatus("Entrando...")
-    const email = emailInput.value.trim()
-    const password = passwordInput.value
-    if (!email || !password) {
-      setLoginStatus("Preencha email e senha.", true)
-      return
-    }
-    try {
-      const { error } = await state.supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setLoginStatus(error.message, true)
-        return
-      }
-      hideModal(loginModal)
-    } catch (err) {
-      setLoginStatus("Erro: " + err.message, true)
-    }
-  })
-
-  emailSignup.addEventListener("click", async () => {
-    setLoginStatus("Criando conta...")
-    const email = emailInput.value.trim()
-    const password = passwordInput.value
-    if (!email || !password) {
-      setLoginStatus("Preencha email e senha.", true)
-      return
-    }
-    try {
-      const { data: signUpData, error } = await state.supabase.auth.signUp({ email, password })
-      if (error) {
-        setLoginStatus(error.message, true)
-        return
-      }
-      if (!signUpData?.session) {
-        setLoginStatus("Conta criada! Verifique seu email para confirmar.", false)
-        return
-      }
-      hideModal(loginModal)
-    } catch (err) {
-      setLoginStatus("Erro: " + err.message, true)
-    }
-  })
-
-  googleLogin.addEventListener("click", async () => {
-    setLoginStatus("")
-    const { error } = await state.supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin }
-    })
-    if (error) {
-      setLoginStatus("Falha ao iniciar login com Google.", true)
-    }
-  })
-
-  githubLogin.addEventListener("click", async () => {
-    setLoginStatus("")
-    const { error } = await state.supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: { redirectTo: window.location.origin }
-    })
-    if (error) {
-      setLoginStatus("Falha ao iniciar login com GitHub.", true)
-    }
-  })
+  cleanAuthUrl()
 }
 
-function updateUserUI() {
-  if (state.user) {
-    userName.textContent = state.user.email || "Usuário"
-    userRole.textContent = "Autenticado"
-    userAvatar.textContent = (state.user.email || "U").slice(0, 1).toUpperCase()
-    loginBtn.textContent = state.user.email?.split('@')[0] || "Usuário"
-    loginBtn.disabled = false
-    userDropdown.classList.remove("hidden")
-    localStorage.setItem("groot-user-id", state.user.id)
-  } else {
-    userName.textContent = "Visitante"
-    userRole.textContent = "Sem login"
-    userAvatar.textContent = "G"
-    loginBtn.textContent = "Entrar"
-    loginBtn.onclick = () => showModal(loginModal)
-    userDropdown.classList.add("hidden")
+function cleanAuthUrl() {
+  const hash = window.location.hash || ""
+  const search = window.location.search || ""
+  if (
+    hash.includes("access_token") ||
+    hash.includes("refresh_token") ||
+    search.includes("code=") ||
+    hash.includes("error_description")
+  ) {
+    history.replaceState({}, document.title, window.location.pathname)
   }
 }
 
-// Event listeners do menu de usuário
-if (loginBtn) {
-  loginBtn.addEventListener("click", (e) => {
-    if (state.user) {
-      e.stopPropagation()
-      userDropdown.classList.toggle("hidden")
-    } else {
-      showModal(loginModal)
-    }
-  })
-}
-
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    await state.supabase?.auth.signOut()
-    state.user = null
-    userDropdown.classList.add("hidden")
-    updateUserUI()
-    loadChatHistory() // Carregar histórico do visitante
-  })
-}
-
-if (switchAccount) {
-  switchAccount.addEventListener("click", () => {
-    userDropdown.classList.add("hidden")
-    // Limpar campos do formulário
-    if (emailInput) emailInput.value = ""
-    if (passwordInput) passwordInput.value = ""
-    if (loginStatus) loginStatus.textContent = ""
-    // Abrir modal
-    showModal(loginModal)
-    // Focar no campo de email
-    setTimeout(() => {
-      if (emailInput) emailInput.focus()
-    }, 100)
-  })
-}
-
-// Fechar dropdown ao clicar fora
-document.addEventListener("click", (e) => {
-  if (userDropdown && !userDropdown.contains(e.target) && e.target !== loginBtn) {
-    userDropdown.classList.add("hidden")
-  }
-})
-
-initAgeGate()
-initAuth()
-setView("chat")
-
-async function handleUpload(event) {
-  const file = event.target.files?.[0]
-  if (!file) return
-
-  const maxBytes = 2_000_000
-  if (file.size > maxBytes) {
-    setUploadStatus("Arquivo muito grande (máx 2MB).", true)
-    fileInput.value = ""
+function restoreLegacyLocalSession() {
+  const session = readJson("groot-local-session-v2", null) || migrateLegacyUser()
+  if (!session) {
+    updateAuthUI()
     return
   }
 
-  setUploadStatus("Enviando arquivo...")
-  try {
-    const base64 = await readFileAsBase64(file)
-    const response = await fetch("/upload", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Id": state.user?.id || localStorage.getItem("groot-user-id") || "default_user"
-      },
-      body: JSON.stringify({
-        name: file.name,
-        type: file.type || "application/octet-stream",
-        data: base64
-      })
-    })
+  state.user = normalizeLocalUser(session)
+  hydratePreferences()
+  applyPreferencesToUI()
+  loadChatHistory()
+  renderChatHistory()
+  updateAuthUI()
+}
 
-    if (!response.ok) {
-      setUploadStatus("Falha ao enviar arquivo.", true)
+function migrateLegacyUser() {
+  const legacy = readJson("groot-user", null)
+  if (!legacy?.email) return null
+
+  const migrated = {
+    id: legacy.id || crypto.randomUUID(),
+    email: legacy.email,
+    displayName: legacy.email.split("@")[0],
+    provider: legacy.provider || "local",
+    plan: legacy.plan || "Free",
+    authType: "local",
+    createdAt: legacy.created_at || new Date().toISOString()
+  }
+
+  writeJson("groot-local-session-v2", migrated)
+  return migrated
+}
+
+async function setCurrentUser(user, source = "local") {
+  state.user = user ? normalizeUser(user, source) : null
+
+  if (!state.user && !state.supabase) {
+    localStorage.removeItem("groot-local-session-v2")
+  }
+
+  hydratePreferences()
+  await syncRemotePreferences()
+  applyPreferencesToUI()
+  loadChatHistory()
+  renderChatHistory()
+  await renderMemoryView()
+  updateAuthUI()
+}
+
+async function syncRemotePreferences() {
+  if (!state.supabase || !state.user) return
+
+  try {
+    const { data, error } = await state.supabase
+      .from("user_profiles")
+      .select("preferences")
+      .eq("user_id", state.user.id)
+      .single()
+
+    if (error && error.code !== "PGRST116") {
       return
     }
 
-    const data = await response.json()
-    state.lastUpload = data
-    const expires = data.expiresAt ? new Date(data.expiresAt).toLocaleTimeString() : "em breve"
-    setUploadStatus(`📎 ${data.name} pronto para análise (expira ${expires})`)
-
-    // Adicionar mensagem visual no chat
-    appendMessage("user", `📎 Enviei o arquivo: ${data.name}`)
-    appendMessage("ai", `📎 Recebi seu arquivo "${data.name}"! Pode me pedir para:\n- Analisar o conteúdo\n- Descrever o que tem no arquivo\n- Explicar partes específicas\n- Resumir informações importantes\n\nO que você gostaria que eu faça com este arquivo?`)
-  } catch (error) {
-    setUploadStatus("Erro no upload. Tente novamente.", true)
-  } finally {
-    fileInput.value = ""
+    if (data?.preferences) {
+      state.preferences = { ...DEFAULT_PREFERENCES, ...state.preferences, ...data.preferences }
+      writeJson(getPreferencesKey(), state.preferences)
+    }
+  } catch {
+    // ignore sync failure
   }
 }
 
-function readFileAsBase64(file) {
+function normalizeUser(user, source) {
+  if (source === "supabase") {
+    return {
+      id: user.id,
+      email: user.email || "usuario@sessao.local",
+      displayName: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Usuário",
+      provider: user.app_metadata?.provider || "email",
+      plan: user.user_metadata?.plan || "Free",
+      authType: "supabase"
+    }
+  }
+
+  return normalizeLocalUser(user)
+}
+
+function normalizeLocalUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName || user.email.split("@")[0],
+    provider: user.provider || "local",
+    plan: user.plan || "Free",
+    authType: "local"
+  }
+}
+
+async function handleEmailLogin() {
+  const email = elements.emailInput.value.trim().toLowerCase()
+  const password = elements.passwordInput.value
+
+  if (!email || !password) {
+    setLoginStatus("Preencha email e senha.", true)
+    return
+  }
+
+  setLoginStatus("Entrando...")
+
+  if (state.supabase) {
+    const { error } = await state.supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setLoginStatus(error.message, true)
+      return
+    }
+    setLoginStatus("")
+    closeLoginModal()
+    return
+  }
+
+  try {
+    const users = readJson("groot-local-users-v2", [])
+    const candidate = users.find((item) => item.email === email)
+    if (!candidate) {
+      throw new Error("Conta local não encontrada.")
+    }
+
+    const passwordHash = await hashPassword(password)
+    if (candidate.passwordHash !== passwordHash) {
+      throw new Error("Senha incorreta.")
+    }
+
+    const session = {
+      id: candidate.id,
+      email: candidate.email,
+      displayName: candidate.displayName,
+      provider: "local",
+      plan: candidate.plan || "Free"
+    }
+
+    writeJson("groot-local-session-v2", session)
+    await setCurrentUser(session, "local")
+    setLoginStatus("")
+    closeLoginModal()
+    showToast("Login local realizado.", "success")
+  } catch (error) {
+    setLoginStatus(error.message || "Falha ao entrar.", true)
+  }
+}
+
+async function handleEmailSignup() {
+  const email = elements.emailInput.value.trim().toLowerCase()
+  const password = elements.passwordInput.value
+
+  if (!email || !password) {
+    setLoginStatus("Preencha email e senha.", true)
+    return
+  }
+
+  if (password.length < 6) {
+    setLoginStatus("Use pelo menos 6 caracteres.", true)
+    return
+  }
+
+  setLoginStatus("Criando conta...")
+
+  if (state.supabase) {
+    const { data, error } = await state.supabase.auth.signUp({ email, password })
+    if (error) {
+      setLoginStatus(error.message, true)
+      return
+    }
+
+    if (!data?.session) {
+      setLoginStatus("Conta criada. Confira seu email para confirmar.", false)
+      return
+    }
+
+    setLoginStatus("")
+    closeLoginModal()
+    return
+  }
+
+  try {
+    const users = readJson("groot-local-users-v2", [])
+    if (users.some((item) => item.email === email)) {
+      throw new Error("Este email já está cadastrado.")
+    }
+
+    const newUser = {
+      id: crypto.randomUUID(),
+      email,
+      displayName: email.split("@")[0],
+      passwordHash: await hashPassword(password),
+      provider: "local",
+      plan: "Free",
+      createdAt: new Date().toISOString()
+    }
+
+    users.push(newUser)
+    writeJson("groot-local-users-v2", users)
+    writeJson("groot-local-session-v2", newUser)
+    await setCurrentUser(newUser, "local")
+    setLoginStatus("")
+    closeLoginModal()
+    showToast("Conta local criada com sucesso.", "success")
+  } catch (error) {
+    setLoginStatus(error.message || "Falha ao criar conta.", true)
+  }
+}
+
+async function handleOAuthLogin(provider) {
+  if (!state.supabase) {
+    setLoginStatus("Configure o Supabase para ativar GitHub e Google.", true)
+    showToast("OAuth requer Supabase configurado no backend.", "warning")
+    return
+  }
+
+  setLoginStatus(`Redirecionando para ${provider === "github" ? "GitHub" : "Google"}...`)
+
+  const { error } = await state.supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: window.location.origin
+    }
+  })
+
+  if (error) {
+    setLoginStatus(error.message, true)
+  }
+}
+
+async function logout() {
+  closeProfileMenu()
+
+  if (state.supabase) {
+    await state.supabase.auth.signOut()
+  }
+
+  localStorage.removeItem("groot-local-session-v2")
+  localStorage.removeItem("groot-user")
+  await setCurrentUser(null)
+  showToast("Sessão encerrada.", "success")
+}
+
+function getAnonymousUserId() {
+  let id = localStorage.getItem("groot-anonymous-id")
+  if (!id) {
+    id = `visitor_${crypto.randomUUID()}`
+    localStorage.setItem("groot-anonymous-id", id)
+  }
+  return id
+}
+
+function getScopeId() {
+  return state.user?.id || getAnonymousUserId()
+}
+
+function getHistoryKey() {
+  return `groot-chat-history:${getScopeId()}`
+}
+
+function getPreferencesKey() {
+  return `groot-preferences:${getScopeId()}`
+}
+
+function loadChatHistory() {
+  state.chatHistory = readJson(getHistoryKey(), [])
+}
+
+function saveChatHistory() {
+  writeJson(getHistoryKey(), state.chatHistory)
+}
+
+function resetChat() {
+  state.chatHistory = []
+  saveChatHistory()
+  elements.chat.innerHTML = ""
+  clearPendingFile()
+  elements.textarea.value = ""
+  autoResizeTextarea()
+  syncChatMode()
+  setView("chat")
+  setComposerStatus("Novo chat pronto.")
+}
+
+function addMessageToHistory(role, content, meta = {}) {
+  state.chatHistory.push({
+    id: crypto.randomUUID(),
+    role,
+    content,
+    createdAt: new Date().toISOString(),
+    isError: Boolean(meta.isError),
+    requestId: meta.requestId || null
+  })
+  saveChatHistory()
+}
+
+function renderChatHistory() {
+  elements.chat.innerHTML = ""
+
+  state.chatHistory.forEach((message) => {
+    elements.chat.appendChild(buildMessageNode(message))
+  })
+
+  syncChatMode()
+  scrollChatToBottom()
+}
+
+function buildMessageNode(message) {
+  const node = document.createElement("article")
+  node.className = `message ${message.role}`
+
+  const avatar = document.createElement("div")
+  avatar.className = "message-avatar"
+  avatar.textContent = message.role === "user" ? getUserInitial() : "G"
+
+  const body = document.createElement("div")
+  body.className = "message-body"
+
+  const meta = document.createElement("div")
+  meta.className = "message-meta"
+  meta.textContent = `${message.role === "user" ? "Você" : "GROOT"} • ${formatTime(message.createdAt)}`
+
+  const text = document.createElement("div")
+  text.className = "message-text"
+  text.innerHTML = formatMessage(message.content)
+
+  if (message.isError) {
+    body.style.borderColor = "rgba(255, 139, 139, 0.26)"
+  }
+
+  body.appendChild(meta)
+  body.appendChild(text)
+  node.appendChild(avatar)
+  node.appendChild(body)
+
+  return node
+}
+
+function appendThinkingMessage() {
+  const node = document.createElement("article")
+  node.className = "message assistant"
+
+  const avatar = document.createElement("div")
+  avatar.className = "message-avatar"
+  avatar.textContent = "G"
+
+  const body = document.createElement("div")
+  body.className = "message-body"
+  body.innerHTML = `
+    <div class="message-meta">GROOT • pensando</div>
+    <div class="message-text">
+      <div class="thinking-bubble">
+        <span>Processando</span>
+        <div class="leaf-loader">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  `
+
+  node.appendChild(avatar)
+  node.appendChild(body)
+  elements.chat.appendChild(node)
+  scrollChatToBottom()
+  return node
+}
+
+function replaceThinkingMessage(node, content, isError = false) {
+  const meta = node.querySelector(".message-meta")
+  const text = node.querySelector(".message-text")
+  if (meta) {
+    meta.textContent = `GROOT • ${formatTime(new Date().toISOString())}`
+  }
+  if (text) {
+    text.innerHTML = formatMessage(content)
+  }
+  if (isError) {
+    node.querySelector(".message-body").style.borderColor = "rgba(255, 139, 139, 0.26)"
+  }
+  scrollChatToBottom()
+}
+
+function syncChatMode() {
+  const hasMessages = state.chatHistory.length > 0
+  const hasDraft = Boolean(elements.textarea.value.trim()) || Boolean(state.pendingFile)
+  elements.chatView.dataset.chatMode = hasMessages || hasDraft ? "conversation" : "landing"
+}
+
+function scrollChatToBottom() {
+  requestAnimationFrame(() => {
+    elements.chat.scrollTop = elements.chat.scrollHeight
+  })
+}
+
+function autoResizeTextarea() {
+  if (!elements.textarea) return
+  elements.textarea.style.height = "auto"
+  elements.textarea.style.height = `${Math.min(elements.textarea.scrollHeight, 180)}px`
+}
+
+function disableComposer(disabled) {
+  state.isSending = disabled
+  elements.sendBtn.disabled = disabled
+  elements.attachBtn.disabled = disabled
+  elements.voiceBtn.disabled = disabled
+  elements.textarea.disabled = disabled
+}
+
+async function sendMessage() {
+  const rawText = elements.textarea.value.trim()
+  const file = state.pendingFile
+  if (!rawText && !file) return
+  if (state.isSending) return
+
+  const userDisplayText = buildUserDisplayText(rawText, file)
+
+  setView("chat")
+  addMessageToHistory("user", userDisplayText)
+  elements.chat.appendChild(buildMessageNode(state.chatHistory[state.chatHistory.length - 1]))
+  scrollChatToBottom()
+
+  const question = rawText || `Analise o arquivo "${file.name}" e resuma o que é importante.`
+
+  elements.textarea.value = ""
+  autoResizeTextarea()
+  syncChatMode()
+  disableComposer(true)
+  setComposerStatus(file ? "Enviando anexo e consultando a IA..." : "Consultando a IA...")
+
+  const thinking = appendThinkingMessage()
+
+  try {
+    const upload = file ? await uploadPendingFile(file) : null
+    const response = await apiRequest("/ask", {
+      method: "POST",
+      headers: {
+        "X-User-Id": getScopeId()
+      },
+      body: JSON.stringify({
+        question,
+        context: {
+          ageGroup: state.preferences.ageGroup,
+          uiTheme: state.preferences.theme,
+          locale: navigator.language,
+          verbosity: state.preferences.verbosity,
+          examples: state.preferences.examples,
+          noEmojis: state.preferences.noEmojis,
+          safetyLevel: state.preferences.safetyLevel,
+          uploadId: upload?.id || null,
+          uploadName: upload?.name || null,
+          uploadType: upload?.type || null
+        }
+      })
+    })
+
+    const payload = await safeJson(response)
+    if (!response.ok) {
+      throw new Error(payload?.error || `Erro HTTP ${response.status}`)
+    }
+
+    const answer = extractAnswer(payload)
+    if (!answer) {
+      throw new Error("Resposta vazia do servidor.")
+    }
+
+    replaceThinkingMessage(thinking, answer)
+    addMessageToHistory("assistant", answer, { requestId: payload.requestId })
+    await persistConversationRemote(userDisplayText, answer, payload, upload)
+
+    if (upload?.name) {
+      setComposerStatus(`Anexo ${upload.name} processado com sucesso.`)
+    } else {
+      setComposerStatus("Resposta recebida.")
+    }
+  } catch (error) {
+    const fallback = "Não consegui processar a solicitação agora. Verifique backend, login ou anexo e tente novamente."
+    replaceThinkingMessage(thinking, fallback, true)
+    addMessageToHistory("assistant", fallback, { isError: true })
+    setComposerStatus(error.message || "Falha ao enviar.", true)
+  } finally {
+    disableComposer(false)
+    clearPendingFile()
+    syncChatMode()
+    scrollChatToBottom()
+    if (state.currentView === "memory") {
+      renderMemoryView()
+    }
+  }
+}
+
+function buildUserDisplayText(text, file) {
+  const parts = []
+  if (text) parts.push(text)
+  if (file) parts.push(`Anexo: ${file.name}`)
+  return parts.join("\n\n")
+}
+
+async function uploadPendingFile(file) {
+  const maxBytes = state.config?.uploads?.maxBytes || 2_000_000
+  if (file.size > maxBytes) {
+    throw new Error(`O anexo excede ${formatBytes(maxBytes)}.`)
+  }
+
+  const base64 = await readFileAsBase64(file)
+  const response = await apiRequest("/upload", {
+    method: "POST",
+    headers: {
+      "X-User-Id": getScopeId()
+    },
+    body: JSON.stringify({
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      data: base64
+    })
+  })
+
+  const payload = await safeJson(response)
+  if (!response.ok) {
+    throw new Error(payload?.error || "Falha ao enviar anexo.")
+  }
+
+  return payload
+}
+
+function handleFileSelected(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  const maxBytes = state.config?.uploads?.maxBytes || 2_000_000
+  if (file.size > maxBytes) {
+    showToast(`O arquivo excede ${formatBytes(maxBytes)}.`, "error")
+    elements.fileInput.value = ""
+    return
+  }
+
+  clearPendingFile()
+  state.pendingFile = file
+  if (file.type.startsWith("image/")) {
+    state.pendingFileUrl = URL.createObjectURL(file)
+  }
+
+  renderFilePreview()
+  syncChatMode()
+  setComposerStatus(`Anexo pronto: ${file.name}`)
+}
+
+function clearPendingFile() {
+  if (state.pendingFileUrl) {
+    URL.revokeObjectURL(state.pendingFileUrl)
+  }
+  state.pendingFile = null
+  state.pendingFileUrl = null
+  if (elements.fileInput) {
+    elements.fileInput.value = ""
+  }
+  renderFilePreview()
+}
+
+function renderFilePreview() {
+  if (!state.pendingFile) {
+    elements.filePreview.classList.add("hidden")
+    elements.filePreview.innerHTML = ""
+    return
+  }
+
+  const file = state.pendingFile
+  const preview = state.pendingFileUrl
+    ? `<img class="file-thumb" src="${state.pendingFileUrl}" alt="${escapeHtml(file.name)}">`
+    : `<div class="file-icon">📎</div>`
+
+  elements.filePreview.classList.remove("hidden")
+  elements.filePreview.innerHTML = `
+    <div class="file-chip">
+      ${preview}
+      <div class="file-copy">
+        <strong>${escapeHtml(file.name)}</strong>
+        <span>${formatBytes(file.size)}</span>
+      </div>
+      <button class="remove-file-btn" id="removePendingFileBtn" type="button" aria-label="Remover anexo">✕</button>
+    </div>
+  `
+
+  document.getElementById("removePendingFileBtn")?.addEventListener("click", () => {
+    clearPendingFile()
+    syncChatMode()
+  })
+}
+
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    return
+  }
+
+  state.speechRecognition = new SpeechRecognition()
+  state.speechRecognition.lang = "pt-BR"
+  state.speechRecognition.interimResults = false
+
+  state.speechRecognition.onresult = (event) => {
+    const text = event.results?.[0]?.[0]?.transcript || ""
+    const prefix = elements.textarea.value.trim()
+    elements.textarea.value = prefix ? `${prefix} ${text}`.trim() : text
+    autoResizeTextarea()
+    syncChatMode()
+  }
+
+  state.speechRecognition.onend = () => {
+    state.isRecording = false
+    elements.voiceBtn.classList.remove("is-recording")
+  }
+}
+
+function toggleVoiceInput() {
+  if (!state.speechRecognition) {
+    showToast("Ditado por voz não disponível neste navegador.", "warning")
+    return
+  }
+
+  if (state.isRecording) {
+    state.speechRecognition.stop()
+    state.isRecording = false
+    elements.voiceBtn.classList.remove("is-recording")
+    return
+  }
+
+  state.isRecording = true
+  elements.voiceBtn.classList.add("is-recording")
+  state.speechRecognition.start()
+}
+
+async function renderMemoryView() {
+  const remoteEntries = await loadRemoteConversations()
+  const localPairs = buildLocalConversationPairs()
+  const entries = remoteEntries.length ? remoteEntries : localPairs
+
+  elements.memoryBadge.textContent = remoteEntries.length ? "Supabase" : "Local"
+
+  if (!entries.length) {
+    elements.memoryList.innerHTML = `
+      <div class="memory-item">
+        <strong>Nenhuma conversa salva ainda</strong>
+        <small>Assim que você conversar com o GROOT, o histórico aparece aqui.</small>
+      </div>
+    `
+  } else {
+    elements.memoryList.innerHTML = entries
+      .slice(0, 12)
+      .map((entry) => `
+        <div class="memory-item">
+          <strong>${escapeHtml(entry.prompt)}</strong>
+          <small>${escapeHtml(entry.response)}</small>
+          <small>${formatTime(entry.createdAt)}</small>
+        </div>
+      `)
+      .join("")
+  }
+
+  const patterns = [
+    `Detalhamento: ${labelForVerbosity(state.preferences.verbosity)}`,
+    `Tema: ${state.preferences.theme === "dark" ? "Dark" : "Light"}`,
+    `Segurança: ${state.preferences.safetyLevel === "strict" ? "Restrita" : "Padrão"}`,
+    `Faixa etária: ${state.preferences.ageGroup === "minor" ? "13-17" : "18+"}`,
+    `Autenticação: ${state.supabase ? "Supabase / OAuth" : "Local"}`,
+    `Mensagens salvas: ${state.chatHistory.length}`
+  ]
+
+  elements.learningList.innerHTML = patterns
+    .map((item) => `
+      <div class="pattern-item">
+        <strong>${escapeHtml(item)}</strong>
+      </div>
+    `)
+    .join("")
+}
+
+async function loadRemoteConversations() {
+  if (!state.supabase || !state.user) {
+    return []
+  }
+
+  try {
+    const { data, error } = await state.supabase
+      .from("conversations")
+      .select("*")
+      .eq("user_id", state.user.id)
+      .order("created_at", { ascending: false })
+      .limit(12)
+
+    if (error || !Array.isArray(data)) {
+      return []
+    }
+
+    return data.map((entry) => ({
+      prompt: entry.user_message,
+      response: entry.ai_response,
+      createdAt: entry.created_at
+    }))
+  } catch {
+    return []
+  }
+}
+
+async function persistConversationRemote(userMessage, aiResponse, payload, upload) {
+  if (!state.supabase || !state.user) {
+    return
+  }
+
+  try {
+    await state.supabase.from("conversations").insert({
+      user_id: state.user.id,
+      user_message: userMessage,
+      ai_response: aiResponse,
+      metadata: {
+        requestId: payload?.requestId || null,
+        uploadName: upload?.name || null
+      }
+    })
+  } catch {
+    // best effort sync
+  }
+}
+
+function buildLocalConversationPairs() {
+  const pairs = []
+
+  for (let index = 0; index < state.chatHistory.length; index += 1) {
+    const entry = state.chatHistory[index]
+    if (entry.role !== "user") continue
+
+    const reply = state.chatHistory
+      .slice(index + 1)
+      .find((candidate) => candidate.role === "assistant")
+
+    pairs.push({
+      prompt: entry.content,
+      response: reply?.content || "Sem resposta associada.",
+      createdAt: reply?.createdAt || entry.createdAt
+    })
+  }
+
+  return pairs.reverse()
+}
+
+function formatMessage(text) {
+  const codeBlocks = []
+  let html = escapeHtml(String(text || "")).replace(/\r\n/g, "\n")
+
+  html = html.replace(/```([a-z0-9_-]+)?\n?([\s\S]*?)```/gi, (_match, language = "texto", code = "") => {
+    const copyValue = encodeURIComponent(code)
+    const block = `
+      <div class="code-block">
+        <div class="code-header">
+          <span>${escapeHtml(language)}</span>
+          <button class="copy-btn" type="button" data-copy="${copyValue}">Copiar</button>
+        </div>
+        <pre><code>${escapeHtml(code.trim())}</code></pre>
+      </div>
+    `
+    const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`
+    codeBlocks.push(block)
+    return placeholder
+  })
+
+  html = html.replace(/`([^`\n]+)`/g, "<code class=\"inline-code\">$1</code>")
+  html = html.replace(/(https?:\/\/[^\s<]+)/g, "<a href=\"$1\" target=\"_blank\" rel=\"noreferrer\">$1</a>")
+  html = html
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`)
+    .join("")
+
+  codeBlocks.forEach((block, index) => {
+    html = html.replace(`__CODE_BLOCK_${index}__`, block)
+  })
+
+  return html
+}
+
+function extractAnswer(payload) {
+  return payload?.data?.response ||
+    payload?.response ||
+    payload?.answer ||
+    payload?.reply ||
+    payload?.message ||
+    ""
+}
+
+function getUserDisplayName() {
+  return state.user?.displayName || "Visitante"
+}
+
+function getUserInitial() {
+  const label = getUserDisplayName()
+  return label.trim().charAt(0).toUpperCase() || "G"
+}
+
+function getProviderLabel(provider) {
+  if (provider === "github") return "GitHub"
+  if (provider === "google") return "Google"
+  if (provider === "email") return "Email"
+  return "Local"
+}
+
+function getUserPlan() {
+  return state.user?.plan || "Free"
+}
+
+function labelForVerbosity(value) {
+  if (value === "short") return "Curto e objetivo"
+  if (value === "detailed") return "Detalhado"
+  return "Natural"
+}
+
+async function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       const result = String(reader.result || "")
-      const base64 = result.split(",")[1] || ""
-      resolve(base64)
+      resolve(result.split(",")[1] || "")
     }
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
   })
+}
+
+async function hashPassword(password) {
+  if (!window.crypto?.subtle) {
+    return btoa(unescape(encodeURIComponent(password)))
+  }
+
+  const bytes = new TextEncoder().encode(password)
+  const digest = await window.crypto.subtle.digest("SHA-256", bytes)
+  return Array.from(new Uint8Array(digest))
+    .map((item) => item.toString(16).padStart(2, "0"))
+    .join("")
+}
+
+function safeJson(response) {
+  return response
+    .json()
+    .catch(() => null)
+}
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key)
+    return value ? JSON.parse(value) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function formatTime(value) {
+  return new Date(value).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  })
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return "0 B"
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const helper = document.createElement("textarea")
+  helper.value = text
+  helper.style.position = "fixed"
+  helper.style.opacity = "0"
+  document.body.appendChild(helper)
+  helper.focus()
+  helper.select()
+  document.execCommand("copy")
+  document.body.removeChild(helper)
+}
+
+function showToast(message, type = "success") {
+  const toast = document.createElement("div")
+  toast.className = `toast ${type}`
+  toast.textContent = message
+  elements.toastStack.appendChild(toast)
+
+  setTimeout(() => {
+    toast.remove()
+  }, 4200)
 }

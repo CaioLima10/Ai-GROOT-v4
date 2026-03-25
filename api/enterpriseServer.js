@@ -78,7 +78,7 @@ const askLimiter = rateLimit({
 const askSlowDown = slowDown({
   windowMs: 60 * 1000,
   delayAfter: Number(process.env.SLOWDOWN_AFTER || 30),
-  delayMs: Number(process.env.SLOWDOWN_DELAY_MS || 350)
+  delayMs: () => Number(process.env.SLOWDOWN_DELAY_MS || 350)
 })
 
 app.use(globalLimiter)
@@ -171,11 +171,17 @@ app.use(express.static(path.join(__dirname, "../ui")))
 // Config público para o frontend (somente chaves seguras)
 app.get("/config", (req, res) => {
   res.json({
+    service: "ai-groot-enterprise",
     supabaseUrl: process.env.SUPABASE_URL || null,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
     adminProtected: !!process.env.ADMIN_DASH_KEY,
     features: {
       auth: !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
+    },
+    uploads: {
+      enabled: true,
+      maxBytes: uploadMaxBytes,
+      ttlMinutes: uploadTtlMinutes
     }
   })
 })
@@ -397,12 +403,16 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       length: question.length
     })
 
-    res.json({ 
+    res.json({
+      success: true,
+      data: {
+        response: responseText
+      },
       response: responseText,
       answer: responseText,
       requestId,
       metadata: {
-        processingTime: Date.now(),
+        processingTime: Date.now() - startTime,
         version: '2.0.0'
       }
     })

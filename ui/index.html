@@ -3,279 +3,473 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ai-GROOT Studio</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap"
     rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body data-theme="dark">
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="logo">🌳</div>
-        <div class="brand-text">
-          <div class="brand-title">GROOT</div>
-          <div class="brand-subtitle">AI Assistant</div>
-        </div>
+  <div class="app-shell" id="appShell">
+    <div class="sidebar-scrim hidden" id="sidebarScrim"></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <a class="brand" href="#" aria-label="Ai-GROOT Studio">
+          <div class="brand-logo">
+            <img src="assets/logo-groot.svg" alt="Logo Groot">
+          </div>
+          <div class="brand-copy">
+            <strong>Ai-GROOT</strong>
+            <span>Studio</span>
+          </div>
+        </a>
+
+        <button class="new-chat-btn" id="newChatBtn" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          Novo chat
+        </button>
+
+        <nav class="sidebar-nav" aria-label="Seções">
+          <button class="nav-item active" data-view="chat" type="button">
+            <span class="nav-icon">💬</span>
+            <span>Chat</span>
+          </button>
+          <button class="nav-item" data-view="memory" type="button">
+            <span class="nav-icon">🧠</span>
+            <span>Memória</span>
+          </button>
+          <button class="nav-item" data-view="plan" type="button">
+            <span class="nav-icon">✨</span>
+            <span>Plano</span>
+          </button>
+          <button class="nav-item" data-view="help" type="button">
+            <span class="nav-icon">❓</span>
+            <span>Ajuda</span>
+          </button>
+          <button class="nav-item" data-view="settings" type="button">
+            <span class="nav-icon">⚙️</span>
+            <span>Configurações</span>
+          </button>
+        </nav>
       </div>
 
-      <nav class="nav">
-        <button class="nav-item active" data-view="chat">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2z" />
-            <path d="M3 7h18" />
-          </svg>
-          Chat
-        </button>
-        <button class="nav-item" data-view="memory">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H2a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z" />
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V7a4 4 0 0 0-4-4z" />
-            <path d="M6 10h.01" />
-          </svg>
-          Memória
-        </button>
-        <button class="nav-item" data-view="settings">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3" />
-            <path
-              d="M12 1v6m0 6v6m4.22-13.22 2.03-2.03 2.03-2.03A8 8 0 0 1 12 20.09c0 2.17.67 4.14 1.88 5.95-2.58 5.95-5.95 0-3.97-1.78-5.95-2.58A8 8 0 0 1 12 4.91c-2.17-.67-4.14-1.88-5.95-2.58z" />
-          </svg>
-          Configurações
-        </button>
-      </nav>
+      <div class="sidebar-bottom">
+        <div class="profile-card">
+          <button class="profile-trigger" id="profileTrigger" type="button" aria-haspopup="menu"
+            aria-expanded="false">
+            <div class="profile-avatar" id="userAvatar">G</div>
+            <div class="profile-copy">
+              <strong id="userName">Visitante</strong>
+              <span id="userRole">Modo local</span>
+            </div>
+            <svg class="profile-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
 
-      <div class="section">
-        <div class="section-header" onclick="toggleAccordion('workspaces')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 12h18m-9-9v18m0-18l6 6" />
-          </svg>
-          <span class="section-title">Workspaces</span>
-          <svg class="accordion-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <polyline points="6,9 12,15 18,9" />
-          </svg>
-        </div>
-        <div class="accordion-content" id="workspaces">
-          <button class="channel active">GROOT Assistant</button>
-          <button class="channel">Debug Squad</button>
-          <button class="channel">Build Room</button>
-        </div>
-      </div>
+          <div class="profile-menu hidden" id="profileMenu" role="menu">
+            <div class="menu-account">
+              <div class="menu-avatar" id="menuAvatar">G</div>
+              <div>
+                <strong id="menuName">Visitante</strong>
+                <span id="menuPlan">Plano Free</span>
+              </div>
+            </div>
 
-      <div class="section">
-        <div class="section-header" onclick="toggleAccordion('shortcuts')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M13 2L3 14h9l-1 1" />
-            <path d="M22 3v11h-4" />
-          </svg>
-          <span class="section-title">Atalhos</span>
-          <svg class="accordion-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <polyline points="6,9 12,15 18,9" />
-          </svg>
-        </div>
-        <div class="accordion-content hidden" id="shortcuts">
-          <button class="channel">Projetos</button>
-          <button class="channel">Extensões</button>
-          <button class="channel">Segurança</button>
-        </div>
-      </div>
+            <div class="menu-divider"></div>
 
-      <div class="profile">
-        <div class="avatar" id="userAvatar">🌳</div>
-        <div class="profile-info">
-          <div class="profile-name" id="userName">Visitante</div>
-          <div class="profile-role" id="userRole">Sem login</div>
-        </div>
-        <div class="user-menu-container">
-          <button id="loginBtn" class="ghost">Entrar</button>
-          <div id="userDropdown" class="user-dropdown hidden">
-            <button id="switchAccount" class="dropdown-item">Trocar conta</button>
-            <button id="logoutBtn" class="dropdown-item danger">Sair</button>
+            <button class="menu-item" data-action="profile-settings" type="button">
+              <span>⚙️</span>
+              <span>Configurações</span>
+            </button>
+            <button class="menu-item" data-action="profile-plan" type="button">
+              <span>✨</span>
+              <span>Plano</span>
+            </button>
+            <button class="menu-item" data-action="profile-help" type="button">
+              <span>❓</span>
+              <span>Ajuda</span>
+            </button>
+
+            <div class="menu-divider"></div>
+
+            <div class="menu-theme-row">
+              <span>Tema</span>
+              <div class="theme-toggle-group">
+                <button class="theme-chip active" id="themeDarkBtn" data-theme-choice="dark" type="button">Dark</button>
+                <button class="theme-chip" id="themeLightBtn" data-theme-choice="light" type="button">Light</button>
+              </div>
+            </div>
+
+            <div class="menu-divider"></div>
+
+            <button class="menu-item primary" id="openLoginBtn" type="button">
+              <span>🔐</span>
+              <span>Entrar</span>
+            </button>
+            <button class="menu-item hidden" id="switchAccountBtn" type="button">
+              <span>🔁</span>
+              <span>Trocar conta</span>
+            </button>
+            <button class="menu-item danger hidden" id="logoutBtn" type="button">
+              <span>🚪</span>
+              <span>Sair</span>
+            </button>
           </div>
         </div>
       </div>
     </aside>
 
-    <main class="main">
+    <main class="workspace">
       <header class="topbar">
-        <div class="top-left">
-          <span class="status-dot"></span>
+        <div class="topbar-left">
+          <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7h16" />
+              <path d="M4 12h16" />
+              <path d="M4 17h16" />
+            </svg>
+          </button>
           <div>
-            <div class="page-title">GROOT Assistant</div>
-            <div class="page-subtitle">Conversas inteligentes com memória</div>
+            <p class="eyebrow" id="pageEyebrow">Workspace</p>
+            <h1 class="page-title" id="pageTitle">Chat</h1>
           </div>
         </div>
-        <div class="top-actions">
-          <button id="ageBadge" class="chip">Idade</button>
-          <button id="themeToggle" class="chip">Tema</button>
-          <button id="newChat" class="primary">Novo chat</button>
+
+        <div class="topbar-right">
+          <span class="status-pill" id="backendStatus">Conectando backend...</span>
+          <button class="topbar-button" id="topbarAccountBtn" type="button">Entrar</button>
         </div>
       </header>
 
-      <div id="ageBanner" class="age-banner hidden"></div>
-
-      <div class="view active" id="view-chat">
-        <section class="chat-area">
-          <div id="chat" class="chat-stream"></div>
-        </section>
-
-        <section class="composer">
-          <div class="chips">
-            <span class="chip">Memória ativa</span>
-            <span class="chip">RAG pronto</span>
-            <span class="chip">Segurança reforçada</span>
+      <section class="view view-chat active" id="view-chat" data-chat-mode="landing">
+        <div class="chat-shell">
+          <div class="landing-hero" id="landingHero">
+            <div class="landing-mark">
+              <img src="assets/logo-groot.svg" alt="Logo Groot">
+            </div>
+            <h2>Eu sou o GROOT</h2>
+            <p>
+              Engenharia de software, debugging, arquitetura e copiloto de produto em uma interface
+              sóbria, rápida e pronta para crescer.
+            </p>
+            <div class="landing-chips">
+              <button class="prompt-chip" data-prompt="Analise esta ideia de produto" type="button">Analise esta ideia</button>
+              <button class="prompt-chip" data-prompt="Crie uma arquitetura escalável" type="button">Arquitetura escalável</button>
+              <button class="prompt-chip" data-prompt="Revise um bug difícil" type="button">Revisar bug difícil</button>
+            </div>
           </div>
-          <div class="composer-box">
-            <textarea id="msg" placeholder="Digite sua pergunta sobre código, bugs, segurança ou setup..."></textarea>
-            <input id="fileInput" type="file" class="hidden" />
-            <button id="uploadBtn" class="ghost">Upload</button>
-            <button id="sendBtn" class="primary">Enviar</button>
-          </div>
-          <div id="uploadStatus" class="status-text"></div>
-          <div class="composer-hint">Shift + Enter para nova linha</div>
-        </section>
-      </div>
 
-      <div class="view" id="view-memory">
+          <div class="chat-stream" id="chat"></div>
+
+          <section class="composer-wrap" id="composerWrap">
+            <div class="file-preview hidden" id="filePreview"></div>
+
+            <div class="composer-shell">
+              <button class="composer-icon-btn" id="attachBtn" type="button" title="Anexar arquivo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.44 11.05 12.25 20.24a6 6 0 0 1-8.49-8.49l9.19-9.19a4.5 4.5 0 0 1 6.36 6.36L9.88 18.35a3 3 0 0 1-4.24-4.24l8.49-8.49" />
+                </svg>
+              </button>
+
+              <input id="fileInput" type="file" class="hidden" accept="image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css,.csv,.sql">
+
+              <textarea id="msg" rows="1"
+                placeholder="Pergunte, envie um arquivo ou peça uma análise mais profunda..."></textarea>
+
+              <button class="composer-icon-btn" id="voiceBtn" type="button" title="Ditado por voz">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="2" width="6" height="12" rx="3" />
+                  <path d="M5 10a7 7 0 0 0 14 0" />
+                  <path d="M12 17v5" />
+                </svg>
+              </button>
+
+              <button class="send-btn" id="sendBtn" type="button" title="Enviar">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2 11 13" />
+                  <path d="M22 2 15 22 11 13 2 9 22 2Z" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="composer-footer">
+              <span id="composerStatus">Shift + Enter para nova linha.</span>
+              <span id="authStatus">Login local ativo.</span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="view-memory">
         <div class="panel-grid">
-          <div class="panel">
+          <article class="panel">
             <div class="panel-header">
-              <h2>Memória recente</h2>
-              <span class="badge">últimas 20</span>
+              <div>
+                <p class="panel-label">Histórico</p>
+                <h2>Memória recente</h2>
+              </div>
+              <span class="panel-badge" id="memoryBadge">Local</span>
             </div>
-            <div id="memoryList" class="list"></div>
-          </div>
-          <div class="panel">
-            <div class="panel-header">
-              <h2>Padrões aprendidos</h2>
-              <span class="badge">contexto</span>
-            </div>
-            <div id="learningList" class="list"></div>
-          </div>
-        </div>
-      </div>
+            <div class="panel-body list" id="memoryList"></div>
+          </article>
 
-      <div class="view" id="view-settings">
-        <div class="panel">
-          <div class="panel-header">
-            <h2>Preferências do usuário</h2>
-            <span class="badge">perfil</span>
-          </div>
-          <div class="form-grid">
-            <div class="field">
-              <label for="verbositySelect">Nível de detalhes</label>
-              <select id="verbositySelect">
-                <option value="short">Curto e direto</option>
-                <option value="natural">Natural</option>
-                <option value="detailed">Detalhado</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Exemplos práticos</label>
-              <div class="toggle">
-                <input type="checkbox" id="examplesToggle" />
-                <span>Incluir exemplos de código</span>
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Preferências</p>
+                <h2>Padrões detectados</h2>
               </div>
+              <span class="panel-badge">Perfil</span>
             </div>
-            <div class="field">
-              <label>Emojis</label>
-              <div class="toggle">
-                <input type="checkbox" id="emojiToggle" />
-                <span>Permitir emojis</span>
-              </div>
-            </div>
-            <div class="field">
-              <label for="safetySelect">Nível de segurança</label>
-              <select id="safetySelect">
-                <option value="standard">Padrão</option>
-                <option value="strict">Mais restrito</option>
-              </select>
-            </div>
-          </div>
-          <div class="panel-actions">
-            <button id="saveSettings" class="primary">Salvar preferências</button>
-            <span id="settingsStatus" class="status-text"></span>
-          </div>
-          <div class="divider"></div>
-          <div class="doc-grid">
-            <a class="doc-card link-card" href="terms.html" target="_blank" rel="noreferrer">
-              <h3>Termos de Uso</h3>
-              <p>Regras de uso e limitações do serviço.</p>
-            </a>
-            <a class="doc-card link-card" href="privacy.html" target="_blank" rel="noreferrer">
-              <h3>Privacidade</h3>
-              <p>Como coletamos e protegemos seus dados.</p>
-            </a>
-          </div>
+            <div class="panel-body list" id="learningList"></div>
+          </article>
         </div>
-      </div>
+      </section>
+
+      <section class="view" id="view-plan">
+        <div class="panel-grid plans-grid">
+          <article class="plan-card current" id="planCurrentCard">
+            <div class="plan-head">
+              <p class="panel-label">Plano atual</p>
+              <h2 id="currentPlanName">Free</h2>
+            </div>
+            <ul class="feature-list">
+              <li>Chat com histórico local</li>
+              <li>Anexos para análise via backend</li>
+              <li>Tema, perfil e preferências</li>
+            </ul>
+            <button class="ghost-btn" data-plan-action="settings" type="button">Gerenciar conta</button>
+          </article>
+
+          <article class="plan-card">
+            <div class="plan-head">
+              <p class="panel-label">Profissional</p>
+              <h2>Pro</h2>
+            </div>
+            <ul class="feature-list">
+              <li>Mais contexto salvo por usuário</li>
+              <li>Prioridade para recursos avançados</li>
+              <li>Espaço pronto para billing futuro</li>
+            </ul>
+            <button class="primary-btn" data-plan-action="coming-soon" type="button">Quero este plano</button>
+          </article>
+
+          <article class="plan-card">
+            <div class="plan-head">
+              <p class="panel-label">Equipe</p>
+              <h2>Team</h2>
+            </div>
+            <ul class="feature-list">
+              <li>Perfis compartilhados</li>
+              <li>Memória por workspace</li>
+              <li>Governança e painel admin</li>
+            </ul>
+            <button class="ghost-btn" data-plan-action="coming-soon" type="button">Solicitar acesso</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-help">
+        <div class="panel-grid help-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Suporte</p>
+                <h2>Ajuda rápida</h2>
+              </div>
+            </div>
+            <div class="panel-body help-links">
+              <a class="help-card" href="terms.html" target="_blank" rel="noreferrer">
+                <strong>Termos de uso</strong>
+                <span>Regras e limites da plataforma.</span>
+              </a>
+              <a class="help-card" href="privacy.html" target="_blank" rel="noreferrer">
+                <strong>Privacidade</strong>
+                <span>Como dados, login e histórico são tratados.</span>
+              </a>
+              <a class="help-card" href="/admin" target="_blank" rel="noreferrer">
+                <strong>Painel admin</strong>
+                <span>Health, logs e métricas do backend.</span>
+              </a>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Status</p>
+                <h2>Ambiente atual</h2>
+              </div>
+            </div>
+            <div class="panel-body status-stack">
+              <div class="status-row">
+                <span>Backend</span>
+                <strong id="helpBackendStatus">Verificando...</strong>
+              </div>
+              <div class="status-row">
+                <span>Autenticação</span>
+                <strong id="helpAuthStatus">Verificando...</strong>
+              </div>
+              <div class="status-row">
+                <span>Upload</span>
+                <strong id="helpUploadStatus">Disponível</strong>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings">
+        <div class="panel-grid settings-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Preferências</p>
+                <h2>Experiência do chat</h2>
+              </div>
+            </div>
+            <div class="panel-body form-grid">
+              <label class="field">
+                <span>Nível de detalhes</span>
+                <select id="verbositySelect">
+                  <option value="short">Curto e objetivo</option>
+                  <option value="natural">Natural</option>
+                  <option value="detailed">Detalhado</option>
+                </select>
+              </label>
+
+              <label class="field toggle-field">
+                <span>Exemplos práticos</span>
+                <input id="examplesToggle" type="checkbox">
+              </label>
+
+              <label class="field toggle-field">
+                <span>Permitir emojis</span>
+                <input id="emojiToggle" type="checkbox">
+              </label>
+
+              <label class="field">
+                <span>Nível de segurança</span>
+                <select id="safetySelect">
+                  <option value="standard">Padrão</option>
+                  <option value="strict">Mais restrito</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Faixa etária</span>
+                <select id="ageGroupSelect">
+                  <option value="adult">18+</option>
+                  <option value="minor">13-17</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Tema</span>
+                <select id="themeSelect">
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="panel-actions">
+              <button class="primary-btn" id="saveSettings" type="button">Salvar preferências</button>
+              <span class="status-text" id="settingsStatus"></span>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-label">Conta</p>
+                <h2>Status de autenticação</h2>
+              </div>
+            </div>
+            <div class="panel-body status-stack">
+              <div class="status-row">
+                <span>Modo atual</span>
+                <strong id="settingsAuthMode">Local</strong>
+              </div>
+              <div class="status-row">
+                <span>Usuário</span>
+                <strong id="settingsUserLabel">Visitante</strong>
+              </div>
+              <div class="status-row">
+                <span>OAuth GitHub / Google</span>
+                <strong id="settingsOauthLabel">Aguardando configuração</strong>
+              </div>
+            </div>
+
+            <div class="panel-actions">
+              <button class="ghost-btn" id="openLoginFromSettings" type="button">Gerenciar login</button>
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
   </div>
 
-  <div id="ageModal" class="modal hidden">
+  <div class="modal hidden" id="loginModal">
     <div class="modal-card">
-      <h2>Quando você nasceu?</h2>
-      <p>Isso ajuda o GROOT a adaptar a linguagem e o nível de segurança das respostas.</p>
-      <div class="field">
-        <label for="birthMonth">Mês de nascimento</label>
-        <select id="birthMonth">
-          <option value="">Selecione...</option>
-          <option value="01">Janeiro</option>
-          <option value="02">Fevereiro</option>
-          <option value="03">Março</option>
-          <option value="04">Abril</option>
-          <option value="05">Maio</option>
-          <option value="06">Junho</option>
-          <option value="07">Julho</option>
-          <option value="08">Agosto</option>
-          <option value="09">Setembro</option>
-          <option value="10">Outubro</option>
-          <option value="11">Novembro</option>
-          <option value="12">Dezembro</option>
-        </select>
+      <button class="modal-close" id="closeLoginBtn" type="button" aria-label="Fechar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18" />
+          <path d="M6 6 18 18" />
+        </svg>
+      </button>
+
+      <div class="modal-head">
+        <p class="panel-label">Conta</p>
+        <h2>Entrar no GROOT</h2>
+        <p>Use email e senha ou conecte com GitHub / Google quando o Supabase estiver configurado.</p>
       </div>
-      <div class="field">
-        <label for="birthYear">Ano de nascimento</label>
-        <select id="birthYear">
-          <option value="">Selecione...</option>
-        </select>
+
+      <div class="oauth-group">
+        <button class="oauth-btn" id="googleLogin" type="button">
+          <span>Google</span>
+          <small>Continuar com Google</small>
+        </button>
+        <button class="oauth-btn" id="githubLogin" type="button">
+          <span>GitHub</span>
+          <small>Continuar com GitHub</small>
+        </button>
       </div>
+
+      <div class="divider-line"><span>ou</span></div>
+
+      <div class="form-grid compact">
+        <label class="field">
+          <span>Email</span>
+          <input id="emailInput" type="email" autocomplete="email" placeholder="voce@email.com">
+        </label>
+
+        <label class="field">
+          <span>Senha</span>
+          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+        </label>
+      </div>
+
       <div class="modal-actions">
-        <button id="confirmAge" class="primary">Confirmar</button>
+        <button class="primary-btn" id="emailLogin" type="button">Entrar</button>
+        <button class="ghost-btn" id="emailSignup" type="button">Criar conta</button>
       </div>
+
+      <p class="status-text" id="loginStatus"></p>
     </div>
   </div>
 
-  <div id="loginModal" class="modal hidden">
-    <div class="modal-card">
-      <h2>Entrar no GROOT</h2>
-      <p>Use email ou conecte com GitHub/Google.</p>
-      <div class="field">
-        <label for="emailInput">Email</label>
-        <input id="emailInput" type="email" placeholder="voce@email.com" />
-      </div>
-      <div class="field">
-        <label for="passwordInput">Senha</label>
-        <input id="passwordInput" type="password" placeholder="•••••••" />
-      </div>
-      <div class="modal-actions">
-        <button id="emailLogin" class="primary">Entrar com email</button>
-        <button id="emailSignup" class="ghost">Criar conta</button>
-      </div>
-      <div id="loginStatus" class="status-text"></div>
-      <div class="divider">ou</div>
-      <div class="modal-actions">
-        <button id="googleLogin" class="ghost">Continuar com Google</button>
-        <button id="githubLogin" class="ghost">Continuar com GitHub</button>
-      </div>
-      <button id="closeLogin" class="link">Fechar</button>
-    </div>
-  </div>
+  <div class="toast-stack" id="toastStack"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="chat.js"></script>
