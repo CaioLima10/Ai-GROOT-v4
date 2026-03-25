@@ -9,13 +9,7 @@
     "packages/*"
   ],
   "overrides": {
-    "xlsx": "0.18.5",
-    "@nlpjs/xtables": {
-      "xlsx": "0.18.5"
-    },
-    "node-nlp": {
-      "xlsx": "0.18.5"
-    }
+    "picomatch": "^2.3.2"
   },
   "scripts": {
     "web:sync": "node scripts/sync-web-public.mjs",
@@ -79,16 +73,19 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "electron": "^41.0.2",
+    "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.1",
     "express-slow-down": "^2.1.0",
     "helmet": "^8.0.0",
     "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.11.0",
     "natural": "^6.12.0",
     "pdf-parse": "^1.1.1",
     "tesseract.js": "^5.0.5",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "yauzl": "^2.10.0"
   },
   "optionalDependencies": {
     "@supabase/supabase-js": "^2.99.2",

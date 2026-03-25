@@ -4,7 +4,12 @@ import { grootRAG } from '../core/grootRAG.js'
 import { grootAdvancedRAG } from '../core/grootAdvancedRAG.js'
 import { grootAnalytics } from '../core/grootAnalytics.js'
 import { buildLearningSignals, mergeKnownFacts, mergePreferences } from '../core/learningEngine.js'
-import { buildAssistantPromptContext } from '../packages/ai-core/src/index.js'
+import {
+  buildAssistantPromptContext,
+  redactSensitiveData,
+  sanitizeMetadataDeep,
+  shouldSkipLearningForSensitiveData
+} from '../packages/ai-core/src/index.js'
 import { evaluateInteractionQuality } from '../core/qualityEngine.js'
 import { maybeSummarize } from '../core/summaryEngine.js'
 import { buildSafetyResponse, detectSafetyRisk } from '../core/safetyGuard.js'
@@ -282,7 +287,7 @@ export class ReasoningAgent {
   }
 
   isCapabilityQuestion(task = '') {
-    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que você consegue|o que voce realmente tem|o que você realmente tem|quais sao seus limites|quais são seus limites|como voce funciona|como você funciona|capacidades|ferramentas)\b/i
+    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que você consegue|o que voce realmente tem|o que você realmente tem|quais sao seus limites|quais são seus limites|como voce funciona|como você funciona|capacidades|ferramentas|docx|xlsx|pdf|svg|ocr|anexo|arquivo|arquivos)\b/i
       .test(String(task || ''))
   }
 
@@ -301,6 +306,14 @@ export class ReasoningAgent {
       && /\b(express)\b/i.test(String(task || ''))
   }
 
+  isSensitiveDataQuestion(task = '') {
+    const input = String(task || '')
+    const mentionsSensitiveData = /\b(cpf|cnpj|carta[oã]|cvv|token|senha|password|pix|iban|swift|agencia|ag[eê]ncia|conta|documento bancario|dados bancarios|api key|secret|segredo)\b/i.test(input)
+    const mentionsPersistence = /\b(guarde|guardar|memorize|memorizar|lembre|lembrar|salve|salvar|persist|armazene|armazenar|store|save|remember)\b/i.test(input)
+    const mentionsPolicy = /\b(como voce deve tratar|como você deve tratar|como tratar|qual sua politica|qual sua política|o que faz com|o que voce faz com|o que você faz com)\b/i.test(input)
+    return mentionsSensitiveData && (mentionsPersistence || mentionsPolicy)
+  }
+
   buildSafetyOperationalResponse(task = '', context = {}) {
     const safety = detectSafetyRisk(task)
     if (!safety?.triggered && !safety?.advisory) {
@@ -311,6 +324,38 @@ export class ReasoningAgent {
       locale: context?.locale || context?.language || 'pt-BR',
       promptText: task
     })
+  }
+
+  buildPrivacyOperationalResponse(task = '') {
+    const normalizedTask = String(task || '').toLowerCase()
+    const asksPersistence = /\b(guarde|guardar|memorize|memorizar|lembre|lembrar|salve|salvar|persist|armazene|armazenar|store|save|remember)\b/i.test(normalizedTask)
+    const asksPolicy = /\b(como voce deve tratar|como você deve tratar|como tratar|qual sua politica|qual sua política|o que faz com|o que voce faz com|o que você faz com)\b/i.test(normalizedTask)
+    const mentionsPayment = /\b(carta[oã]|cvv|pix|iban|swift|agencia|ag[eê]ncia|conta|documento bancario|dados bancarios)\b/i.test(normalizedTask)
+    const mentionsSecret = /\b(token|senha|password|api key|secret|segredo)\b/i.test(normalizedTask)
+    const mentionsDocument = /\b(cpf|cnpj)\b/i.test(normalizedTask)
+    const conciseOperational = asksPolicy && !asksPersistence
+
+    if (conciseOperational) {
+      return [
+        'Sou o GIOM, com politica de privacidade operacional ativa nesta execucao.',
+        '1. Recebo so o minimo necessario para ajudar.',
+        '2. Redijo segredos, credenciais, documentos e dados financeiros antes da persistencia.',
+        '3. Nao uso esse material como memoria duradoura nem aprendizado permanente.',
+        '4. Posso ajudar a mascarar, revisar ou resumir sem reter os dados completos.'
+      ].join('\n')
+    }
+
+    return [
+      'Sou o GIOM, com politica de privacidade operacional ativa nesta execucao.',
+      asksPersistence
+        ? 'Nao vou memorizar, persistir nem reutilizar em aprendizado duradouro qualquer CPF, CNPJ, token, senha, cartao, PIX, conta ou documento bancario.'
+        : 'Eu posso analisar contexto sensivel quando isso for necessario para ajudar, mas trato esses dados como sensiveis e nao como memoria permanente.',
+      'Na persistencia eu redijo segredos e bloqueio aprendizado duradouro para dados financeiros, identificadores e credenciais.',
+      mentionsSecret ? 'Envie segredos e tokens mascarados quando possivel.' : null,
+      mentionsPayment ? 'Para cartao, PIX, conta e dados bancarios, prefira campos parciais ou ja mascarados.' : null,
+      mentionsDocument ? 'Para CPF ou CNPJ, use apenas os digitos minimos necessarios para validacao segura.' : null,
+      'Se quiser, eu posso ajudar a mascarar, revisar ou resumir esse material sem reter os dados completos.'
+    ].filter(Boolean).join('\n')
   }
 
   buildDebugDiagnosticResponse() {
@@ -329,9 +374,24 @@ export class ReasoningAgent {
   buildCapabilityResponse(task, context = {}, memoryContext = {}) {
     const capabilities = context?.researchCapabilities || {}
     const liveSources = Array.isArray(capabilities.liveSources) ? capabilities.liveSources : []
+    const capabilityMatrix = context?.capabilityMatrix?.sections || {}
+    const fileItems = Array.isArray(capabilityMatrix?.files?.items) ? capabilityMatrix.files.items : []
+    const generationItems = Array.isArray(capabilityMatrix?.generation?.items) ? capabilityMatrix.generation.items : []
+    const privacyItems = Array.isArray(capabilityMatrix?.privacy?.items) ? capabilityMatrix.privacy.items : []
     const facts = this.extractKnownFacts(memoryContext)
     const normalizedTask = String(task || '').toLowerCase()
     const mentionsSearch = /\b(google|bing|yahoo|pesquisa|pesquisar|web|internet|naveg|browser)\b/i.test(normalizedTask)
+    const ocrItem = fileItems.find((item) => item.id === 'image_ocr')
+    const docxItem = fileItems.find((item) => item.id === 'docx_read')
+    const xlsxItem = fileItems.find((item) => item.id === 'xlsx_read')
+    const pptxItem = fileItems.find((item) => item.id === 'pptx_read')
+    const imageGenerationItem = generationItems.find((item) => item.id === 'image_generation')
+    const browserPdfItem = generationItems.find((item) => item.id === 'browser_pdf_export')
+    const serverPdfItem = generationItems.find((item) => item.id === 'server_pdf_generation')
+    const privacyItem = privacyItems.find((item) => item.id === 'sensitive_redaction')
+    const learningPrivacyItem = privacyItems.find((item) => item.id === 'sensitive_learning_block')
+    const wantsStructuredMatrix = /\b(pronto|parcial|ainda nao|ainda não|separe|liste|quais|quais sao|quais são)\b/i.test(normalizedTask)
+      || /\b(docx|xlsx|pdf|svg|ocr|arquivo|arquivos|anexo|anexos)\b/i.test(normalizedTask)
 
     const lines = ['Sou o GIOM, um assistente de IA no estado operacional atual desta execucao.']
 
@@ -349,6 +409,73 @@ export class ReasoningAgent {
         : 'Fontes disponiveis agora: memoria conversacional, perfil do usuario, historico salvo e base curada via RAG.'
     )
     lines.push('Meu papel aqui e analisar, explicar, escrever codigo, revisar tecnicamente e aplicar os modulos especialistas ativos.')
+    if (wantsStructuredMatrix) {
+      const readyItems = [
+        'Texto e codigo: leitura direta como texto.',
+        'PDF: extracao de texto no servidor.',
+        'SVG: leitura como texto.',
+        docxItem?.status === 'ready' ? 'DOCX: extracao de texto basica.' : null,
+        xlsxItem?.status === 'ready' ? 'XLSX: extracao tabular basica.' : null,
+        pptxItem?.status === 'ready' ? 'PPTX: extracao basica de texto dos slides.' : null,
+        browserPdfItem?.status === 'ready' ? 'Exportacao de conversa em PDF pelo navegador.' : null
+      ].filter(Boolean)
+
+      const partialItems = [
+        ocrItem?.status === 'ready'
+          ? 'Imagem/OCR: ativo para extrair texto de imagem.'
+          : 'Imagem/OCR: depende de configuracao da runtime.',
+        imageGenerationItem?.status === 'ready'
+          ? 'Geracao de imagem: ativa nesta execucao.'
+          : 'Geracao de imagem: depende de provider configurado.'
+      ].filter(Boolean)
+
+      const plannedItems = [
+        capabilities.mode === 'live' ? null : 'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
+        serverPdfItem?.status === 'planned' ? 'Geracao server-side de PDF como arquivo nativo.' : null,
+        'Cobertura completa de Office alem de DOCX/XLSX/PPTX basicos.'
+      ].filter(Boolean)
+
+      lines.push('')
+      lines.push('Pronto:')
+      lines.push(...readyItems.map((item) => `- ${item}`))
+      lines.push('')
+      lines.push('Parcial:')
+      lines.push(...partialItems.map((item) => `- ${item}`))
+      lines.push('')
+      lines.push('Ainda nao integrado:')
+      lines.push(...plannedItems.map((item) => `- ${item}`))
+      lines.push('')
+      lines.push(
+        privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'
+          ? 'Privacidade operacional: dados sensiveis sao redigidos antes de persistencia e nao entram em aprendizado duradouro.'
+          : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
+      )
+      lines.push('Resumo direto: eu sou forte em memoria, RAG, leitura de arquivos estruturados e modulos especialistas; web ao vivo e geracao binaria nativa ainda dependem de integracao.')
+    } else {
+      lines.push(
+        `Arquivos e leitura hoje: texto e codigo prontos, PDF pronto, SVG como texto pronto, DOCX ${docxItem?.status === 'ready' ? 'pronto' : 'ainda nao ativo'}, XLSX ${xlsxItem?.status === 'ready' ? 'pronto' : 'ainda nao ativo'}, PPTX ${pptxItem?.status === 'ready' ? 'pronto' : 'ainda nao ativo'}, e imagem ${ocrItem?.status === 'ready' ? 'com OCR ativo' : 'com OCR parcial ou dependente de configuracao'}.`
+      )
+      lines.push(
+        imageGenerationItem?.status === 'ready'
+          ? 'Geracao de imagem esta ativa nesta execucao.'
+          : 'Geracao de imagem existe, mas depende de provider configurado nesta execucao.'
+      )
+      lines.push(
+        browserPdfItem?.status === 'ready'
+          ? 'Exportacao de conversa em PDF via navegador esta pronta.'
+          : 'Exportacao de conversa em PDF ainda nao esta confirmada nesta execucao.'
+      )
+      lines.push(
+        serverPdfItem?.status === 'planned'
+          ? 'Geracao server-side de PDF ainda nao esta integrada; Office hoje cobre leitura basica de DOCX, XLSX e PPTX, nao a familia inteira.'
+          : 'Algumas capacidades server-side de documento podem variar conforme a runtime.'
+      )
+      lines.push(
+        privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'
+          ? 'Privacidade operacional: eu redijo dados sensiveis antes de persistir memoria e bloqueio aprendizado duradouro para segredos, cartoes, documentos e dados bancarios.'
+          : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
+      )
+    }
 
     if (facts.name || facts.workDomain || facts.responseStyle) {
       const retainedSignals = []
@@ -363,7 +490,9 @@ export class ReasoningAgent {
         ? 'Limite operacional: eu separo o que veio da pesquisa atual do que veio do conhecimento interno; se a origem nao estiver indicada, trate a informacao como nao verificada.'
         : 'Limite operacional: fatos atuais que dependem de busca externa ficam nao verificados enquanto a pesquisa ao vivo nao estiver habilitada.'
     )
-    lines.push('Resumo direto: eu sou forte em memoria, RAG, raciocinio e modulos especialistas; pesquisa web ao vivo so existe quando esta habilitada nesta execucao.')
+    if (!wantsStructuredMatrix) {
+      lines.push('Resumo direto: eu sou forte em memoria, RAG, raciocinio e modulos especialistas; pesquisa web ao vivo so existe quando esta habilitada nesta execucao.')
+    }
     lines.push('Se quiser, eu posso listar agora quais fontes internas e modulos especialistas estao ativos nesta conversa.')
     return lines.join('\n')
   }
@@ -423,6 +552,10 @@ export class ReasoningAgent {
       return safetyResponse
     }
 
+    if (this.isSensitiveDataQuestion(task)) {
+      return this.buildPrivacyOperationalResponse(task)
+    }
+
     if (this.isDebugDiagnosticQuestion(task)) {
       return this.buildDebugDiagnosticResponse()
     }
@@ -471,15 +604,34 @@ export class ReasoningAgent {
   }
 
   async finalizeReasoningResponse(task, responseText, userId, userStyle, memoryContext, ragContext, promptPackage, reasoningStartTime, metadataExtras = {}) {
+    const safeTaskPayload = redactSensitiveData(task || '')
+    const safeResponsePayload = redactSensitiveData(responseText || '')
+    const safeTask = safeTaskPayload.text
+    const safeResponseText = safeResponsePayload.text
+    const sensitiveLearningBlocked = shouldSkipLearningForSensitiveData(
+      task,
+      responseText,
+      JSON.stringify(memoryContext?.knownFacts || {})
+    )
+    const privacyCategories = Array.from(new Set([
+      ...(safeTaskPayload.detection.categories || []),
+      ...(safeResponsePayload.detection.categories || [])
+    ]))
+    const privacyState = {
+      containsSensitiveData: privacyCategories.length > 0,
+      categories: privacyCategories,
+      learningBlocked: sensitiveLearningBlocked
+    }
+
     const quality = evaluateInteractionQuality({
-      userMessage: task,
-      aiResponse: responseText
+      userMessage: safeTask,
+      aiResponse: safeResponseText
     })
 
     const reasoning = {
       success: true,
       type: metadataExtras.fallback ? 'fallback_reasoning' : (metadataExtras.directRuntime ? 'runtime_reasoning' : 'llm_reasoning'),
-      response: responseText,
+      response: safeResponseText,
       confidence: metadataExtras.confidence || (metadataExtras.fallback ? 0.82 : 0.9),
       metadata: {
         reasoningTime: Date.now(),
@@ -493,21 +645,22 @@ export class ReasoningAgent {
         promptPacks: promptPackage.promptPacks,
         audience: promptPackage.audience,
         memoryContext: memoryContext.contextSummary,
-        recentFacts: memoryContext.knownFacts || {},
+        recentFacts: sanitizeMetadataDeep(memoryContext.knownFacts || {}),
         qualityScore: quality.score,
         durationMs: Date.now() - reasoningStartTime,
-        ...metadataExtras
+        privacy: privacyState,
+        ...sanitizeMetadataDeep(metadataExtras)
       }
     }
 
     const learningSignals = buildLearningSignals({
       userMessage: task,
-      aiResponse: responseText,
+      aiResponse: safeResponseText,
       userStyle,
       qualityScore: quality.score
     })
 
-    if (!learningSignals.skip) {
+    if (!learningSignals.skip && !sensitiveLearningBlocked) {
       const existingProfile = memoryContext.userProfile || {}
       const existingTopics = Array.isArray(existingProfile.topics) ? existingProfile.topics : []
       const mergedTopics = Array.from(new Set([...existingTopics, ...learningSignals.topics])).slice(0, 12)
@@ -555,9 +708,11 @@ export class ReasoningAgent {
         { style: learningSignals.style },
         learningSignals.confidence
       )
+    } else if (sensitiveLearningBlocked) {
+      console.warn('⚠️ Aprendizado persistente bloqueado por conter dados sensiveis.')
     }
 
-    await grootMemoryConnector.saveConversation(userId, task, responseText, {
+    await grootMemoryConnector.saveConversation(userId, safeTask, safeResponseText, {
       userStyle,
       confidence: reasoning.confidence,
       provider: reasoning.metadata.provider,
@@ -567,7 +722,8 @@ export class ReasoningAgent {
       activeModules: promptPackage.activeModules,
       bibleStudyModules: promptPackage.bibleStudyModules,
       promptPacks: promptPackage.promptPacks,
-      qualityScore: quality.score
+      qualityScore: quality.score,
+      privacy: privacyState
     })
 
     if (metadataExtras.requestId) {
@@ -587,21 +743,23 @@ export class ReasoningAgent {
       console.warn('⚠️ Falha ao gerar resumo:', error.message)
     }
 
-    await grootAdvancedRAG.learnFromInteractionAdvanced(task, responseText, {
-      userStyle,
-      confidence: reasoning.confidence,
-      provider: reasoning.metadata.provider,
-      category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned',
-      qualityScore: quality.score,
-      assistantProfile: promptPackage.profileId,
-      activeModules: promptPackage.activeModules,
-      bibleStudyModules: promptPackage.bibleStudyModules,
-      promptPacks: promptPackage.promptPacks
-    })
+    if (!sensitiveLearningBlocked) {
+      await grootAdvancedRAG.learnFromInteractionAdvanced(safeTask, safeResponseText, {
+        userStyle,
+        confidence: reasoning.confidence,
+        provider: reasoning.metadata.provider,
+        category: promptPackage.activeModules.includes('bible') ? 'bible' : 'learned',
+        qualityScore: quality.score,
+        assistantProfile: promptPackage.profileId,
+        activeModules: promptPackage.activeModules,
+        bibleStudyModules: promptPackage.bibleStudyModules,
+        promptPacks: promptPackage.promptPacks
+      })
+    }
 
-    await grootAnalytics.trackUsage(userId, task, responseText, {
+    await grootAnalytics.trackUsage(userId, safeTask, safeResponseText, {
       responseTime: Date.now() - reasoningStartTime,
-      tokensUsed: responseText.length,
+      tokensUsed: safeResponseText.length,
       provider: reasoning.metadata.provider,
       userStyle,
       confidence: reasoning.confidence,

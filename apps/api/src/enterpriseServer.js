@@ -15,9 +15,11 @@ import {
   AI_KNOWLEDGE_SERVICE_SLUG,
   AI_MODEL_OWNER,
   AI_SERVICE_SLUG,
+  buildCapabilityMatrix,
   getResearchCapabilities,
   listAssistantProfiles,
   listBibleStudyModules,
+  listCapabilityHighlights,
   listCompatModels,
   listDomainModules,
   listEvaluationDimensions,
@@ -131,19 +133,40 @@ const uploadOcrEnabled = process.env.UPLOAD_OCR_ENABLED === "true"
 const uploadOcrLang = process.env.OCR_LANG || "eng"
 const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
 const uploadPdfTextLimit = Number(process.env.UPLOAD_PDF_TEXT_LIMIT || uploadTextLimit)
+const uploadOfficeTextLimit = Number(process.env.UPLOAD_OFFICE_TEXT_LIMIT || uploadTextLimit)
 const imageGenerationModel = process.env.HUGGINGFACE_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
 const SUPPORTED_UPLOAD_ACCEPT = [
   "image/*",
   ".pdf",
+  ".docx",
+  ".xlsx",
+  ".pptx",
   ".txt",
   ".md",
+  ".svg",
   ".json",
+  ".jsonl",
   ".js",
   ".ts",
   ".tsx",
   ".jsx",
+  ".py",
+  ".java",
+  ".go",
+  ".rs",
+  ".c",
+  ".cpp",
+  ".h",
+  ".cs",
+  ".php",
+  ".rb",
   ".html",
   ".css",
+  ".xml",
+  ".yml",
+  ".yaml",
+  ".log",
+  ".tsv",
   ".csv",
   ".sql"
 ]
@@ -165,17 +188,47 @@ function getUploadCapabilities() {
     supportedKinds: [
       "text",
       "code",
+      "svg",
       "pdf",
+      "docx",
+      "xlsx",
+      "pptx",
       uploadOcrEnabled ? "image_ocr" : "image"
     ],
     supports: {
       text: true,
       code: true,
+      svg: true,
+      markdown: true,
+      json: true,
+      csv: true,
       pdf: true,
+      docx: true,
+      xlsx: true,
+      pptx: true,
       image: true,
-      ocr: uploadOcrEnabled
+      ocr: uploadOcrEnabled,
+      officeBinaryDocuments: true,
+      genericBinaryInspection: false
     }
   }
+}
+
+function buildRuntimeCapabilityMatrix() {
+  return buildCapabilityMatrix({
+    uploadAccept: SUPPORTED_UPLOAD_ACCEPT,
+    ocrEnabled: uploadOcrEnabled,
+    docxEnabled: true,
+    xlsxEnabled: true,
+    pptxEnabled: true,
+    imageGenerationEnabled: isImageGenerationEnabled(),
+    imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
+    liveWebEnabled: false,
+    browserPdfExport: true,
+    privacyRedaction: true,
+    sensitiveLearningBlocked: true,
+    temporaryUploads: true
+  })
 }
 
 async function ensureUploadDir() {
@@ -211,6 +264,7 @@ function isTextLike(name, type) {
   const lower = String(name || "").toLowerCase()
   return [
     ".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".log",
+    ".svg", ".jsonl", ".tsv", ".ini", ".toml", ".env", ".sh", ".bat", ".ps1",
     ".js", ".ts", ".tsx", ".jsx", ".py", ".java", ".go", ".rs",
     ".c", ".cpp", ".h", ".cs", ".php", ".rb", ".sql", ".xml", ".html", ".css"
   ].some(ext => lower.endsWith(ext))
@@ -226,6 +280,24 @@ function isPdfLike(name, type) {
   if (type === "application/pdf") return true
   const lower = String(name || "").toLowerCase()
   return lower.endsWith(".pdf")
+}
+
+function isDocxLike(name, type) {
+  if (type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return true
+  const lower = String(name || "").toLowerCase()
+  return lower.endsWith(".docx")
+}
+
+function isSpreadsheetLike(name, type) {
+  if (type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") return true
+  const lower = String(name || "").toLowerCase()
+  return lower.endsWith(".xlsx")
+}
+
+function isPresentationLike(name, type) {
+  if (type === "application/vnd.openxmlformats-officedocument.presentationml.presentation") return true
+  const lower = String(name || "").toLowerCase()
+  return lower.endsWith(".pptx")
 }
 
 async function extractTextFromImage(filePath) {
@@ -273,6 +345,168 @@ async function extractTextFromPdf(filePath) {
     return text
   } catch (error) {
     console.error("❌ Leitura de PDF falhou:", error.message)
+    return null
+  }
+}
+
+async function extractTextFromDocx(filePath) {
+  try {
+    const mammothModule = await import("mammoth")
+    const mammoth = mammothModule.default || mammothModule
+    const parsed = await mammoth.extractRawText({ path: filePath })
+    const text = String(parsed?.value || "")
+      .replace(/\u0000/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+
+    if (!text) return null
+
+    if (text.length > uploadOfficeTextLimit) {
+      return `${text.slice(0, uploadOfficeTextLimit)}\n... (truncado)`
+    }
+
+    return text
+  } catch (error) {
+    console.error("❌ Leitura de DOCX falhou:", error.message)
+    return null
+  }
+}
+
+async function extractTextFromSpreadsheet(filePath) {
+  try {
+    const exceljsModule = await import("exceljs")
+    const ExcelJS = exceljsModule.default || exceljsModule
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.readFile(filePath)
+    const sections = workbook.worksheets.slice(0, 4).map((worksheet) => {
+      const rows = []
+      worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        if (rowNumber > 30) return
+        const cells = Array.isArray(row.values)
+          ? row.values.slice(1).map((cell) => {
+              if (cell == null) return ""
+              if (typeof cell === "object" && cell.text) return String(cell.text).trim()
+              if (typeof cell === "object" && cell.result != null) return String(cell.result).trim()
+              return String(cell).trim()
+            }).filter(Boolean)
+          : []
+        if (cells.length > 0) {
+          rows.push(cells.join(" | "))
+        }
+      })
+
+      const body = rows.join("\n")
+
+      if (!body) {
+        return `Planilha: ${worksheet.name}\n(sem texto tabular util)`
+      }
+
+      return `Planilha: ${worksheet.name}\n${body}`
+    }).filter(Boolean)
+
+    const text = sections.join("\n\n").trim()
+    if (!text) return null
+
+    if (text.length > uploadOfficeTextLimit) {
+      return `${text.slice(0, uploadOfficeTextLimit)}\n... (truncado)`
+    }
+
+    return text
+  } catch (error) {
+    console.error("❌ Leitura de XLSX falhou:", error.message)
+    return null
+  }
+}
+
+function decodeXmlEntities(text = "") {
+  return String(text || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/&#10;/g, "\n")
+    .replace(/&#13;/g, "\n")
+}
+
+async function extractSlideTextsFromPptx(filePath) {
+  const yauzlModule = await import("yauzl")
+  const yauzl = yauzlModule.default || yauzlModule
+
+  return new Promise((resolve, reject) => {
+    const slideChunks = []
+
+    yauzl.open(filePath, { lazyEntries: true }, (openError, zipfile) => {
+      if (openError) {
+        reject(openError)
+        return
+      }
+
+      zipfile.readEntry()
+
+      zipfile.on("entry", (entry) => {
+        if (!/^ppt\/slides\/slide\d+\.xml$/i.test(entry.fileName)) {
+          zipfile.readEntry()
+          return
+        }
+
+        zipfile.openReadStream(entry, (streamError, stream) => {
+          if (streamError) {
+            reject(streamError)
+            return
+          }
+
+          const chunks = []
+          stream.on("data", (chunk) => chunks.push(chunk))
+          stream.on("end", () => {
+            slideChunks.push({
+              fileName: entry.fileName,
+              xml: Buffer.concat(chunks).toString("utf8")
+            })
+            zipfile.readEntry()
+          })
+          stream.on("error", reject)
+        })
+      })
+
+      zipfile.on("end", () => resolve(slideChunks))
+      zipfile.on("error", reject)
+    })
+  })
+}
+
+async function extractTextFromPptx(filePath) {
+  try {
+    const slides = await extractSlideTextsFromPptx(filePath)
+    const sections = slides
+      .sort((a, b) => a.fileName.localeCompare(b.fileName, undefined, { numeric: true }))
+      .slice(0, 20)
+      .map((slide, index) => {
+        const text = Array.from(slide.xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g))
+          .map((match) => decodeXmlEntities(match[1]))
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .join("\n")
+
+        if (!text) {
+          return null
+        }
+
+        return `Slide ${index + 1}\n${text}`
+      })
+      .filter(Boolean)
+
+    const text = sections.join("\n\n").trim()
+    if (!text) return null
+
+    if (text.length > uploadOfficeTextLimit) {
+      return `${text.slice(0, uploadOfficeTextLimit)}\n... (truncado)`
+    }
+
+    return text
+  } catch (error) {
+    console.error("❌ Leitura de PPTX falhou:", error.message)
     return null
   }
 }
@@ -486,6 +720,27 @@ async function buildPreparedAskPayload(req, requestId) {
       } else {
         finalQuestion += `${label}\n(PDF recebido, mas não consegui extrair texto útil)`
       }
+    } else if (isDocxLike(uploadEntry.name, uploadEntry.type)) {
+      const docxText = await extractTextFromDocx(uploadEntry.path)
+      if (docxText) {
+        finalQuestion += `${label}\nTexto extraído do DOCX:\n${docxText}`
+      } else {
+        finalQuestion += `${label}\n(DOCX recebido, mas não consegui extrair texto útil)`
+      }
+    } else if (isSpreadsheetLike(uploadEntry.name, uploadEntry.type)) {
+      const sheetText = await extractTextFromSpreadsheet(uploadEntry.path)
+      if (sheetText) {
+        finalQuestion += `${label}\nConteúdo extraído da planilha:\n${sheetText}`
+      } else {
+        finalQuestion += `${label}\n(Planilha recebida, mas não consegui extrair conteúdo útil)`
+      }
+    } else if (isPresentationLike(uploadEntry.name, uploadEntry.type)) {
+      const presentationText = await extractTextFromPptx(uploadEntry.path)
+      if (presentationText) {
+        finalQuestion += `${label}\nTexto extraído da apresentação:\n${presentationText}`
+      } else {
+        finalQuestion += `${label}\n(Apresentação recebida, mas não consegui extrair texto útil)`
+      }
     } else if (isImageLike(uploadEntry.name, uploadEntry.type)) {
       const ocrText = await extractTextFromImage(uploadEntry.path)
       if (ocrText) {
@@ -503,12 +758,19 @@ async function buildPreparedAskPayload(req, requestId) {
   }
 
   const userId = req.get("X-User-Id") || req.ip || "default_user"
+  const capabilityMatrix = buildRuntimeCapabilityMatrix()
   const enhancedContext = {
     ...context,
     userAgent: req.get("User-Agent"),
     ip: req.ip,
     userId,
     researchCapabilities: getResearchCapabilities(context?.researchCapabilities || {}),
+    capabilityMatrix,
+    privacyCapabilities: {
+      sensitiveDataRedaction: true,
+      sensitiveLearningBlocked: true,
+      temporaryUploadStorage: true
+    },
     timestamp: new Date().toISOString(),
     requestId
   }
@@ -535,6 +797,7 @@ app.use(express.static(WEB_PUBLIC_DIR))
 // Config público para o frontend (somente chaves seguras)
 app.get("/config", async (req, res) => {
   const knowledgeStats = await grootAdvancedRAG.getAdvancedStats()
+  const capabilityMatrix = buildRuntimeCapabilityMatrix()
 
   res.json({
     service: AI_SERVICE_SLUG,
@@ -547,6 +810,11 @@ app.get("/config", async (req, res) => {
       futureOpenAIReady: true,
       streaming: true,
       pdfParsing: true,
+      officeSuiteBasic: true,
+      docxParsing: true,
+      spreadsheetParsing: true,
+      presentationParsing: true,
+      imageOcr: uploadOcrEnabled,
       imageGeneration: isImageGenerationEnabled()
     },
     ai: {
@@ -566,6 +834,13 @@ app.get("/config", async (req, res) => {
       }
     },
     research: getResearchCapabilities(),
+    privacy: {
+      sensitiveDataRedaction: true,
+      sensitiveLearningBlocked: true,
+      temporaryUploadStorage: true,
+      uploadTtlMinutes,
+      piiEchoProtection: true
+    },
     safety: {
       explicitSexualContentBlocked: true,
       crimesBlocked: true,
@@ -587,13 +862,32 @@ app.get("/config", async (req, res) => {
       localBugs: knowledgeStats.localBugs,
       remoteEnabled: knowledgeStats.remoteEnabled
     },
+    capabilities: listCapabilityHighlights({
+      uploadAccept: SUPPORTED_UPLOAD_ACCEPT,
+      ocrEnabled: uploadOcrEnabled,
+      docxEnabled: true,
+      xlsxEnabled: true,
+      pptxEnabled: true,
+      imageGenerationEnabled: isImageGenerationEnabled(),
+      imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
+      liveWebEnabled: false,
+      browserPdfExport: true,
+      privacyRedaction: true,
+      sensitiveLearningBlocked: true,
+      temporaryUploads: true
+    }),
     uploads: {
       enabled: true,
       maxBytes: uploadMaxBytes,
       ttlMinutes: uploadTtlMinutes,
       ...getUploadCapabilities()
-    }
+    },
+    capabilityMatrix
   })
+})
+
+app.get("/capabilities", (_req, res) => {
+  res.json(buildRuntimeCapabilityMatrix())
 })
 
 app.get("/knowledge/status", async (_req, res) => {

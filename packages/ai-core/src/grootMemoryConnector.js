@@ -1,5 +1,16 @@
 import dotenv from "dotenv"
 import { createClient } from "@supabase/supabase-js"
+import {
+  redactSensitiveData,
+  sanitizeConversationRow,
+  sanitizeLearningPatternData,
+  sanitizeLearningPatternRecord,
+  sanitizeMetadataDeep,
+  sanitizeProfilePreferences,
+  sanitizeSummaryRecord,
+  sanitizeSummaryText,
+  shouldSkipLearningForSensitiveData
+} from "./privacyGuard.js"
 
 dotenv.config()
 
@@ -78,7 +89,7 @@ function matchesSelections(metadata = {}, activeModules = [], bibleStudyModules 
 }
 
 function buildConversationMetadata(metadata = {}) {
-  return {
+  return sanitizeMetadataDeep({
     timestamp: new Date().toISOString(),
     style: metadata.userStyle || metadata.style,
     confidence: metadata.confidence,
@@ -91,8 +102,9 @@ function buildConversationMetadata(metadata = {}) {
     promptPacks: Array.isArray(metadata.promptPacks) ? metadata.promptPacks : [],
     safety: metadata.safety || null,
     streaming: Boolean(metadata.streaming),
-    qualityScore: metadata.qualityScore ?? null
-  }
+    qualityScore: metadata.qualityScore ?? null,
+    privacy: sanitizeMetadataDeep(metadata.privacy || null)
+  })
 }
 
 function normalizeConversationEntry(entry = {}) {
@@ -278,9 +290,13 @@ export class GrootMemoryConnector {
   }
 
   async saveConversation(userId, userMessage, aiResponse, metadata = {}) {
+    const safeUserMessage = redactSensitiveData(userMessage || "").text
+    const safeAiResponse = redactSensitiveData(aiResponse || "").text
+    const safeMetadata = buildConversationMetadata(metadata)
+
     if (!this.isConnected || !this.supabase) {
       console.warn("⚠️ Supabase não conectado - usando fallback local")
-      return this.saveLocalFallback(userId, userMessage, aiResponse, metadata)
+      return this.saveLocalFallback(userId, safeUserMessage, safeAiResponse, metadata)
     }
 
     try {
@@ -288,9 +304,9 @@ export class GrootMemoryConnector {
         .from("conversations")
         .insert({
           user_id: userId,
-          user_message: userMessage,
-          ai_response: aiResponse,
-          metadata: buildConversationMetadata(metadata)
+          user_message: safeUserMessage,
+          ai_response: safeAiResponse,
+          metadata: safeMetadata
         })
         .select()
 
@@ -299,7 +315,7 @@ export class GrootMemoryConnector {
       return data[0]
     } catch (error) {
       console.error("❌ Erro ao salvar conversa:", error)
-      return this.saveLocalFallback(userId, userMessage, aiResponse, metadata)
+      return this.saveLocalFallback(userId, safeUserMessage, safeAiResponse, metadata)
     }
   }
 
@@ -328,6 +344,7 @@ export class GrootMemoryConnector {
         .filter(entry => matchesSelections(entry.metadata, options.activeModules, options.bibleStudyModules))
         .slice(0, options.limit)
         .reverse()
+        .map(item => sanitizeConversationRow(item))
     } catch (error) {
       console.error("❌ Erro ao buscar histórico:", error)
       return this.getLocalFallback(userId, options)
@@ -335,9 +352,11 @@ export class GrootMemoryConnector {
   }
 
   async updateUserProfile(userId, preferences) {
+    const safePreferences = sanitizeProfilePreferences(preferences)
+
     if (!this.isConnected || !this.supabase) {
       console.warn("⚠️ Supabase não conectado - usando fallback local")
-      return this.updateLocalProfile(userId, preferences)
+      return this.updateLocalProfile(userId, safePreferences)
     }
 
     try {
@@ -345,7 +364,7 @@ export class GrootMemoryConnector {
         .from("user_profiles")
         .upsert({
           user_id: userId,
-          preferences,
+          preferences: safePreferences,
           updated_at: new Date().toISOString()
         }, {
           onConflict: "user_id"
@@ -354,10 +373,13 @@ export class GrootMemoryConnector {
 
       if (error) throw error
       console.log("✅ Perfil atualizado na Supabase")
-      return data[0]
+      return {
+        ...data[0],
+        preferences: sanitizeProfilePreferences(data?.[0]?.preferences || {})
+      }
     } catch (error) {
       console.error("❌ Erro ao atualizar perfil:", error)
-      return this.updateLocalProfile(userId, preferences)
+      return this.updateLocalProfile(userId, safePreferences)
     }
   }
 
@@ -375,7 +397,14 @@ export class GrootMemoryConnector {
         .single()
 
       if (error && error.code !== "PGRST116") throw error
-      return data || { preferences: { style: "natural" } }
+      if (!data) {
+        return { preferences: { style: "natural" } }
+      }
+
+      return {
+        ...data,
+        preferences: sanitizeProfilePreferences(data.preferences || {})
+      }
     } catch (error) {
       console.error("❌ Erro ao buscar perfil:", error)
       return this.getLocalProfile(userId)
@@ -383,8 +412,11 @@ export class GrootMemoryConnector {
   }
 
   async saveSummary(userId, summary, metadata = {}) {
+    const safeSummary = sanitizeSummaryText(summary || "")
+    const safeMetadata = sanitizeMetadataDeep(metadata)
+
     if (!this.isConnected || !this.supabase) {
-      return this.saveLocalSummary(userId, summary, metadata)
+      return this.saveLocalSummary(userId, safeSummary, safeMetadata)
     }
 
     try {
@@ -392,17 +424,17 @@ export class GrootMemoryConnector {
         .from("conversation_summaries")
         .insert({
           user_id: userId,
-          summary,
-          metadata,
+          summary: safeSummary,
+          metadata: safeMetadata,
           created_at: new Date().toISOString()
         })
         .select()
 
       if (error) throw error
-      return data[0]
+      return sanitizeSummaryRecord(data[0])
     } catch (error) {
       console.error("❌ Erro ao salvar resumo:", error)
-      return this.saveLocalSummary(userId, summary, metadata)
+      return this.saveLocalSummary(userId, safeSummary, safeMetadata)
     }
   }
 
@@ -420,7 +452,7 @@ export class GrootMemoryConnector {
         .limit(1)
 
       if (error) throw error
-      return data?.[0] || null
+      return sanitizeSummaryRecord(data?.[0] || null)
     } catch (error) {
       console.error("❌ Erro ao buscar resumo:", error)
       return this.getLocalSummary(userId)
@@ -428,8 +460,10 @@ export class GrootMemoryConnector {
   }
 
   async saveFeedback(userId, requestId, rating, comment = null) {
+    const safeComment = comment == null ? null : redactSensitiveData(comment).text
+
     if (!this.isConnected || !this.supabase) {
-      return this.saveLocalFeedback(userId, requestId, rating, comment)
+      return this.saveLocalFeedback(userId, requestId, rating, safeComment)
     }
 
     try {
@@ -439,7 +473,7 @@ export class GrootMemoryConnector {
           user_id: userId,
           request_id: requestId,
           rating,
-          comment,
+          comment: safeComment,
           created_at: new Date().toISOString()
         })
         .select()
@@ -448,7 +482,7 @@ export class GrootMemoryConnector {
       return data[0]
     } catch (error) {
       console.error("❌ Erro ao salvar feedback:", error)
-      return this.saveLocalFeedback(userId, requestId, rating, comment)
+      return this.saveLocalFeedback(userId, requestId, rating, safeComment)
     }
   }
 
@@ -464,7 +498,7 @@ export class GrootMemoryConnector {
           user_id: userId,
           request_id: requestId,
           score: evaluation.score,
-          issues: evaluation.issues,
+          issues: sanitizeMetadataDeep(evaluation.issues),
           created_at: new Date().toISOString()
         })
         .select()
@@ -478,9 +512,16 @@ export class GrootMemoryConnector {
   }
 
   async saveLearningPattern(userId, patternType, patternData, confidence = 0.5) {
+    if (shouldSkipLearningForSensitiveData(patternType, JSON.stringify(patternData || {}))) {
+      console.warn("⚠️ Aprendizado sensível bloqueado para evitar persistência indevida.")
+      return null
+    }
+
+    const safePatternData = sanitizeLearningPatternData(patternData)
+
     if (!this.isConnected || !this.supabase) {
       console.warn("⚠️ Supabase não conectado - salvando padrão localmente")
-      return this.saveLocalLearningPattern(userId, patternType, patternData, confidence)
+      return this.saveLocalLearningPattern(userId, patternType, safePatternData, confidence)
     }
 
     try {
@@ -489,7 +530,7 @@ export class GrootMemoryConnector {
         .insert({
           user_id: userId,
           pattern_type: patternType,
-          pattern_data: patternData,
+          pattern_data: safePatternData,
           confidence,
           created_at: new Date().toISOString()
         })
@@ -497,10 +538,10 @@ export class GrootMemoryConnector {
 
       if (error) throw error
       console.log("✅ Padrão de aprendizado salvo na Supabase")
-      return data[0]
+      return sanitizeLearningPatternRecord(data[0])
     } catch (error) {
       console.error("❌ Erro ao salvar padrão de aprendizado:", error)
-      return this.saveLocalLearningPattern(userId, patternType, patternData, confidence)
+      return this.saveLocalLearningPattern(userId, patternType, safePatternData, confidence)
     }
   }
 
@@ -518,7 +559,7 @@ export class GrootMemoryConnector {
         .limit(limit)
 
       if (error) throw error
-      return data || []
+      return (data || []).map(item => sanitizeLearningPatternRecord(item))
     } catch (error) {
       console.error("❌ Erro ao buscar padrões de aprendizado:", error)
       return this.getLocalLearningPatterns(userId, limit)
@@ -549,6 +590,7 @@ export class GrootMemoryConnector {
       .filter(entry => matchesSelections(entry.metadata, options.activeModules, options.bibleStudyModules))
       .slice(-options.limit)
       .reverse()
+      .map(item => sanitizeConversationRow(item))
   }
 
   updateLocalProfile(userId, preferences) {
@@ -557,25 +599,32 @@ export class GrootMemoryConnector {
 
     this.localMemory.set(storageKey, {
       ...existing,
-      preferences,
+      preferences: sanitizeProfilePreferences(preferences),
       updated_at: new Date().toISOString()
     })
 
     console.log("✅ Perfil atualizado localmente (fallback)")
-    return { preferences }
+    return { preferences: sanitizeProfilePreferences(preferences) }
   }
 
   getLocalProfile(userId) {
     const storageKey = `groot_profile_${userId}`
     const data = this.localMemory.get(storageKey) || {}
-    return data || { preferences: { style: "natural" } }
+    if (!data) {
+      return { preferences: { style: "natural" } }
+    }
+
+    return {
+      ...data,
+      preferences: sanitizeProfilePreferences(data.preferences || {})
+    }
   }
 
   saveLocalSummary(userId, summary, metadata) {
     const storageKey = `groot_summary_${userId}`
     const payload = {
-      summary,
-      metadata,
+      summary: sanitizeSummaryText(summary),
+      metadata: sanitizeMetadataDeep(metadata),
       created_at: new Date().toISOString()
     }
 
@@ -585,7 +634,7 @@ export class GrootMemoryConnector {
 
   getLocalSummary(userId) {
     const storageKey = `groot_summary_${userId}`
-    return this.localMemory.get(storageKey) || null
+    return sanitizeSummaryRecord(this.localMemory.get(storageKey) || null)
   }
 
   saveLocalFeedback(userId, requestId, rating, comment) {
@@ -594,7 +643,7 @@ export class GrootMemoryConnector {
     const payload = {
       request_id: requestId,
       rating,
-      comment,
+      comment: comment == null ? null : redactSensitiveData(comment).text,
       created_at: new Date().toISOString()
     }
 
@@ -609,6 +658,7 @@ export class GrootMemoryConnector {
     const payload = {
       request_id: requestId,
       ...evaluation,
+      issues: sanitizeMetadataDeep(evaluation.issues),
       created_at: new Date().toISOString()
     }
 
@@ -624,7 +674,7 @@ export class GrootMemoryConnector {
     existing.push({
       user_id: userId,
       pattern_type: patternType,
-      pattern_data: patternData,
+      pattern_data: sanitizeLearningPatternData(patternData),
       confidence,
       created_at: new Date().toISOString()
     })
@@ -636,7 +686,7 @@ export class GrootMemoryConnector {
   getLocalLearningPatterns(userId, limit = 10) {
     const storageKey = `groot_learning_${userId}`
     const data = this.localMemory.get(storageKey) || []
-    return data.slice(-limit).reverse()
+    return data.slice(-limit).reverse().map(item => sanitizeLearningPatternRecord(item))
   }
 
   async getContextForPrompt(userId = "default_user", options = {}) {

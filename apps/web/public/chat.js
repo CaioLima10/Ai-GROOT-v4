@@ -329,7 +329,7 @@ function getConfiguredUploadAccept() {
   if (typeof accept === "string" && accept.trim()) {
     return accept
   }
-  return "image/*,.pdf,.txt,.md,.json,.js,.ts,.tsx,.jsx,.html,.css,.csv,.sql"
+  return "image/*,.pdf,.docx,.xlsx,.pptx,.txt,.md,.svg,.json,.jsonl,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.php,.rb,.html,.css,.xml,.yml,.yaml,.log,.tsv,.csv,.sql"
 }
 
 function applyUploadAccept() {
@@ -364,6 +364,11 @@ function refreshCapabilityUI() {
   const modules = getSelectedModulesFromUI()
   const liveResearch = state.config?.research?.mode === "live"
   const pdfReady = Boolean(state.config?.features?.pdfParsing || state.config?.uploads?.supports?.pdf)
+  const officeReady = Boolean(
+    state.config?.uploads?.supports?.docx
+    || state.config?.uploads?.supports?.xlsx
+    || state.config?.uploads?.supports?.pptx
+  )
   const imageReady = Boolean(state.config?.features?.imageGeneration || state.config?.ai?.imageGeneration?.enabled)
   const uploadLabel = state.config?.uploads?.maxBytes
     ? `${describeUploadStatus()} • ${formatBytes(state.config.uploads.maxBytes)}`
@@ -397,7 +402,7 @@ function refreshCapabilityUI() {
     elements.sidebarResearchStatus.textContent = liveResearch ? "Ao vivo" : "Interna"
   }
   if (elements.sidebarUploadStatus) {
-    elements.sidebarUploadStatus.textContent = pdfReady ? "PDF + imagem" : "Texto"
+    elements.sidebarUploadStatus.textContent = officeReady ? "PDF + Office + imagem" : (pdfReady ? "PDF + imagem" : "Texto")
   }
   if (elements.sidebarImageStatus) {
     elements.sidebarImageStatus.textContent = imageReady ? "Ativo" : "Desativado"
@@ -1643,7 +1648,11 @@ function renderFilePreview() {
   const extension = getFileExtension(file.name)
   const iconMap = {
     ".pdf": "PDF",
+    ".docx": "DOCX",
+    ".xlsx": "XLSX",
+    ".pptx": "PPTX",
     ".md": "MD",
+    ".svg": "SVG",
     ".json": "{}",
     ".js": "</>",
     ".ts": "TS",
