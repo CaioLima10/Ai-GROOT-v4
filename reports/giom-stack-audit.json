@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-26T02:33:48.986Z",
+  "generatedAt": "2026-03-26T03:16:42.052Z",
   "runtime": {
-    "serverUrl": "http://127.0.0.1:3585",
+    "serverUrl": "http://127.0.0.1:3629",
     "assistantName": "GIOM",
     "provider": "auto",
     "researchMode": "internal_only"
@@ -237,9 +237,11 @@
       "level": "medium",
       "status": "solid",
       "strengths": [
-        "Conversacao: 84%"
+        "Compreensao: 82%"
       ],
-      "risks": []
+      "risks": [
+        "Coerencia: 67%"
+      ]
     },
     "module_bible_expert": {
       "label": "Module Bible Expert",
@@ -249,7 +251,7 @@
       "status": "solid",
       "strengths": [
         "Transparencia: 96%",
-        "Compreensao: 88%"
+        "Compreensao: 82%"
       ],
       "risks": [
         "Coerencia: 65%"
@@ -312,6 +314,19 @@
     },
     "module_agribusiness_expert": {
       "label": "Module Agribusiness Expert",
+      "score": 0.76,
+      "percent": 76,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 82%"
+      ],
+      "risks": [
+        "Coerencia: 67%"
+      ]
+    },
+    "module_finance_expert": {
+      "label": "Module Finance Expert",
       "score": 0.78,
       "percent": 78,
       "level": "medium",
@@ -319,19 +334,8 @@
       "strengths": [
         "Compreensao: 88%"
       ],
-      "risks": []
-    },
-    "module_finance_expert": {
-      "label": "Module Finance Expert",
-      "score": 0.77,
-      "percent": 77,
-      "level": "medium",
-      "status": "solid",
-      "strengths": [
-        "Compreensao: 88%"
-      ],
       "risks": [
-        "Coerencia: 66%"
+        "Coerencia: 67%"
       ]
     },
     "module_games_logic_expert": {
@@ -346,6 +350,76 @@
       "risks": [
         "Coerencia: 66%"
       ]
+    },
+    "module_product_design_ux_expert": {
+      "label": "Module Product Design UX Expert",
+      "score": 0.78,
+      "percent": 78,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 83%"
+      ],
+      "risks": []
+    },
+    "module_data_ai_ml_expert": {
+      "label": "Module Data AI ML Expert",
+      "score": 0.79,
+      "percent": 79,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 92%"
+      ],
+      "risks": []
+    },
+    "module_education_pedagogy_expert": {
+      "label": "Module Education Pedagogy Expert",
+      "score": 0.78,
+      "percent": 78,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 83%"
+      ],
+      "risks": []
+    },
+    "module_operations_logistics_expert": {
+      "label": "Module Operations Logistics Expert",
+      "score": 0.76,
+      "percent": 76,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 83%"
+      ],
+      "risks": [
+        "Coerencia: 67%"
+      ]
+    },
+    "module_medicine_health_expert": {
+      "label": "Module Medicine Health Expert",
+      "score": 0.76,
+      "percent": 76,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 84%"
+      ],
+      "risks": [
+        "Coerencia: 67%"
+      ]
+    },
+    "module_law_policy_expert": {
+      "label": "Module Law Policy Expert",
+      "score": 0.73,
+      "percent": 73,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 80%"
+      ],
+      "risks": []
     }
   },
   "profiles": [
@@ -413,20 +487,56 @@
     },
     {
       "id": "agribusiness",
-      "percent": 78,
-      "score": 0.78,
+      "percent": 76,
+      "score": 0.76,
       "level": "medium"
     },
     {
       "id": "finance",
-      "percent": 77,
-      "score": 0.77,
+      "percent": 78,
+      "score": 0.78,
       "level": "medium"
     },
     {
       "id": "games_logic",
       "percent": 77,
       "score": 0.77,
+      "level": "medium"
+    },
+    {
+      "id": "product_design_ux",
+      "percent": 78,
+      "score": 0.78,
+      "level": "medium"
+    },
+    {
+      "id": "data_ai_ml",
+      "percent": 79,
+      "score": 0.79,
+      "level": "medium"
+    },
+    {
+      "id": "education_pedagogy",
+      "percent": 78,
+      "score": 0.78,
+      "level": "medium"
+    },
+    {
+      "id": "operations_logistics",
+      "percent": 76,
+      "score": 0.76,
+      "level": "medium"
+    },
+    {
+      "id": "medicine_health",
+      "percent": 76,
+      "score": 0.76,
+      "level": "medium"
+    },
+    {
+      "id": "law_policy",
+      "percent": 73,
+      "score": 0.73,
       "level": "medium"
     }
   ],

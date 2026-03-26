@@ -643,7 +643,8 @@ export class ReasoningAgent {
 
   isBuildVsBuyFinanceQuestion(task = '') {
     const input = String(task || '')
-    return /\b(infraestrutura propria|infraestrutura própria|saas|startup)\b/i.test(input)
+    return /\b(infraestrutura propria|infraestrutura própria|build vs buy|comprar ou construir|construir ou comprar|saas)\b/i.test(input)
+      && /\b(infraestrutura propria|infraestrutura própria|build vs buy|comprar ou construir|construir ou comprar)\b/i.test(input)
       && /\b(caixa|risco|prazo|resiliencia|resiliência|governanca|governança)\b/i.test(input)
   }
 
@@ -670,6 +671,183 @@ export class ReasoningAgent {
       'Semana 2: treine taticas basicas todos os dias, especialmente garfo, cravada, ataque duplo e mate em 1 ou 2.',
       'Semana 3: jogue partidas curtas com revisao imediata para achar um unico erro critico por jogo e corrigi-lo conscientemente.',
       'Semana 4: combine taticas, finais simples de rei e peoes e uma rotina fixa de 5 dias por semana com 20 a 40 minutos. Erros comuns: mover a mesma peca muitas vezes, ignorar o rei e jogar sem plano.'
+    ].join('\n')
+  }
+
+  isProgrammingStackQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(javascript|typescript|python|java|next\.js|nextjs|fastapi|spring)\b/i.test(input)
+      && /\b(compare|compar|stack|arquitetura|saa[s]|produto digital|ecossistema)\b/i.test(input)
+  }
+
+  buildProgrammingStackResponse() {
+    return [
+      'Comparacao pratica entre JavaScript/TypeScript com Next.js, Python com FastAPI e Java com Spring:',
+      '1. JS/TS + Next.js: forte quando voce quer unificar frontend, backend leve, time rapido e ecossistema web moderno. Excelente para produto digital orientado a velocidade, mas pede disciplina para nao misturar camada de UI com backend critico.',
+      '2. Python + FastAPI: muito bom para APIs, dados, IA, automacao e produtividade de backend. Costuma acelerar servicos de inferencia, jobs e integracoes, mas exige mais criterio de arquitetura quando o produto cresce em dominio e times maiores.',
+      '3. Java + Spring: forte para backend corporativo, governanca, integracoes complexas, times grandes e operacao previsivel. O custo inicial de complexidade e maior, mas a maturidade de stack, observabilidade e padronizacao costuma ser excelente.',
+      '4. Decisao profissional: use Next.js quando o valor estiver em iterar produto web rapidamente, FastAPI quando dados e IA forem centrais, e Spring quando dominio, integracao e robustez corporativa forem o eixo dominante.',
+      '5. Regra de arquitetura: escolha pela combinacao de dominio, equipe, runtime, operacao e risco, nao por hype de linguagem.'
+    ].join('\n')
+  }
+
+  isBibleStudyMethodQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(escola dominical|devocional|hermeneutica|hermenêutica|tecnica de estudo|técnica de estudo|metodo de estudo|m[eé]todo de estudo|periodos biblicos|per[ií]odos b[ií]blicos)\b/i.test(input)
+      && /\b(biblia|biblico|joao|evangelho|texto)\b/i.test(input)
+  }
+
+  buildBibleStudyMethodResponse() {
+    return [
+      'Plano academico e pastoral para estudar um livro biblico com devocional e escola dominical:',
+      '1. Periodizacao: localize o livro no periodo biblico, no contexto historico e no genero literario antes de entrar em aplicacao.',
+      '2. Metodo de estudo: observacao do texto, estrutura, palavras-chave, contexto imediato, conexoes canonicas e so depois interpretacao e aplicacao.',
+      '3. Hermeneutica saudavel: diferencie o que o texto diz, o que a tradicao interpreta e o que ja e aplicacao pastoral.',
+      '4. Devocional: transforme o estudo em meditacao, oracao e obediencia pratica, mas sem usar impressao pessoal como se fosse doutrina.',
+      '5. Escola dominical: organize por objetivo, texto-base, faixa etaria, perguntas, aplicacao e revisao da licao.',
+      '6. Regra de ouro: unir reverencia, metodo e clareza; o texto vem antes da opiniao.'
+    ].join('\n')
+  }
+
+  isHarvestIntelligenceQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(colheita|colheitadeira|mapa de produtividade|telemetria|talh[aã]o)\b/i.test(input)
+      && /\b(clima|chuva|tempo|previs[aã]o|janela operacional|inteligente)\b/i.test(input)
+  }
+
+  buildHarvestIntelligenceResponse() {
+    return [
+      'Plano de colheita organizada e inteligente com clima e telemetria:',
+      '1. Janela operacional: combine previsao de chuva, umidade do grao, trafegabilidade e risco de perda para definir ordem de talhoes.',
+      '2. Colheita organizada: monte fila de prioridade por maturacao, capacidade de maquina, distancia ate armazenagem e risco de gargalo logistico.',
+      '3. Colheita inteligente: use telemetria, mapa de produtividade, velocidade da maquina, perdas no monitor e sensores para ajustar rota e configuracao em tempo quase real.',
+      '4. Riscos principais: previsao ruim, calibracao fraca do monitor, atraso de transporte, excesso de umidade e decisao sem validacao no campo.',
+      '5. Validacao: acompanhe perda por talhao, tempo parado, consumo, qualidade do grao e diferenca entre planejamento e execucao real.',
+      '6. Decisao profissional: clima, maquina, armazenagem e destino do produto precisam entrar juntos na mesma conversa operacional.'
+    ].join('\n')
+  }
+
+  isFintechOperationsQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(pix|checkout|billing|assinatura|boleto|gateway|concilia[cç][aã]o|fintech)\b/i.test(input)
+      && /\b(site|app|produto digital|fluxo|antifraude|compliance|operacao)\b/i.test(input)
+  }
+
+  buildFintechOperationsResponse() {
+    return [
+      'Plano profissional para fluxo financeiro em site ou app com PIX, billing e controle:',
+      '1. Jornada do usuario: separar checkout, confirmacao, falha, reprocesso, reembolso e suporte com mensagens claras e estados auditaveis.',
+      '2. Operacao financeira: conectar autorizacao, captura, conciliacao, liquidacao, inadimplencia e estorno sem depender de interpretacao manual.',
+      '3. Receita e billing: trate assinatura, renovacao, retry, cancelamento, MRR e churn como partes do mesmo sistema de caixa.',
+      '4. Risco e compliance: antifraude, KYC quando aplicavel, trilha de auditoria, segregacao de funcao, redacao de dados sensiveis e evidencias de controle.',
+      '5. Arquitetura: eventos financeiros idempotentes, ledger confiavel, reconciliacao diaria e alertas para divergencia entre gateway, banco e sistema interno.',
+      '6. Regra executiva: produto financeiro digital bom une UX simples para o cliente com controle duro para a operacao.'
+    ].join('\n')
+  }
+
+  isProductUxStrategyQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(onboarding|ux|copy|microcopy|abandono|design system|fluxo do usuario|fluxo do usuário)\b/i.test(input)
+      && /\b(produto|saa[s]|metrica|m[eé]trica|pesquisa|hipotese|hipótese)\b/i.test(input)
+  }
+
+  buildProductUxStrategyResponse() {
+    return [
+      'Plano curto para melhorar UX e produto em um onboarding com abandono alto:',
+      '1. Pesquisa: revisar funil, gravacoes, tickets, entrevistas curtas e principais pontos de queda para separar problema de entendimento de problema de valor.',
+      '2. Hipoteses: testar se a friccao vem de excesso de campos, promessa pouco clara, ordem errada do fluxo ou microcopy ambigua.',
+      '3. Interface: simplificar hierarquia visual, reduzir decisao por tela, destacar proximo passo e alinhar estados de erro, vazio e sucesso.',
+      '4. UX writing: reescrever titulo, CTA, ajuda contextual e mensagens de erro para reduzir duvida e ansiedade.',
+      '5. Metrica: acompanhar conclusao do onboarding, tempo por etapa, drop-off por tela e ativacao apos primeiro valor percebido.',
+      '6. Decisao profissional: melhoria de UX precisa ligar pesquisa, copy, fluxo, implementacao e resultado de negocio.'
+    ].join('\n')
+  }
+
+  isDataMlOpsQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(mlops|rag|llm|drift|benchmark|pipeline|avaliacao|avalia[cç][aã]o)\b/i.test(input)
+      && /\b(deploy|producao|produção|monitoramento|latencia|latência|custo)\b/i.test(input)
+  }
+
+  buildDataMlOpsResponse() {
+    return [
+      'Plano profissional para dados, IA e MLOps em um pipeline de RAG ou LLM:',
+      '1. Dados: versionar corpus, chunking, metadados, filtros e criterio de ingestao antes de culpar o modelo.',
+      '2. Benchmark: definir conjunto rotulado, score por dominio, casos dificeis, falhas esperadas e baseline minima aceitavel.',
+      '3. Deploy: separar indexacao, inferencia, reranking, fallback e observabilidade como camadas independentes.',
+      '4. Operacao: medir latencia, custo, cobertura de fonte, taxa de fallback, drift de consulta e regressao por release.',
+      '5. Governanca: registrar prompt/versionamento, politica de dados sensiveis, rollback de indice e trilha de auditoria dos testes.',
+      '6. Regra de engenharia: sistema de IA confiavel nasce de dado, avaliacao e operacao juntos, nao so de prompt bonito.'
+    ].join('\n')
+  }
+
+  isPedagogyQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(plano de aula|sequ[eê]ncia did[aá]tica|curr[ií]culo|avaliacao|avalia[cç][aã]o|aprendizagem|faixa et[aá]ria|aluno)\b/i.test(input)
+  }
+
+  buildPedagogyResponse() {
+    return [
+      'Plano pedagogico profissional:',
+      '1. Objetivo: defina o que o aluno precisa compreender, aplicar e reter ao final da aula ou trilha.',
+      '2. Sequencia: organize em ativacao de conhecimento previo, explicacao curta, pratica guiada, pratica autonoma e revisao.',
+      '3. Adaptacao: ajuste linguagem, ritmo, exercicio e profundidade conforme idade, base previa e dificuldade observada.',
+      '4. Avaliacao: use evidencia simples e continua, com rubrica clara, feedback formativo e proximo passo recomendado.',
+      '5. Curriculo: conecte a aula ao que veio antes, ao que vem depois e a competencia maior que esta sendo formada.',
+      '6. Regra de ouro: ensinar nao e despejar conteudo; e construir progressao segura e verificavel de aprendizagem.'
+    ].join('\n')
+  }
+
+  isOperationsLogisticsQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(gargalo|sla|estoque|logistica|logística|lead time|suprimentos|armaz[eé]m|distribui[cç][aã]o)\b/i.test(input)
+      && /\b(processo|opera[cç][aã]o|fluxo|confiabilidade|planejamento)\b/i.test(input)
+  }
+
+  buildOperationsLogisticsResponse() {
+    return [
+      'Plano operacional para processo e logistica com gargalo:',
+      '1. Mapear fluxo real: entrada, espera, handoff, processamento, estoque, expedicao e retrabalho com tempo por etapa.',
+      '2. Identificar gargalo dominante: capacidade, atraso de suprimento, erro de picking, fila de aprovacao ou falha de previsao.',
+      '3. SLA e confiabilidade: definir tempo alvo, visibilidade por etapa, contingencia e criterio de escalacao quando fugir da faixa segura.',
+      '4. Estoque e distribuicao: separar ruptura, excesso, reposicao, nivel de servico e custo logístico na mesma leitura.',
+      '5. Melhoria: atuar primeiro na restricao dominante, nao em otimizacoes decorativas fora do gargalo.',
+      '6. Decisao profissional: operacao boa equilibra lead time, custo, qualidade e resiliencia ao mesmo tempo.'
+    ].join('\n')
+  }
+
+  isHealthEducationQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(exame|hemograma|laudo|resultado|sa[uú]de|sintoma|triagem|sinal de alerta)\b/i.test(input)
+      && /\b(orienta|educa|explica|sem diagnosticar|nao diagnosticar|não diagnosticar)\b/i.test(input)
+  }
+
+  buildHealthEducationResponse() {
+    return [
+      'Orientacao segura em saude, sem diagnostico definitivo:',
+      '1. Leitura de exame: explique o que o indicador costuma medir, mas sempre dentro do contexto clinico e do laudo completo.',
+      '2. Limite profissional: resultado isolado nao fecha diagnostico; historico, exame fisico e avaliacao medica continuam essenciais.',
+      '3. Sinais de alerta: dor intensa, falta de ar, confusao mental, sangramento importante, desmaio ou piora rapida pedem avaliacao imediata.',
+      '4. Educacao em saude: foque em entendimento, prevencao, proximos passos seguros e perguntas que o usuario pode levar ao profissional.',
+      '5. Triagem: se houver risco, a orientacao correta e procurar servico de saude, nao insistir em autoavaliacao.',
+      '6. Regra de seguranca: informar com clareza, cautela e encaminhamento correto vale mais do que parecer definitivo.'
+    ].join('\n')
+  }
+
+  isLawPolicyQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(lgpd|base legal|reten[cç][aã]o|compliance|contrato|regula[cç][aã]o|pol[ií]tica p[uú]blica|privacidade)\b/i.test(input)
+  }
+
+  buildLawPolicyResponse() {
+    return [
+      'Leitura juridica e regulatoria orientada a implementacao:',
+      '1. Texto e estrutura: identifique obrigacao, permissao, restricao, excecao e quem e o responsavel por cumprir.',
+      '2. LGPD e privacidade: olhar para base legal, finalidade, minimizacao, retencao, dado sensivel, consentimento quando aplicavel e evidencias de governanca.',
+      '3. Compliance: transformar regra em processo, controle, trilha de auditoria, ownership e revisao periodica.',
+      '4. Politica publica ou regulacao: diferencie o que esta escrito, o que sera exigido na operacao e onde existe margem de interpretacao.',
+      '5. Limite profissional: isso organiza entendimento e risco, mas nao substitui validacao com advogado ou area regulatoria responsavel.',
+      '6. Regra executiva: norma boa no papel so vira conformidade quando ha processo, evidencia e responsabilidade clara.'
     ].join('\n')
   }
 
@@ -1069,6 +1247,46 @@ export class ReasoningAgent {
 
     if (this.isChessTrainingQuestion(task)) {
       return this.buildChessTrainingResponse()
+    }
+
+    if (this.isProgrammingStackQuestion(task)) {
+      return this.buildProgrammingStackResponse()
+    }
+
+    if (this.isBibleStudyMethodQuestion(task)) {
+      return this.buildBibleStudyMethodResponse()
+    }
+
+    if (this.isHarvestIntelligenceQuestion(task)) {
+      return this.buildHarvestIntelligenceResponse()
+    }
+
+    if (this.isFintechOperationsQuestion(task)) {
+      return this.buildFintechOperationsResponse()
+    }
+
+    if (this.isProductUxStrategyQuestion(task)) {
+      return this.buildProductUxStrategyResponse()
+    }
+
+    if (this.isDataMlOpsQuestion(task)) {
+      return this.buildDataMlOpsResponse()
+    }
+
+    if (this.isPedagogyQuestion(task)) {
+      return this.buildPedagogyResponse()
+    }
+
+    if (this.isOperationsLogisticsQuestion(task)) {
+      return this.buildOperationsLogisticsResponse()
+    }
+
+    if (this.isHealthEducationQuestion(task)) {
+      return this.buildHealthEducationResponse()
+    }
+
+    if (this.isLawPolicyQuestion(task)) {
+      return this.buildLawPolicyResponse()
     }
 
     if (this.isCapabilityQuestion(task)) {

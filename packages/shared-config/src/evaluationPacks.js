@@ -593,6 +593,22 @@ export const EVALUATION_PACKS = {
             }
           }
         ]
+      },
+      {
+        id: "developer_stack_tradeoff",
+        label: "Developer stack tradeoff",
+        summary: "Checa profundidade em linguagens e frameworks modernos.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Compare JavaScript/TypeScript com Next.js, Python com FastAPI e Java com Spring para um produto SaaS, separando velocidade, arquitetura, operacao e risco.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["developer", "research"],
+              promptPacks: ["github_copilot_engineering", "codex_execution", "enterprise_architecture"]
+            }
+          }
+        ]
       }
     ]
   },
@@ -615,6 +631,23 @@ export const EVALUATION_PACKS = {
               activeModules: ["bible", "history_archaeology", "research"],
               bibleStudyModules: ["systematic_theology", "biblical_history", "church_history"],
               promptPacks: ["gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "bible_study_method_scenario",
+        label: "Bible study method",
+        summary: "Checa tecnicas de estudo, devocional, escola dominical e periodizacao biblica.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Monte um plano de estudo biblico para o Evangelho de Joao com periodos biblicos, hermeneutica, devocional e aplicacao em escola dominical.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible"],
+              bibleStudyModules: ["biblical_periods", "study_methods_hermeneutics", "devotional_practice", "sunday_school_curriculum"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
             }
           }
         ]
@@ -738,6 +771,22 @@ export const EVALUATION_PACKS = {
             }
           }
         ]
+      },
+      {
+        id: "agribusiness_harvest_scenario",
+        label: "Harvest intelligence",
+        summary: "Checa clima, colheita organizada, telemetria e risco operacional.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estruture uma colheita organizada e inteligente para soja usando previsao do tempo, mapa de produtividade, telemetria e ordem de talhoes.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "research"],
+              promptPacks: ["agro_field_intelligence", "gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
       }
     ]
   },
@@ -762,6 +811,22 @@ export const EVALUATION_PACKS = {
             }
           }
         ]
+      },
+      {
+        id: "finance_fintech_scenario",
+        label: "Fintech product ops",
+        summary: "Checa pagamentos, billing, compliance e operacao de produto financeiro digital.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Monte um plano para um app com PIX, checkout, billing recorrente, conciliacao, antifraude e trilha de auditoria.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["finance", "cybersecurity", "research"],
+              promptPacks: ["fintech_systems", "chatgpt_reasoning", "academic_rigor"]
+            }
+          }
+        ]
       }
     ]
   },
@@ -783,6 +848,150 @@ export const EVALUATION_PACKS = {
               assistantProfile: "adaptive_teacher",
               activeModules: ["games_logic", "research"],
               promptPacks: ["chatgpt_reasoning", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_product_design_ux_expert: {
+    id: "module_product_design_ux_expert",
+    label: "Module Product Design UX Expert",
+    summary: "Mede pesquisa de UX, decisao de produto, copy e revisao de fluxo.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "product_design_ux_module_scenario",
+        label: "Product UX module depth",
+        summary: "Checa pesquisa, hipotese, copy, fluxo e metrica de onboarding.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Tenho um onboarding SaaS com abandono alto. Monte um plano com pesquisa de UX, hipoteses, microcopy, fluxo e metricas.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["product_design_ux", "research"],
+              promptPacks: ["ux_product_strategy", "chatgpt_reasoning", "academic_rigor"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_data_ai_ml_expert: {
+    id: "module_data_ai_ml_expert",
+    label: "Module Data AI ML Expert",
+    summary: "Mede dados, benchmark, MLOps, drift e operacao de pipelines de IA.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "data_ai_ml_module_scenario",
+        label: "Data AI ML module depth",
+        summary: "Checa benchmark, deploy, drift, custo e governanca.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estruture um plano profissional de MLOps para um pipeline de RAG/LLM com benchmark, deploy, drift, custo e rollback.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["data_ai_ml", "developer", "research"],
+              promptPacks: ["data_ml_systems", "scientific_rigor", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_education_pedagogy_expert: {
+    id: "module_education_pedagogy_expert",
+    label: "Module Education Pedagogy Expert",
+    summary: "Mede didatica, progressao, avaliacao e adaptacao por nivel.",
+    recommendedProfile: "adaptive_teacher",
+    scenarios: [
+      {
+        id: "education_pedagogy_module_scenario",
+        label: "Education pedagogy module depth",
+        summary: "Checa plano de aula, avaliacao, adaptacao e trilha curricular.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Monte um plano de aula com objetivo, sequencia didatica, adaptacao por nivel, avaliacao e proximo passo para a aprendizagem.",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["education_pedagogy"],
+              promptPacks: ["pedagogical_design", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_operations_logistics_expert: {
+    id: "module_operations_logistics_expert",
+    label: "Module Operations Logistics Expert",
+    summary: "Mede gargalo, SLA, fluxo, estoque e confiabilidade operacional.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "operations_logistics_module_scenario",
+        label: "Operations logistics module depth",
+        summary: "Checa fluxo, gargalo, estoque, SLA e plano operacional.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Temos gargalo logístico com SLA ruim, estoque oscilando e lead time alto. Estruture plano de fluxo, gargalo, reposicao e contingencia.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["operations_logistics", "research"],
+              promptPacks: ["enterprise_architecture", "academic_rigor"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_medicine_health_expert: {
+    id: "module_medicine_health_expert",
+    label: "Module Medicine Health Expert",
+    summary: "Mede educacao em saude, cautela clinica e triagem segura.",
+    recommendedProfile: "adaptive_teacher",
+    scenarios: [
+      {
+        id: "medicine_health_module_scenario",
+        label: "Medicine health module depth",
+        summary: "Checa leitura educacional, limite profissional e sinais de alerta.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Explique como orientar de forma segura a leitura de um exame e sinais de alerta, sem diagnosticar e com cautela clinica.",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["medicine_health"],
+              promptPacks: ["clinical_caution", "scientific_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_law_policy_expert: {
+    id: "module_law_policy_expert",
+    label: "Module Law Policy Expert",
+    summary: "Mede leitura normativa, compliance, LGPD e risco regulatorio.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "law_policy_module_scenario",
+        label: "Law policy module depth",
+        summary: "Checa leitura juridica orientada a implementacao e governanca.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estruture uma leitura prática de LGPD, base legal, retencao, compliance e evidencias de controle para um produto digital.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["law_policy", "cybersecurity", "research"],
+              promptPacks: ["policy_compliance", "academic_rigor", "chatgpt_reasoning"]
             }
           }
         ]

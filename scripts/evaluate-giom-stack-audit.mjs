@@ -27,7 +27,13 @@ const PACK_IDS = [
   "module_math_science_expert",
   "module_agribusiness_expert",
   "module_finance_expert",
-  "module_games_logic_expert"
+  "module_games_logic_expert",
+  "module_product_design_ux_expert",
+  "module_data_ai_ml_expert",
+  "module_education_pedagogy_expert",
+  "module_operations_logistics_expert",
+  "module_medicine_health_expert",
+  "module_law_policy_expert"
 ]
 
 const PROFILE_SCENARIOS = {
@@ -46,7 +52,13 @@ const MODULE_PACKS = {
   math_science: "module_math_science_expert",
   agribusiness: "module_agribusiness_expert",
   finance: "module_finance_expert",
-  games_logic: "module_games_logic_expert"
+  games_logic: "module_games_logic_expert",
+  product_design_ux: "module_product_design_ux_expert",
+  data_ai_ml: "module_data_ai_ml_expert",
+  education_pedagogy: "module_education_pedagogy_expert",
+  operations_logistics: "module_operations_logistics_expert",
+  medicine_health: "module_medicine_health_expert",
+  law_policy: "module_law_policy_expert"
 }
 
 function delay(ms) {
