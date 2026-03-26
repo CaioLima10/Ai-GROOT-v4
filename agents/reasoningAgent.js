@@ -291,6 +291,11 @@ export class ReasoningAgent {
       .test(String(task || ''))
   }
 
+  isCapabilityQuestion(task = '') {
+    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que vocÇ¦ consegue|o que voce realmente tem|o que vocÇ¦ realmente tem|quais sao seus limites|quais sÇœo seus limites|como voce funciona|como vocÇ¦ funciona|capacidades|ferramentas|docx|xlsx|pptx|pdf|svg|ocr|anexo|arquivo|arquivos|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao)\b/i
+      .test(String(task || ''))
+  }
+
   isMemoryRecallQuestion(task = '') {
     return /\b(agora diga|qual e meu nome|qual é meu nome|minha area|minha área|como prefiro as respostas|o que eu disse|lembra do meu nome|lembra da minha area|lembra da minha área|uma unica frase|uma única frase)\b/i
       .test(String(task || ''))
@@ -388,12 +393,58 @@ export class ReasoningAgent {
     const imageGenerationItem = generationItems.find((item) => item.id === 'image_generation')
     const browserPdfItem = generationItems.find((item) => item.id === 'browser_pdf_export')
     const serverPdfItem = generationItems.find((item) => item.id === 'server_pdf_generation')
+    const structuredDocsItem = generationItems.find((item) => item.id === 'structured_docs')
     const privacyItem = privacyItems.find((item) => item.id === 'sensitive_redaction')
     const learningPrivacyItem = privacyItems.find((item) => item.id === 'sensitive_learning_block')
     const wantsStructuredMatrix = /\b(pronto|parcial|ainda nao|ainda não|separe|liste|quais|quais sao|quais são)\b/i.test(normalizedTask)
       || /\b(docx|xlsx|pdf|svg|ocr|arquivo|arquivos|anexo|anexos)\b/i.test(normalizedTask)
 
+    const wantsDocumentGeneration = /\b(pptx|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao)\b/i.test(normalizedTask)
+    const docxReady = !docxItem || docxItem.status === 'ready'
+    const xlsxReady = !xlsxItem || xlsxItem.status === 'ready'
+    const pptxReady = !pptxItem || pptxItem.status === 'ready'
+    const browserPdfReady = !browserPdfItem || browserPdfItem.status === 'ready'
+    const serverPdfReady = !serverPdfItem || serverPdfItem.status === 'ready'
+    const structuredDocsReady = !structuredDocsItem || structuredDocsItem.status === 'ready'
     const lines = ['Sou o GIOM, um assistente de IA no estado operacional atual desta execucao.']
+
+    if (wantsDocumentGeneration) {
+      const readyItems = [
+        serverPdfReady ? 'PDF: geracao nativa no servidor.' : null,
+        structuredDocsReady ? 'DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON: geracao nativa de arquivo.' : null,
+        browserPdfReady ? 'Exportacao de conversa em PDF pelo navegador.' : null
+      ].filter(Boolean)
+
+      const partialItems = [
+        'A qualidade do conteudo interno do arquivo ainda depende do prompt, do contexto e do modelo ativo.',
+        'Office aqui significa geracao basica de arquivos e leitura inicial, nao edicao completa tipo desktop.'
+      ].filter(Boolean)
+
+      const plannedItems = [
+        'Suite Office completa com macros, formulas complexas, comentarios, trilhas de revisao e automacao total.',
+        'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
+        'Automacao de escritorio fora do stack atual.'
+      ].filter(Boolean)
+
+      return [
+        'Sou o GIOM, no estado atual desta execucao.',
+        'Limite operacional: eu gero esses arquivos com conhecimento interno, memoria e RAG; nao confunda isso com suite Office completa nem com pesquisa web ao vivo.',
+        '',
+        'Pronto:',
+        ...readyItems.map((item) => `- ${item}`),
+        '',
+        'Parcial:',
+        ...partialItems.map((item) => `- ${item}`),
+        '',
+        'Ainda nao integrado:',
+        ...plannedItems.map((item) => `- ${item}`),
+        '',
+        'Resumo direto: eu gero arquivos nativos agora, mas isso ainda nao equivale a uma suite Office completa.',
+        privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'
+          ? 'Privacidade operacional: dados sensiveis sao redigidos antes de persistencia e nao entram em aprendizado duradouro.'
+          : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
+      ].join('\n')
+    }
 
     if (mentionsSearch && capabilities.mode !== 'live') {
       lines.push('Nao, hoje eu nao consigo pesquisar Google, Bing, Yahoo ou navegar na web ao vivo.')
@@ -409,7 +460,7 @@ export class ReasoningAgent {
         : 'Fontes disponiveis agora: memoria conversacional, perfil do usuario, historico salvo e base curada via RAG.'
     )
     lines.push('Meu papel aqui e analisar, explicar, escrever codigo, revisar tecnicamente e aplicar os modulos especialistas ativos.')
-    if (wantsStructuredMatrix) {
+    if (wantsStructuredMatrix || wantsDocumentGeneration) {
       const readyItems = [
         'Texto e codigo: leitura direta como texto.',
         'PDF: extracao de texto no servidor.',
@@ -417,7 +468,9 @@ export class ReasoningAgent {
         docxItem?.status === 'ready' ? 'DOCX: extracao de texto basica.' : null,
         xlsxItem?.status === 'ready' ? 'XLSX: extracao tabular basica.' : null,
         pptxItem?.status === 'ready' ? 'PPTX: extracao basica de texto dos slides.' : null,
-        browserPdfItem?.status === 'ready' ? 'Exportacao de conversa em PDF pelo navegador.' : null
+        browserPdfItem?.status === 'ready' ? 'Exportacao de conversa em PDF pelo navegador.' : null,
+        serverPdfItem?.status === 'ready' ? 'Geracao nativa de PDF no servidor.' : null,
+        structuredDocsItem?.status === 'ready' ? 'Geracao nativa de documentos: PDF, DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON.' : null
       ].filter(Boolean)
 
       const partialItems = [
@@ -469,6 +522,11 @@ export class ReasoningAgent {
         serverPdfItem?.status === 'planned'
           ? 'Geracao server-side de PDF ainda nao esta integrada; Office hoje cobre leitura basica de DOCX, XLSX e PPTX, nao a familia inteira.'
           : 'Algumas capacidades server-side de documento podem variar conforme a runtime.'
+      )
+      lines.push(
+        structuredDocsItem?.status === 'ready'
+          ? 'Geracao de documentos nativos esta pronta: PDF, DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON. Isso nao significa cobertura total da suite Office.'
+          : 'Geracao nativa de documentos ainda pode variar conforme a runtime.'
       )
       lines.push(
         privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'

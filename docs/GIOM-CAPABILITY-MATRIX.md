@@ -12,6 +12,8 @@ Este documento resume o estado real das capacidades do GIOM na runtime atual.
 - Leitura de XLSX com extracao tabular basica
 - Leitura de PPTX com extracao basica de texto dos slides
 - Leitura de SVG como texto
+- Geracao server-side de PDF como arquivo nativo
+- Geracao nativa de DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON
 - OCR de imagem quando `UPLOAD_OCR_ENABLED=true`
 - Exportacao de conversa em PDF pelo navegador
 - Redacao de dados sensiveis antes de persistir memoria
@@ -20,19 +22,18 @@ Este documento resume o estado real das capacidades do GIOM na runtime atual.
 ## Parcial
 - Upload de imagem sem OCR ainda nao extrai sentido visual geral, apenas texto quando OCR estiver ligado
 - Geracao de imagem depende de provider ativo, hoje via Hugging Face
-- Geracao de documentos estruturados acontece no chat em texto, markdown, HTML ou JSON, mas nem todo formato binario vira arquivo nativo
 - Office esta parcial: `DOCX/XLSX/PPTX` entram com leitura basica, mas formatos binarios mais complexos e cobertura Office completa ainda nao
 
 ## Ainda nao integrado
 - Pesquisa web ao vivo com Google, Bing ou Yahoo
 - Inspecao generica de binarios arbitrarios
-- Geracao server-side de PDF como arquivo nativo
 
 ## Endpoints uteis
 - `GET /config`
 - `GET /capabilities`
 - `GET /knowledge/status`
 - `GET /evaluation/packs`
+- `POST /generate/document`
 
 ## Observacao importante
-O objetivo da matriz e honestidade operacional. O GIOM nao deve fingir web ao vivo, parser de Office ou geracao binaria quando isso nao estiver realmente ligado na runtime.
+O objetivo da matriz e honestidade operacional. O GIOM nao deve fingir web ao vivo, parser de Office completo ou automacao total de escritorio quando isso nao estiver realmente ligado na runtime.

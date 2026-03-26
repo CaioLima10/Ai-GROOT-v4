@@ -27,7 +27,8 @@ Este documento descreve as camadas atuais e recomendacoes para endurecer o ambie
 - O sistema protege persistencia e memoria melhor do que protecao absoluta na inferencia ao vivo
 - OCR depende de `UPLOAD_OCR_ENABLED=true`
 - Pesquisa web ao vivo ainda nao esta integrada
-- `DOCX`, `XLSX` e `PPTX` possuem extracao basica, mas Office completo ainda nao esta coberto
+- `DOCX`, `XLSX` e `PPTX` possuem extracao basica, e o GIOM agora gera `PDF`, `DOCX`, `XLSX`, `PPTX`, `SVG`, `HTML`, `Markdown`, `TXT` e `JSON` como arquivo nativo
+- Mesmo com isso, Office completo, macros, automacao de escritorio e binarios arbitrarios ainda nao estao totalmente cobertos
 
 ## Boas praticas recomendadas
 - Ativar MFA no GitHub, Google, Render e Supabase

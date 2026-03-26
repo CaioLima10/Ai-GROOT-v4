@@ -369,6 +369,7 @@ function refreshCapabilityUI() {
     || state.config?.uploads?.supports?.xlsx
     || state.config?.uploads?.supports?.pptx
   )
+  const nativeDocsReady = Boolean(state.config?.features?.documentGeneration || state.config?.ai?.documentGeneration?.enabled)
   const imageReady = Boolean(state.config?.features?.imageGeneration || state.config?.ai?.imageGeneration?.enabled)
   const uploadLabel = state.config?.uploads?.maxBytes
     ? `${describeUploadStatus()} • ${formatBytes(state.config.uploads.maxBytes)}`
@@ -402,7 +403,9 @@ function refreshCapabilityUI() {
     elements.sidebarResearchStatus.textContent = liveResearch ? "Ao vivo" : "Interna"
   }
   if (elements.sidebarUploadStatus) {
-    elements.sidebarUploadStatus.textContent = officeReady ? "PDF + Office + imagem" : (pdfReady ? "PDF + imagem" : "Texto")
+    elements.sidebarUploadStatus.textContent = nativeDocsReady
+      ? "PDF + Office + docs"
+      : (officeReady ? "PDF + Office + imagem" : (pdfReady ? "PDF + imagem" : "Texto"))
   }
   if (elements.sidebarImageStatus) {
     elements.sidebarImageStatus.textContent = imageReady ? "Ativo" : "Desativado"
@@ -1049,6 +1052,9 @@ function saveChatHistory() {
       ...message,
       imageDataUrl: message.imageDataUrl && message.imageDataUrl.length < 120_000
         ? message.imageDataUrl
+        : null,
+      documentDataUrl: message.documentDataUrl && message.documentDataUrl.length < 180_000
+        ? message.documentDataUrl
         : null
     }))
   )
@@ -1079,9 +1085,49 @@ function addMessageToHistory(role, content, meta = {}) {
     isError: Boolean(meta.isError),
     requestId: meta.requestId || null,
     imageDataUrl: meta.imageDataUrl || null,
-    mimeType: meta.mimeType || null
+    mimeType: meta.mimeType || null,
+    documentDataUrl: meta.documentDataUrl || null,
+    documentFileName: meta.documentFileName || null,
+    documentMimeType: meta.documentMimeType || null,
+    documentFormat: meta.documentFormat || null
   })
   saveChatHistory()
+}
+
+function buildDocumentNode(message = {}) {
+  if (!message.documentDataUrl || !message.documentFileName) {
+    return null
+  }
+
+  const wrap = document.createElement("div")
+  wrap.className = "message-document"
+
+  const icon = document.createElement("div")
+  icon.className = "message-document-icon"
+  icon.textContent = String(message.documentFormat || "DOC").toUpperCase()
+
+  const copy = document.createElement("div")
+  copy.className = "message-document-copy"
+
+  const title = document.createElement("strong")
+  title.textContent = message.documentFileName
+
+  const meta = document.createElement("span")
+  meta.textContent = message.documentMimeType || "application/octet-stream"
+
+  const action = document.createElement("a")
+  action.className = "message-document-action"
+  action.href = message.documentDataUrl
+  action.download = message.documentFileName
+  action.textContent = "Baixar arquivo"
+
+  copy.appendChild(title)
+  copy.appendChild(meta)
+  wrap.appendChild(icon)
+  wrap.appendChild(copy)
+  wrap.appendChild(action)
+
+  return wrap
 }
 
 function renderChatHistory() {
@@ -1133,6 +1179,10 @@ function buildMessageNode(message) {
   body.appendChild(meta)
   if (media) {
     body.appendChild(media)
+  }
+  const documentNode = buildDocumentNode(message)
+  if (documentNode) {
+    body.appendChild(documentNode)
   }
   body.appendChild(text)
   node.appendChild(avatar)
@@ -1190,6 +1240,15 @@ function replaceThinkingMessage(node, content, isError = false, metaExtras = {})
 
       media.appendChild(image)
       node.querySelector(".message-body")?.insertBefore(media, text)
+    }
+  }
+  if (metaExtras.documentDataUrl && metaExtras.documentFileName) {
+    const existingDocument = node.querySelector(".message-document")
+    if (!existingDocument) {
+      const documentNode = buildDocumentNode(metaExtras)
+      if (documentNode) {
+        node.querySelector(".message-body")?.insertBefore(documentNode, text)
+      }
     }
   }
   if (text) {
@@ -1250,6 +1309,8 @@ async function sendMessage() {
   if (state.isSending) return
 
   const imageMode = isImageCommand(rawText)
+  const documentCommand = parseDocumentCommand(rawText)
+  const documentMode = Boolean(documentCommand)
   const userDisplayText = buildUserDisplayText(rawText, file)
 
   setView("chat")
@@ -1259,6 +1320,8 @@ async function sendMessage() {
 
   const question = imageMode
     ? extractImagePrompt(rawText)
+    : documentMode
+      ? documentCommand.prompt
     : (rawText || `Analise o arquivo "${file.name}" e resuma o que é importante.`)
 
   elements.textarea.value = ""
@@ -1268,6 +1331,8 @@ async function sendMessage() {
   setComposerStatus(
     imageMode
       ? "Gerando imagem..."
+      : documentMode
+        ? `Gerando ${documentCommand.format.toUpperCase()}...`
       : (file ? "Enviando anexo e consultando a IA..." : "Consultando a IA...")
   )
 
@@ -1276,6 +1341,9 @@ async function sendMessage() {
   try {
     if (imageMode && file) {
       throw new Error("A geração de imagem ainda não usa anexo junto. Envie só o prompt com /image.")
+    }
+    if (documentMode && file) {
+      throw new Error("A geração de documento ainda não usa anexo junto. Envie só o comando com o prompt.")
     }
 
     const upload = file ? await uploadPendingFile(file) : null
@@ -1309,6 +1377,32 @@ async function sendMessage() {
       })
       await persistConversationRemote(userDisplayText, caption, generated.payload, null)
       setComposerStatus("Imagem gerada.")
+      return
+    }
+
+    if (documentMode) {
+      const generated = await requestDocumentGeneration(question, documentCommand.format, requestContext)
+      const caption = [
+        `Documento ${generated.fileName} pronto.`,
+        `Formato: ${generated.format.toUpperCase()}.`,
+        generated.previewText ? `Previa:\n${generated.previewText}` : null
+      ].filter(Boolean).join("\n\n")
+
+      replaceThinkingMessage(thinking, caption, false, {
+        documentDataUrl: generated.documentDataUrl,
+        documentFileName: generated.fileName,
+        documentMimeType: generated.mimeType,
+        documentFormat: generated.format
+      })
+      addMessageToHistory("assistant", caption, {
+        requestId: generated.payload?.requestId || null,
+        documentDataUrl: generated.documentDataUrl,
+        documentFileName: generated.fileName,
+        documentMimeType: generated.mimeType,
+        documentFormat: generated.format
+      })
+      await persistConversationRemote(userDisplayText, caption, generated.payload, null)
+      setComposerStatus(`Documento ${generated.fileName} gerado.`)
       return
     }
 
@@ -1351,6 +1445,27 @@ function extractImagePrompt(text = "") {
   return String(text || "").trim().replace(/^\/(?:image|img)\s+/i, "").trim()
 }
 
+function parseDocumentCommand(text = "") {
+  const input = String(text || "").trim()
+  let match = input.match(/^\/(pdf|docx|xlsx|pptx|svg|html|md|txt|json)\s+([\s\S]+)$/i)
+  if (match) {
+    return {
+      format: match[1].toLowerCase(),
+      prompt: match[2].trim()
+    }
+  }
+
+  match = input.match(/^\/(?:doc|document|file)\s+(pdf|docx|xlsx|pptx|svg|html|md|txt|json)\s+([\s\S]+)$/i)
+  if (match) {
+    return {
+      format: match[1].toLowerCase(),
+      prompt: match[2].trim()
+    }
+  }
+
+  return null
+}
+
 async function requestImageGeneration(prompt, context = {}) {
   const profileName = elements.assistantProfileSelect?.selectedOptions?.[0]?.textContent || "GIOM"
   const style = [
@@ -1384,6 +1499,55 @@ async function requestImageGeneration(prompt, context = {}) {
   return {
     imageDataUrl: `data:${image.mimeType || "image/png"};base64,${image.base64}`,
     mimeType: image.mimeType || "image/png",
+    payload
+  }
+}
+
+function buildDocumentTitle(prompt = "", format = "pdf") {
+  const base = String(prompt || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!base) {
+    return `Documento GIOM ${String(format || "pdf").toUpperCase()}`
+  }
+
+  const clipped = base.split(" ").slice(0, 8).join(" ")
+  return clipped.charAt(0).toUpperCase() + clipped.slice(1)
+}
+
+async function requestDocumentGeneration(prompt, format, context = {}) {
+  const response = await apiRequest("/generate/document", {
+    method: "POST",
+    headers: {
+      "X-User-Id": getScopeId()
+    },
+    body: JSON.stringify({
+      prompt,
+      format,
+      title: buildDocumentTitle(prompt, format),
+      locale: context.locale || navigator.language,
+      context
+    })
+  })
+
+  const payload = await safeJson(response)
+  if (!response.ok) {
+    throw new Error(payload?.error || "Falha ao gerar documento.")
+  }
+
+  const document = payload?.document
+  if (!document?.base64) {
+    throw new Error("Resposta vazia da geração de documento.")
+  }
+
+  return {
+    documentDataUrl: `data:${document.mimeType || "application/octet-stream"};base64,${document.base64}`,
+    fileName: document.fileName || `giom-document.${format}`,
+    mimeType: document.mimeType || "application/octet-stream",
+    format: document.format || format,
+    previewText: payload?.previewText || document.previewText || "",
     payload
   }
 }

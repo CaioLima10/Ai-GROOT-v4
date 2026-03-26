@@ -29,10 +29,13 @@ import {
 } from "../../../packages/shared-config/src/index.js"
 import {
   buildAssistantPromptContext,
+  generateStructuredDocument,
   evaluateConversationTurn,
   grootAdvancedRAG,
   grootEmbeddings,
   grootMemoryConnector,
+  listDocumentFormats,
+  normalizeDocumentFormat,
   runConversationBenchmark
 } from "../../../packages/ai-core/src/index.js"
 import { fetchBiblePassage } from "../../../core/bibleApi.js"
@@ -135,6 +138,8 @@ const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
 const uploadPdfTextLimit = Number(process.env.UPLOAD_PDF_TEXT_LIMIT || uploadTextLimit)
 const uploadOfficeTextLimit = Number(process.env.UPLOAD_OFFICE_TEXT_LIMIT || uploadTextLimit)
 const imageGenerationModel = process.env.HUGGINGFACE_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
+const documentGenerationFormats = listDocumentFormats()
+const documentGenerationFormatIds = documentGenerationFormats.map((entry) => entry.format)
 const SUPPORTED_UPLOAD_ACCEPT = [
   "image/*",
   ".pdf",
@@ -225,6 +230,9 @@ function buildRuntimeCapabilityMatrix() {
     imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
     liveWebEnabled: false,
     browserPdfExport: true,
+    serverPdfGeneration: true,
+    structuredDocsNative: true,
+    documentGenerationFormats: documentGenerationFormatIds,
     privacyRedaction: true,
     sensitiveLearningBlocked: true,
     temporaryUploads: true
@@ -540,6 +548,52 @@ async function generateImageWithProvider(prompt, options = {}) {
   }
 }
 
+function sanitizeDocumentTitle(value = "", fallback = "Documento GIOM") {
+  const normalized = String(value || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  return normalized || fallback
+}
+
+function buildDocumentDraftPrompt(prompt, format, options = {}) {
+  const locale = String(options.locale || "pt-BR")
+  const style = String(options.style || "natural")
+  const focusAreas = Array.isArray(options.activeModules) && options.activeModules.length > 0
+    ? options.activeModules.join(", ")
+    : "general"
+  const requestedTitle = sanitizeDocumentTitle(options.title || "", "")
+  const formatLabel = String(format || "").toUpperCase()
+
+  const formatInstructions = {
+    pdf: "Escreva um texto final bem estruturado, com titulo, secoes curtas e paragrafos limpos para exportacao em PDF.",
+    docx: "Escreva um conteudo final profissional, em secoes claras, pronto para virar DOCX.",
+    xlsx: "Escreva preferencialmente uma tabela em markdown ou CSV simples quando fizer sentido; se nao fizer, entregue linhas objetivas que possam virar planilha.",
+    pptx: "Estruture o conteudo como apresentacao executiva com titulo e blocos curtos por slide.",
+    svg: "Escreva um conteudo visual curto, com frases fortes e pouco texto por linha.",
+    html: "Entregue um conteudo direto e estruturado, sem scripts.",
+    json: "Entregue JSON valido, sem markdown e sem comentarios.",
+    md: "Entregue markdown limpo, sem cercas de codigo.",
+    txt: "Entregue texto puro limpo, sem markdown."
+  }
+
+  return [
+    `Crie o conteudo final de um documento ${formatLabel}.`,
+    requestedTitle ? `Titulo desejado: ${requestedTitle}.` : null,
+    `Idioma principal: ${locale}.`,
+    `Estilo de saida: ${style}.`,
+    `Areas de foco desta conversa: ${focusAreas}.`,
+    formatInstructions[format] || "Entregue um documento claro, profissional e pronto para exportacao.",
+    "Regras:",
+    "1. Nao descreva o que voce esta fazendo.",
+    "2. Nao use cercas de codigo, salvo se o proprio formato pedir texto bruto.",
+    "3. Entregue apenas o conteudo final do documento.",
+    "4. Se houver risco ou conteudo proibido, recuse com seguranca em vez de produzir o documento.",
+    `Objetivo do documento: ${prompt}`
+  ].filter(Boolean).join("\n")
+}
+
 function flattenMessageContent(content) {
   if (typeof content === "string") return content
   if (!Array.isArray(content)) return ""
@@ -815,7 +869,9 @@ app.get("/config", async (req, res) => {
       spreadsheetParsing: true,
       presentationParsing: true,
       imageOcr: uploadOcrEnabled,
-      imageGeneration: isImageGenerationEnabled()
+      imageGeneration: isImageGenerationEnabled(),
+      documentGeneration: true,
+      serverPdfGeneration: true
     },
     ai: {
       providerMode: process.env.GROOT_AI_PROVIDER || "auto",
@@ -831,6 +887,10 @@ app.get("/config", async (req, res) => {
         enabled: isImageGenerationEnabled(),
         provider: isImageGenerationEnabled() ? "huggingface" : "disabled",
         model: imageGenerationModel
+      },
+      documentGeneration: {
+        enabled: true,
+        formats: documentGenerationFormats
       }
     },
     research: getResearchCapabilities(),
@@ -882,7 +942,8 @@ app.get("/config", async (req, res) => {
       ttlMinutes: uploadTtlMinutes,
       ...getUploadCapabilities()
     },
-    capabilityMatrix
+    capabilityMatrix,
+    documentFormats: documentGenerationFormats
   })
 })
 
@@ -1238,6 +1299,110 @@ app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
   }
 })
 
+app.post("/generate/document", askLimiter, askSlowDown, async (req, res) => {
+  const requestId = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+
+  try {
+    const userId = req.get("X-User-Id") || req.ip || "default_user"
+    const prompt = String(req.body?.prompt || "").trim()
+    const providedContent = String(req.body?.content || "").trim()
+    const requestedFormat = normalizeDocumentFormat(req.body?.format || "pdf")
+    const locale = String(req.body?.locale || "pt-BR")
+    const title = sanitizeDocumentTitle(req.body?.title || "", "Documento GIOM")
+    const activeModules = Array.isArray(req.body?.context?.activeModules) ? req.body.context.activeModules : []
+    const assistantProfile = String(req.body?.context?.assistantProfile || "expert_polymath")
+
+    if (!requestedFormat) {
+      return res.status(400).json({
+        error: "Formato de documento nao suportado.",
+        code: "UNSUPPORTED_DOCUMENT_FORMAT",
+        supportedFormats: documentGenerationFormatIds
+      })
+    }
+
+    if (!prompt && !providedContent) {
+      return res.status(400).json({
+        error: "Informe um prompt ou conteudo para gerar o documento.",
+        code: "EMPTY_DOCUMENT_REQUEST"
+      })
+    }
+
+    const safety = detectSafetyRisk(`${title}\n${prompt}\n${providedContent}`)
+    if (safety.triggered) {
+      return res.status(400).json({
+        error: buildSafetyResponse(safety, { locale, promptText: prompt || providedContent }),
+        code: "DOCUMENT_PROMPT_BLOCKED",
+        safety
+      })
+    }
+
+    const runtimeContext = {
+      ...(req.body?.context || {}),
+      locale,
+      userId,
+      requestId,
+      assistantProfile,
+      activeModules,
+      researchCapabilities: getResearchCapabilities(req.body?.context?.researchCapabilities || {}),
+      capabilityMatrix: buildRuntimeCapabilityMatrix(),
+      privacyCapabilities: {
+        sensitiveDataRedaction: true,
+        sensitiveLearningBlocked: true,
+        temporaryUploadStorage: true
+      }
+    }
+
+    const documentContent = providedContent || await askGiom(
+      buildDocumentDraftPrompt(prompt, requestedFormat, {
+        locale,
+        style: req.body?.context?.verbosity || "natural",
+        activeModules,
+        title
+      }),
+      runtimeContext
+    )
+
+    const document = await generateStructuredDocument({
+      format: requestedFormat,
+      title,
+      content: documentContent,
+      fileNameBase: title,
+      metadata: {
+        requestId,
+        locale,
+        assistantProfile
+      }
+    })
+
+    await grootMemoryConnector.saveConversation(userId, prompt || `Gerar documento ${requestedFormat.toUpperCase()}`, `Documento ${document.fileName} gerado com sucesso.`, {
+      provider: "document_generation",
+      requestId,
+      assistantProfile,
+      activeModules,
+      document: {
+        format: requestedFormat,
+        title,
+        fileName: document.fileName,
+        mimeType: document.mimeType,
+        size: document.size
+      }
+    })
+
+    res.json({
+      success: true,
+      requestId,
+      document,
+      content: documentContent,
+      previewText: document.previewText
+    })
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || "Falha ao gerar documento",
+      code: error.code || "DOCUMENT_GENERATION_FAILED"
+    })
+  }
+})
+
 // API principal com contexto enterprise
 app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
   const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -1264,6 +1429,17 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
 
     aiGateway.logger.info(requestId, 'REQUEST_COMPLETED', { 
       responseLength: responseText.length 
+    })
+
+    await grootMemoryConnector.saveConversation(userId, question, responseText, {
+      provider: "standard_gateway",
+      requestId,
+      assistantProfile: enhancedContext.assistantProfile || null,
+      activeModules: enhancedContext.activeModules || [],
+      bibleStudyModules: enhancedContext.bibleStudyModules || [],
+      promptPacks: enhancedContext.promptPacks || [],
+      uploadName: enhancedContext.uploadName || null,
+      uploadType: enhancedContext.uploadType || null
     })
 
     aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)

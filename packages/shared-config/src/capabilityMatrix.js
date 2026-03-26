@@ -19,10 +19,20 @@ export function buildCapabilityMatrix(options = {}) {
     imageGenerationProvider = "disabled",
     liveWebEnabled = false,
     browserPdfExport = true,
+    serverPdfGeneration = false,
+    structuredDocsNative = false,
+    documentGenerationFormats = [],
     privacyRedaction = true,
     sensitiveLearningBlocked = true,
     temporaryUploads = true
   } = options
+
+  const nativeFormats = Array.isArray(documentGenerationFormats)
+    ? documentGenerationFormats.map((format) => String(format || "").toUpperCase()).filter(Boolean)
+    : []
+  const nativeFormatsSummary = nativeFormats.length > 0
+    ? nativeFormats.join(", ")
+    : "TXT, MD, HTML and JSON"
 
   return {
     status: "runtime_capability_matrix",
@@ -66,8 +76,8 @@ export function buildCapabilityMatrix(options = {}) {
         items: [
           buildItem("image_generation", "Image generation", imageGenerationEnabled ? "ready" : "partial", imageGenerationEnabled ? `Image generation is active via ${imageGenerationProvider}.` : "Image generation requires a configured provider token such as Hugging Face."),
           buildItem("browser_pdf_export", "Browser PDF export", browserPdfExport ? "ready" : "planned", browserPdfExport ? "The web UI can export the current chat through the browser print/export flow." : "Browser-side PDF export is not active."),
-          buildItem("server_pdf_generation", "Server PDF generation", "planned", "Server-side PDF file generation is not implemented yet."),
-          buildItem("structured_docs", "Structured document output", "partial", "GIOM can draft markdown, HTML, JSON and text documents in chat, but not every binary document type as a native file yet.")
+          buildItem("server_pdf_generation", "Server PDF generation", serverPdfGeneration ? "ready" : "planned", serverPdfGeneration ? "Server-side PDF file generation is active in this runtime." : "Server-side PDF file generation is not implemented yet."),
+          buildItem("structured_docs", "Structured document output", structuredDocsNative ? "ready" : "partial", structuredDocsNative ? `GIOM can generate native files in ${nativeFormatsSummary}.` : "GIOM can draft markdown, HTML, JSON and text documents in chat, but not every binary document type as a native file yet.")
         ]
       },
       privacy: {
