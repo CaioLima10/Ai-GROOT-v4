@@ -24,6 +24,10 @@
     "smoke:safety": "node scripts/smoke-safety.mjs",
     "eval:giom": "node scripts/evaluate-giom-conversation.mjs",
     "eval:giom:audit": "node scripts/evaluate-giom-stack-audit.mjs",
+    "eval:frontend": "node scripts/evaluate-frontend-ui.mjs",
+    "test:frontend-layout": "node scripts/frontend-layout.test.mjs",
+    "qa:runtime": "node scripts/runtime-ux-qa.mjs",
+    "qa:stress-runtime": "node scripts/runtime-ux-stress.mjs",
     "kill-port": "npx kill-port 3000",
     "test": "node --test",
     "lint": "echo 'ESLint não configurado'",
@@ -98,6 +102,7 @@
     "openai": "^4.20.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "nodemon": "^3.0.2"
   },
   "engines": {

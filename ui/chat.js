@@ -29,7 +29,7 @@ const DEFAULT_PREFERENCES = {
 }
 
 const VIEW_META = {
-  chat: { title: "Chat", eyebrow: "Workspace" },
+  chat: { title: "Hey,Giom", eyebrow: "Workspace" },
   memory: { title: "Memória", eyebrow: "Histórico" },
   plan: { title: "Plano", eyebrow: "Conta" },
   help: { title: "Ajuda", eyebrow: "Suporte" },
@@ -52,9 +52,13 @@ const elements = {
   pageEyebrow: document.getElementById("pageEyebrow"),
   backendStatus: document.getElementById("backendStatus"),
   exportChatBtn: document.getElementById("exportChatBtn"),
+  topbarSignupBtn: document.getElementById("topbarSignupBtn"),
   topbarAccountBtn: document.getElementById("topbarAccountBtn"),
   newChatBtn: document.getElementById("newChatBtn"),
   navItems: Array.from(document.querySelectorAll(".nav-item")),
+  sidebarHistorySearch: document.getElementById("sidebarHistorySearch"),
+  clearHistorySearchBtn: document.getElementById("clearHistorySearchBtn"),
+  sidebarHistoryList: document.getElementById("sidebarHistoryList"),
   profileTrigger: document.getElementById("profileTrigger"),
   profileMenu: document.getElementById("profileMenu"),
   userAvatar: document.getElementById("userAvatar"),
@@ -63,6 +67,7 @@ const elements = {
   menuAvatar: document.getElementById("menuAvatar"),
   menuName: document.getElementById("menuName"),
   menuPlan: document.getElementById("menuPlan"),
+  upgradeBtn: document.getElementById("upgradeBtn"),
   openLoginBtn: document.getElementById("openLoginBtn"),
   switchAccountBtn: document.getElementById("switchAccountBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
@@ -73,6 +78,7 @@ const elements = {
   chatView: document.getElementById("view-chat"),
   chat: document.getElementById("chat"),
   chatInner: document.getElementById("chatStreamInner"),
+  scrollBottomBtn: document.getElementById("scrollBottomBtn"),
   composerShell: document.getElementById("composerShell"),
   chatProfileBadge: document.getElementById("chatProfileBadge"),
   chatModulesBadge: document.getElementById("chatModulesBadge"),
@@ -87,6 +93,7 @@ const elements = {
   fileInput: document.getElementById("fileInput"),
   filePreview: document.getElementById("filePreview"),
   voiceBtn: document.getElementById("voiceBtn"),
+  toolTemplateButtons: Array.from(document.querySelectorAll("[data-tool-template]")),
   memoryBadge: document.getElementById("memoryBadge"),
   memoryList: document.getElementById("memoryList"),
   learningList: document.getElementById("learningList"),
@@ -128,6 +135,8 @@ const elements = {
   openLoginFromSettings: document.getElementById("openLoginFromSettings"),
   loginModal: document.getElementById("loginModal"),
   closeLoginBtn: document.getElementById("closeLoginBtn"),
+  loginContinueBtn: document.getElementById("loginContinueBtn"),
+  loginPasswordStep: document.getElementById("loginPasswordStep"),
   emailInput: document.getElementById("emailInput"),
   passwordInput: document.getElementById("passwordInput"),
   emailLoginBtn: document.getElementById("emailLogin"),
@@ -135,6 +144,15 @@ const elements = {
   googleLoginBtn: document.getElementById("googleLogin"),
   githubLoginBtn: document.getElementById("githubLogin"),
   loginStatus: document.getElementById("loginStatus"),
+  editorModal: document.getElementById("editorModal"),
+  closeEditorBtn: document.getElementById("closeEditorBtn"),
+  cancelEditorBtn: document.getElementById("cancelEditorBtn"),
+  copyEditorBtn: document.getElementById("copyEditorBtn"),
+  downloadEditorBtn: document.getElementById("downloadEditorBtn"),
+  applyEditorBtn: document.getElementById("applyEditorBtn"),
+  editorSurface: document.getElementById("editorSurface"),
+  editorMeta: document.getElementById("editorMeta"),
+  editorStatus: document.getElementById("editorStatus"),
   toastStack: document.getElementById("toastStack")
 }
 
@@ -154,10 +172,14 @@ const state = {
   authBackend: "local",
   currentView: "chat",
   preferences: { ...DEFAULT_PREFERENCES },
+  chatThreads: [],
+  currentThreadId: null,
   chatHistory: [],
+  editingMessageId: null,
   pendingFile: null,
   pendingFileUrl: null,
   isSending: false,
+  sidebarHistoryQuery: "",
   workingStatusTimer: null,
   workingStatusIndex: 0,
   currentWorkingMode: "default",
@@ -175,15 +197,23 @@ async function init() {
   setTheme(state.preferences.theme || DEFAULT_PREFERENCES.theme)
   loadChatHistory()
   renderChatHistory()
+  initSpeechRecognition()
+  updateAuthUI()
+  setView("chat")
+  queueMicrotask(() => {
+    bootstrapRuntime().catch((error) => {
+      console.warn("Falha no bootstrap de runtime do front:", error)
+    })
+  })
+}
+
+async function bootstrapRuntime() {
   await loadConfig()
   await initAuth()
-  initSpeechRecognition()
   await loadSystemHealth()
-  await renderMemoryView()
   renderPlanView()
   updateHelpStatus()
   updateAuthUI()
-  setView("chat")
 }
 
 function bindEvents() {
@@ -194,7 +224,9 @@ function bindEvents() {
   elements.navItems.forEach((item) => {
     item.addEventListener("click", () => {
       setView(item.dataset.view || "chat")
-      toggleSidebar(false)
+      if (!isDesktopViewport()) {
+        toggleSidebar(false)
+      }
     })
   })
 
@@ -205,6 +237,7 @@ function bindEvents() {
 
   elements.profileMenu?.addEventListener("click", handleProfileMenuClick)
   elements.topbarAccountBtn?.addEventListener("click", handleAccountShortcut)
+  elements.topbarSignupBtn?.addEventListener("click", handleSignupShortcut)
   elements.openLoginBtn?.addEventListener("click", openLoginModal)
   elements.openLoginFromSettings?.addEventListener("click", openLoginModal)
   elements.switchAccountBtn?.addEventListener("click", () => {
@@ -212,6 +245,10 @@ function bindEvents() {
     openLoginModal()
   })
   elements.logoutBtn?.addEventListener("click", logout)
+  elements.upgradeBtn?.addEventListener("click", () => {
+    closeProfileMenu()
+    setView("plan")
+  })
   elements.themeDraculaBtn?.addEventListener("click", () => setTheme("dracula"))
   elements.themeGithubBtn?.addEventListener("click", () => setTheme("github_dark"))
   elements.themeDiscordBtn?.addEventListener("click", () => setTheme("discord"))
@@ -227,12 +264,33 @@ function bindEvents() {
     })
   })
 
+  elements.toolTemplateButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyToolTemplate(button.dataset.toolTemplate || "")
+    })
+  })
+
+  elements.sidebarHistorySearch?.addEventListener("input", (event) => {
+    state.sidebarHistoryQuery = String(event.target.value || "").trim().toLowerCase()
+    renderSidebarHistory()
+  })
+
+  elements.clearHistorySearchBtn?.addEventListener("click", () => {
+    state.sidebarHistoryQuery = ""
+    if (elements.sidebarHistorySearch) {
+      elements.sidebarHistorySearch.value = ""
+      elements.sidebarHistorySearch.focus()
+    }
+    renderSidebarHistory()
+  })
+
   elements.textarea?.addEventListener("input", () => {
     autoResizeTextarea()
     syncChatMode()
   })
 
   elements.textarea?.addEventListener("keydown", (event) => {
+    if (event.isComposing) return
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       sendMessage()
@@ -243,6 +301,8 @@ function bindEvents() {
   elements.attachBtn?.addEventListener("click", () => elements.fileInput?.click())
   elements.fileInput?.addEventListener("change", handleFileSelected)
   elements.voiceBtn?.addEventListener("click", toggleVoiceInput)
+  elements.scrollBottomBtn?.addEventListener("click", scrollChatToBottom)
+  elements.chat?.addEventListener("scroll", syncScrollButton)
 
   elements.chat?.addEventListener("click", async (event) => {
     const messageActionButton = event.target.closest("[data-message-action]")
@@ -287,11 +347,24 @@ function bindEvents() {
     }
   })
 
+  elements.editorModal?.addEventListener("click", (event) => {
+    if (event.target === elements.editorModal) {
+      closeDocumentEditor()
+    }
+  })
+
   elements.closeLoginBtn?.addEventListener("click", closeLoginModal)
+  elements.loginContinueBtn?.addEventListener("click", revealPasswordStep)
   elements.emailLoginBtn?.addEventListener("click", handleEmailLogin)
   elements.emailSignupBtn?.addEventListener("click", handleEmailSignup)
   elements.googleLoginBtn?.addEventListener("click", () => handleOAuthLogin("google"))
   elements.githubLoginBtn?.addEventListener("click", () => handleOAuthLogin("github"))
+  elements.closeEditorBtn?.addEventListener("click", closeDocumentEditor)
+  elements.cancelEditorBtn?.addEventListener("click", closeDocumentEditor)
+  elements.copyEditorBtn?.addEventListener("click", handleCopyEditorContent)
+  elements.downloadEditorBtn?.addEventListener("click", handleDownloadEditorContent)
+  elements.applyEditorBtn?.addEventListener("click", applyEditorChanges)
+  elements.editorSurface?.setAttribute("contenteditable", "true")
   elements.saveSettingsBtn?.addEventListener("click", savePreferences)
   elements.assistantProfileSelect?.addEventListener("change", () => {
     updateProfileHint(getSelectedModulesFromUI())
@@ -335,7 +408,16 @@ function bindEvents() {
     if (event.key === "Escape") {
       closeLoginModal()
       closeProfileMenu()
-      toggleSidebar(false)
+      if (!isDesktopViewport()) {
+        toggleSidebar(false)
+      }
+    }
+  })
+
+  window.addEventListener("resize", () => {
+    if (isDesktopViewport()) {
+      elements.appShell?.classList.remove("sidebar-open")
+      elements.sidebarScrim?.classList.add("hidden")
     }
   })
 }
@@ -467,6 +549,21 @@ function refreshCapabilityUI() {
   if (elements.sidebarImageStatus) {
     elements.sidebarImageStatus.textContent = imageReady ? "Ativo" : "Desativado"
   }
+
+  elements.toolTemplateButtons.forEach((button) => {
+    const template = String(button.dataset.toolTemplate || "").toLowerCase()
+    const disabled =
+      template === "image"
+        ? !imageReady
+        : !nativeDocsReady && ["pdf", "docx", "xlsx", "pptx", "svg"].includes(template)
+
+    button.classList.toggle("is-disabled", disabled)
+    button.title = disabled
+      ? (template === "image"
+        ? "Ative o provider de imagem no backend para gerar imagens reais."
+        : "A geração de documentos depende do backend do GIOM.")
+      : ""
+  })
 }
 
 async function loadSystemHealth() {
@@ -485,6 +582,7 @@ async function loadSystemHealth() {
 
 function setView(view) {
   state.currentView = view in views ? view : "chat"
+  elements.body.dataset.currentView = state.currentView
 
   Object.entries(views).forEach(([name, node]) => {
     node.classList.toggle("active", name === state.currentView)
@@ -507,10 +605,29 @@ function setView(view) {
   }
 }
 
+function isDesktopViewport() {
+  return window.matchMedia("(min-width: 941px)").matches
+}
+
 function toggleSidebar(force) {
+  if (!elements.appShell || !elements.sidebarScrim) return
+
+  if (isDesktopViewport()) {
+    const open = typeof force === "boolean"
+      ? force
+      : elements.appShell.classList.contains("sidebar-collapsed")
+    elements.appShell.classList.toggle("sidebar-collapsed", !open)
+    elements.appShell.classList.remove("sidebar-open")
+    elements.sidebarScrim.classList.add("hidden")
+    elements.mobileMenuBtn?.setAttribute("aria-label", open ? "Fechar sidebar" : "Abrir sidebar")
+    return
+  }
+
   const open = typeof force === "boolean" ? force : !elements.appShell.classList.contains("sidebar-open")
   elements.appShell.classList.toggle("sidebar-open", open)
+  elements.appShell.classList.remove("sidebar-collapsed")
   elements.sidebarScrim.classList.toggle("hidden", !open)
+  elements.mobileMenuBtn?.setAttribute("aria-label", open ? "Fechar menu" : "Abrir menu")
 }
 
 function toggleProfileMenu(force) {
@@ -527,6 +644,7 @@ function handleProfileMenuClick(event) {
   const button = event.target.closest("[data-action]")
   if (!button) return
 
+  if (button.dataset.action === "profile-account") setView("settings")
   if (button.dataset.action === "profile-settings") setView("settings")
   if (button.dataset.action === "profile-plan") setView("plan")
   if (button.dataset.action === "profile-help") setView("help")
@@ -541,15 +659,72 @@ function handleAccountShortcut() {
   openLoginModal()
 }
 
+function handleSignupShortcut() {
+  openLoginModal()
+  elements.emailInput?.focus()
+}
+
 function openLoginModal() {
   closeProfileMenu()
+  resetLoginModal()
   elements.loginModal.classList.remove("hidden")
   elements.emailInput?.focus()
 }
 
 function closeLoginModal() {
   elements.loginModal.classList.add("hidden")
+  resetLoginModal()
   setLoginStatus("")
+}
+
+function resetLoginModal() {
+  elements.loginPasswordStep?.classList.add("hidden")
+  if (elements.passwordInput) {
+    elements.passwordInput.value = ""
+  }
+}
+
+function revealPasswordStep() {
+  const email = elements.emailInput?.value.trim().toLowerCase()
+  if (!email) {
+    setLoginStatus("Informe seu email para continuar.", true)
+    elements.emailInput?.focus()
+    return
+  }
+
+  elements.loginPasswordStep?.classList.remove("hidden")
+  setLoginStatus("Agora digite sua senha para entrar ou criar sua conta.")
+  elements.passwordInput?.focus()
+}
+
+function openDocumentEditor(messageId = "") {
+  const message = findMessageById(messageId)
+  if (!message || !elements.editorModal || !elements.editorSurface) return
+
+  state.editingMessageId = message.id
+  elements.editorModal.classList.remove("hidden")
+  elements.editorModal.setAttribute("aria-hidden", "false")
+  elements.editorMeta.textContent = message.documentFileName
+    ? `Editando ${message.documentFileName}`
+    : `Editando mensagem de ${message.role === "user" ? "você" : "GIOM"}`
+  elements.editorSurface.textContent = message.documentPreviewText || message.content || ""
+  elements.editorSurface.focus()
+  setEditorStatus(message.documentDataUrl
+    ? "Você está editando a prévia textual deste documento."
+    : "Edite o conteúdo e aplique as alterações quando terminar.")
+}
+
+function closeDocumentEditor() {
+  state.editingMessageId = null
+  elements.editorModal?.classList.add("hidden")
+  elements.editorModal?.setAttribute("aria-hidden", "true")
+  setEditorStatus("")
+}
+
+function setEditorStatus(message, isError = false) {
+  if (!elements.editorStatus) return
+  elements.editorStatus.textContent = message
+  elements.editorStatus.style.color = isError ? "var(--danger)" : "var(--muted)"
 }
 
 function setLoginStatus(message, isError = false) {
@@ -583,15 +758,22 @@ function updateAuthUI() {
   const user = state.user
   const displayName = getUserDisplayName()
   const planName = getUserPlan()
-  const roleLabel = user ? `${getProviderLabel(user.provider)} • ${planName}` : "Modo local"
+  const roleLabel = user ? `${planName} plan` : "Modo local"
+
+  elements.body.dataset.authState = user ? "authenticated" : "anonymous"
 
   elements.userAvatar.textContent = getUserInitial()
   elements.userName.textContent = displayName
   elements.userRole.textContent = roleLabel
   elements.menuAvatar.textContent = getUserInitial()
   elements.menuName.textContent = displayName
-  elements.menuPlan.textContent = `Plano ${planName}`
-  elements.topbarAccountBtn.textContent = user ? "Conta" : "Entrar"
+  elements.menuPlan.textContent = `${planName} plan`
+  elements.topbarAccountBtn.textContent = user ? "Conta" : "Login"
+  if (elements.topbarSignupBtn) {
+    elements.topbarSignupBtn.classList.toggle("hidden", Boolean(user))
+    elements.topbarSignupBtn.textContent = user ? "Conta criada" : "Inscreva-se grátis"
+  }
+  elements.upgradeBtn?.classList.toggle("hidden", !user)
   elements.authStatus.textContent = state.supabase
     ? "OAuth GitHub e Google disponível."
     : "Login local ativo. OAuth depende do Supabase."
@@ -832,10 +1014,10 @@ function setTheme(theme) {
   if (elements.themeSelect.value !== theme) {
     elements.themeSelect.value = theme
   }
-  elements.themeDraculaBtn.classList.toggle("active", theme === "dracula")
-  elements.themeGithubBtn.classList.toggle("active", theme === "github_dark")
-  elements.themeDiscordBtn.classList.toggle("active", theme === "discord")
-  elements.themeLightBtn.classList.toggle("active", theme === "light")
+  elements.themeDraculaBtn?.classList.toggle("active", theme === "dracula")
+  elements.themeGithubBtn?.classList.toggle("active", theme === "github_dark")
+  elements.themeDiscordBtn?.classList.toggle("active", theme === "discord")
+  elements.themeLightBtn?.classList.toggle("active", theme === "light")
   writeJson(getPreferencesKey(), state.preferences)
   refreshCapabilityUI()
 }
@@ -1192,7 +1374,7 @@ function getScopeId() {
   return state.user?.id || getAnonymousUserId()
 }
 
-function getHistoryKey() {
+function getLegacyHistoryKey() {
   return `groot-chat-history:${getScopeId()}`
 }
 
@@ -1200,44 +1382,207 @@ function getPreferencesKey() {
   return `groot-preferences:${getScopeId()}`
 }
 
-function loadChatHistory() {
-  const stored = readJson(getHistoryKey(), [])
-  state.chatHistory = Array.isArray(stored)
+function getThreadIndexKey() {
+  return `groot-chat-threads:${getScopeId()}`
+}
+
+function getThreadKey(threadId) {
+  return `groot-chat-thread:${getScopeId()}:${threadId}`
+}
+
+function getCurrentThreadKey() {
+  return `groot-chat-current:${getScopeId()}`
+}
+
+function serializeChatMessages(messages = []) {
+  return messages.map((message) => ({
+    ...message,
+    imageDataUrl: message.imageDataUrl && message.imageDataUrl.length < 120_000
+      ? message.imageDataUrl
+      : null,
+    documentDataUrl: message.documentDataUrl && message.documentDataUrl.length < 180_000
+      ? message.documentDataUrl
+      : null,
+    documentPreviewText: message.documentPreviewText && message.documentPreviewText.length < 90_000
+      ? message.documentPreviewText
+      : "",
+    weatherSummary: message.weatherSummary && message.weatherSummary.length < 2_400
+      ? message.weatherSummary
+      : "",
+    weatherLocationLabel: message.weatherLocationLabel || "",
+    weatherProvider: message.weatherProvider || "",
+    weatherForecastDays: message.weatherForecastDays || null,
+    weatherError: message.weatherError || null,
+    assistantProfileResolved: message.assistantProfileResolved || null,
+    activeModulesResolved: Array.isArray(message.activeModulesResolved) ? message.activeModulesResolved.slice(0, 6) : [],
+    bibleStudyModulesResolved: Array.isArray(message.bibleStudyModulesResolved) ? message.bibleStudyModulesResolved.slice(0, 8) : []
+  }))
+}
+
+function normalizeThreadMeta(thread = {}) {
+  const now = new Date().toISOString()
+  return {
+    id: thread.id || crypto.randomUUID(),
+    title: String(thread.title || "Novo chat").trim() || "Novo chat",
+    preview: String(thread.preview || "Comece uma nova conversa.").trim() || "Comece uma nova conversa.",
+    createdAt: thread.createdAt || now,
+    updatedAt: thread.updatedAt || thread.createdAt || now,
+    messageCount: Number.isFinite(Number(thread.messageCount)) ? Number(thread.messageCount) : 0
+  }
+}
+
+function sortThreads(threads = []) {
+  return [...threads].sort((left, right) => (
+    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+  ))
+}
+
+function deriveThreadTitle(messages = []) {
+  const preferred = messages.find((message) => message.role === "user" && String(message.content || "").trim())
+    || messages.find((message) => String(message.content || "").trim())
+
+  return String(preferred?.content || "Novo chat")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 72) || "Novo chat"
+}
+
+function deriveThreadPreview(messages = []) {
+  const preferred = [...messages].reverse().find((message) => message.role === "assistant" && String(message.content || "").trim())
+    || [...messages].reverse().find((message) => String(message.content || "").trim())
+
+  return String(preferred?.content || "Comece uma nova conversa.")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 132) || "Comece uma nova conversa."
+}
+
+function buildThreadMetaFromMessages(messages = [], seed = {}) {
+  const normalized = messages.map((message) => normalizeChatMessage(message))
+  const firstMessage = normalized[0]
+  const lastMessage = normalized[normalized.length - 1]
+  return normalizeThreadMeta({
+    id: seed.id,
+    title: normalized.length ? deriveThreadTitle(normalized) : (seed.title || "Novo chat"),
+    preview: normalized.length ? deriveThreadPreview(normalized) : (seed.preview || "Comece uma nova conversa."),
+    createdAt: firstMessage?.createdAt || seed.createdAt,
+    updatedAt: lastMessage?.createdAt || seed.updatedAt,
+    messageCount: normalized.length
+  })
+}
+
+function saveThreadIndex() {
+  writeJson(
+    getThreadIndexKey(),
+    state.chatThreads.map((thread) => normalizeThreadMeta(thread))
+  )
+}
+
+function persistCurrentThreadId() {
+  if (!state.currentThreadId) return
+  localStorage.setItem(getCurrentThreadKey(), state.currentThreadId)
+}
+
+function readThreadMessages(threadId) {
+  if (!threadId) return []
+  const stored = readJson(getThreadKey(threadId), [])
+  return Array.isArray(stored)
     ? stored.map((message) => normalizeChatMessage(message))
     : []
 }
 
+function ensureThreadExists(threadId, messages = [], seed = {}) {
+  const meta = buildThreadMetaFromMessages(messages, { ...seed, id: threadId })
+  state.chatThreads = sortThreads([
+    meta,
+    ...state.chatThreads.filter((thread) => thread.id !== meta.id)
+  ])
+  saveThreadIndex()
+  return meta
+}
+
+function createThread(options = {}) {
+  const threadId = options.id || crypto.randomUUID()
+  const messages = Array.isArray(options.messages)
+    ? options.messages.map((message) => normalizeChatMessage(message))
+    : []
+  const meta = ensureThreadExists(threadId, messages, {
+    title: options.title,
+    preview: options.preview,
+    createdAt: options.createdAt,
+    updatedAt: options.updatedAt
+  })
+  writeJson(getThreadKey(threadId), serializeChatMessages(messages))
+  if (options.activate !== false) {
+    state.currentThreadId = threadId
+    state.chatHistory = messages
+    persistCurrentThreadId()
+  }
+  return meta
+}
+
+function migrateLegacyHistoryIntoThreads() {
+  const legacyMessages = readJson(getLegacyHistoryKey(), [])
+  if (!Array.isArray(legacyMessages) || !legacyMessages.length) {
+    return false
+  }
+
+  const normalized = legacyMessages.map((message) => normalizeChatMessage(message))
+  const thread = createThread({
+    messages: normalized,
+    activate: true
+  })
+
+  localStorage.removeItem(getLegacyHistoryKey())
+  state.currentThreadId = thread.id
+  persistCurrentThreadId()
+  return true
+}
+
+function loadChatThreads() {
+  const stored = readJson(getThreadIndexKey(), [])
+  state.chatThreads = Array.isArray(stored)
+    ? sortThreads(stored.map((thread) => normalizeThreadMeta(thread)))
+    : []
+
+  if (!state.chatThreads.length) {
+    migrateLegacyHistoryIntoThreads()
+    if (!state.chatThreads.length) {
+      createThread({ activate: true })
+    }
+  }
+
+  const storedCurrent = localStorage.getItem(getCurrentThreadKey())
+  const activeThread = state.chatThreads.find((thread) => thread.id === storedCurrent)
+    || state.chatThreads[0]
+
+  state.currentThreadId = activeThread?.id || null
+  persistCurrentThreadId()
+}
+
+function loadChatHistory() {
+  loadChatThreads()
+  state.chatHistory = readThreadMessages(state.currentThreadId)
+  ensureThreadExists(state.currentThreadId, state.chatHistory)
+}
+
 function saveChatHistory() {
-  writeJson(
-    getHistoryKey(),
-    state.chatHistory.map((message) => ({
-      ...message,
-      imageDataUrl: message.imageDataUrl && message.imageDataUrl.length < 120_000
-        ? message.imageDataUrl
-        : null,
-      documentDataUrl: message.documentDataUrl && message.documentDataUrl.length < 180_000
-        ? message.documentDataUrl
-        : null,
-      documentPreviewText: message.documentPreviewText && message.documentPreviewText.length < 90_000
-        ? message.documentPreviewText
-        : "",
-      weatherSummary: message.weatherSummary && message.weatherSummary.length < 2_400
-        ? message.weatherSummary
-        : "",
-      weatherLocationLabel: message.weatherLocationLabel || "",
-      weatherProvider: message.weatherProvider || "",
-      weatherForecastDays: message.weatherForecastDays || null,
-      weatherError: message.weatherError || null,
-      assistantProfileResolved: message.assistantProfileResolved || null,
-      activeModulesResolved: Array.isArray(message.activeModulesResolved) ? message.activeModulesResolved.slice(0, 6) : [],
-      bibleStudyModulesResolved: Array.isArray(message.bibleStudyModulesResolved) ? message.bibleStudyModulesResolved.slice(0, 8) : []
-    }))
-  )
+  if (!state.currentThreadId) {
+    createThread({ activate: true })
+  }
+  writeJson(getThreadKey(state.currentThreadId), serializeChatMessages(state.chatHistory))
+  ensureThreadExists(state.currentThreadId, state.chatHistory)
+  persistCurrentThreadId()
 }
 
 function resetChat() {
-  state.chatHistory = []
-  saveChatHistory()
+  const hasCurrentConversation = state.chatHistory.length > 0
+  if (hasCurrentConversation) {
+    createThread({ activate: true })
+    saveChatHistory()
+    showToast("Nova conversa criada.", "success")
+  }
+  renderSidebarHistory()
   getChatContentNode().innerHTML = ""
   clearPendingFile()
   elements.textarea.value = ""
@@ -1302,6 +1647,7 @@ function addMessageToHistory(role, content, meta = {}) {
     bibleStudyModulesResolved: Array.isArray(meta.bibleStudyModulesResolved) ? meta.bibleStudyModulesResolved : []
   })
   saveChatHistory()
+  renderSidebarHistory()
 }
 
 function buildDocumentNode(message = {}) {
@@ -1489,6 +1835,10 @@ function buildWeatherRuntimeNode(message = {}) {
 }
 
 function buildMessageActions(message = {}) {
+  if (message.role !== "assistant") {
+    return null
+  }
+
   const actions = document.createElement("div")
   actions.className = "message-actions"
 
@@ -1501,6 +1851,10 @@ function buildMessageActions(message = {}) {
 
   actions.appendChild(
     buildMessageActionButton(message.role === "user" ? "Editar" : "Levar ao editor", "fill", messageId)
+  )
+
+  actions.appendChild(
+    buildMessageActionButton("Abrir editor", "edit", messageId)
   )
 
   actions.appendChild(
@@ -1526,6 +1880,54 @@ function buildMessageActionButton(label, action, messageId) {
   return button
 }
 
+function buildSidebarHistoryEntries() {
+  return sortThreads(state.chatThreads)
+    .slice(0, 18)
+    .map((thread) => ({
+      id: thread.id,
+      title: thread.title,
+      subtitle: `${formatThreadTimestamp(thread.updatedAt)} · ${thread.messageCount ? `${thread.messageCount} msgs` : "vazio"}`,
+      preview: thread.preview,
+      isActive: thread.id === state.currentThreadId
+    }))
+}
+
+function renderSidebarHistory() {
+  if (!elements.sidebarHistoryList) return
+
+  const query = state.sidebarHistoryQuery
+  const meaningfulThreadCount = state.chatThreads.filter((thread) => thread.messageCount > 0).length
+  elements.body.dataset.threadState = meaningfulThreadCount > 1 ? "multiple" : (meaningfulThreadCount === 1 ? "single" : "empty")
+  const entries = buildSidebarHistoryEntries()
+    .filter((entry) => {
+      if (!query) return true
+      const haystack = `${entry.title}\n${entry.preview}`.toLowerCase()
+      return haystack.includes(query)
+    })
+
+  if (!entries.length) {
+    elements.sidebarHistoryList.innerHTML = `<div class="history-empty">${query ? "Nenhum chat encontrado para essa busca." : "Seus chats recentes aparecem aqui."}</div>`
+    return
+  }
+
+  elements.sidebarHistoryList.innerHTML = entries
+    .map((entry) => `
+      <button class="sidebar-history-item ${entry.isActive ? "active" : ""}" type="button" data-thread-id="${entry.id}">
+        <strong>${escapeHtml(entry.title.slice(0, 86))}</strong>
+        <span>${escapeHtml(entry.subtitle)}</span>
+        <small>${escapeHtml(entry.preview.slice(0, 132))}</small>
+      </button>
+    `)
+    .join("")
+
+  elements.sidebarHistoryList.querySelectorAll("[data-thread-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      switchThread(button.dataset.threadId || "")
+      setView("chat")
+    })
+  })
+}
+
 function renderChatHistory() {
   getChatContentNode().innerHTML = ""
 
@@ -1533,6 +1935,7 @@ function renderChatHistory() {
     getChatContentNode().appendChild(buildMessageNode(message))
   })
 
+  renderSidebarHistory()
   syncChatMode()
   scrollChatToBottom()
 }
@@ -1580,7 +1983,10 @@ function buildMessageNode(message) {
     body.appendChild(weatherRuntimeNode)
   }
   body.appendChild(text)
-  body.appendChild(buildMessageActions(message))
+  const actions = buildMessageActions(message)
+  if (actions) {
+    body.appendChild(actions)
+  }
   node.appendChild(avatar)
   node.appendChild(body)
 
@@ -1725,6 +2131,11 @@ async function handleMessageAction(button) {
     return
   }
 
+  if (action === "edit") {
+    openDocumentEditor(message.id)
+    return
+  }
+
   if (action === "fill" || action === "prompt") {
     fillComposer(sourceText)
     showToast(action === "prompt" ? "Conteúdo enviado como prompt base." : "Conteúdo levado para o editor.", "success")
@@ -1768,6 +2179,70 @@ function fillComposer(text = "") {
   elements.textarea.focus()
 }
 
+function switchThread(threadId = "") {
+  if (!threadId) return
+  if (threadId === state.currentThreadId) {
+    setComposerStatus("Você já está nesta conversa.")
+    return
+  }
+
+  saveChatHistory()
+  state.currentThreadId = threadId
+  persistCurrentThreadId()
+  state.chatHistory = readThreadMessages(threadId)
+  clearPendingFile()
+  elements.textarea.value = ""
+  autoResizeTextarea()
+  renderChatHistory()
+  setView("chat")
+  setComposerStatus("Conversa carregada.")
+  showToast("Conversa restaurada.", "success")
+}
+
+async function handleCopyEditorContent() {
+  const text = elements.editorSurface?.innerText || ""
+  if (!text.trim()) {
+    setEditorStatus("Nada para copiar ainda.", true)
+    return
+  }
+  await copyText(text)
+  setEditorStatus("Conteúdo copiado.")
+  showToast("Conteúdo do editor copiado.", "success")
+}
+
+function handleDownloadEditorContent() {
+  const text = elements.editorSurface?.innerText || ""
+  if (!text.trim()) {
+    setEditorStatus("Nada para baixar ainda.", true)
+    return
+  }
+  downloadTextContent(text, "giom-editor.txt", "text/plain;charset=utf-8")
+  setEditorStatus("Arquivo TXT preparado para download.")
+}
+
+function applyEditorChanges() {
+  const message = findMessageById(state.editingMessageId || "")
+  if (!message) {
+    setEditorStatus("Não encontrei a mensagem para atualizar.", true)
+    return
+  }
+
+  const editedText = String(elements.editorSurface?.innerText || "").trim()
+  if (!editedText) {
+    setEditorStatus("O editor está vazio.", true)
+    return
+  }
+
+  message.content = editedText
+  if (message.documentPreviewText) {
+    message.documentPreviewText = editedText
+  }
+  saveChatHistory()
+  renderChatHistory()
+  closeDocumentEditor()
+  showToast("Conteúdo atualizado no chat.", "success")
+}
+
 function downloadTextContent(text = "", fileName = "giom-snippet.txt", mimeType = "text/plain;charset=utf-8") {
   const blob = new Blob([String(text || "")], { type: mimeType })
   const url = URL.createObjectURL(blob)
@@ -1808,14 +2283,60 @@ function buildDownloadFileName(message = {}, mimeType = "text/plain") {
 
 function syncChatMode() {
   const hasMessages = state.chatHistory.length > 0
-  const hasDraft = Boolean(elements.textarea.value.trim()) || Boolean(state.pendingFile)
-  elements.chatView.dataset.chatMode = hasMessages || hasDraft ? "conversation" : "landing"
+  const hasText = Boolean(elements.textarea.value.trim())
+  const hasFile = Boolean(state.pendingFile)
+  const composerWrap = document.getElementById("composerWrap")
+
+  elements.chatView.dataset.chatMode = hasMessages ? "conversation" : (hasText || hasFile ? "composing" : "landing")
+  elements.composerShell?.classList.toggle("has-file", hasFile)
+  composerWrap?.classList.toggle("has-file", hasFile)
+  syncScrollButton()
 }
 
 function scrollChatToBottom() {
+  if (!elements.chat) return
   requestAnimationFrame(() => {
     elements.chat.scrollTop = elements.chat.scrollHeight
+    syncScrollButton()
   })
+}
+
+function syncScrollButton() {
+  if (!elements.chat || !elements.scrollBottomBtn) return
+  const remaining = elements.chat.scrollHeight - elements.chat.scrollTop - elements.chat.clientHeight
+  elements.scrollBottomBtn.classList.toggle("hidden", remaining < 180)
+}
+
+function applyToolTemplate(kind = "") {
+  const normalized = String(kind || "").toLowerCase()
+  const templates = {
+    image: "/image --style editorial --ratio 16:9 ",
+    pdf: "/pdf ",
+    docx: "/docx ",
+    xlsx: "/xlsx ",
+    pptx: "/pptx ",
+    svg: "/svg "
+  }
+
+  const template = templates[normalized]
+  if (!template) return
+
+  fillComposer(template)
+
+  if (normalized === "image") {
+    const imageReady = Boolean(state.config?.features?.imageGeneration || state.config?.ai?.imageGeneration?.enabled)
+    setComposerStatus(imageReady ? "Template de imagem pronto no editor." : "Template pronto. Falta provider ativo para gerar imagem real.")
+    showToast(
+      imageReady
+        ? "Template de imagem pronto no editor."
+        : "Template de imagem pronto, mas a geração ainda depende do provider configurado.",
+      imageReady ? "success" : "warning"
+    )
+    return
+  }
+
+  setComposerStatus(`Template ${normalized.toUpperCase()} pronto no editor.`)
+  showToast(`Template ${normalized.toUpperCase()} pronto no editor.`, "success")
 }
 
 function removeThinkingMessage(node) {
@@ -2468,6 +2989,7 @@ function renderFilePreview() {
   if (!state.pendingFile) {
     elements.filePreview.classList.add("hidden")
     elements.filePreview.innerHTML = ""
+    elements.composerShell?.classList.remove("has-file")
     return
   }
 
@@ -2493,6 +3015,7 @@ function renderFilePreview() {
     : `<div class="file-icon">${iconMap[extension] || "FILE"}</div>`
 
   elements.filePreview.classList.remove("hidden")
+  elements.composerShell?.classList.add("has-file")
   elements.filePreview.innerHTML = `
     <div class="file-chip">
       ${preview}
@@ -2513,6 +3036,10 @@ function renderFilePreview() {
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
   if (!SpeechRecognition) {
+    if (elements.voiceBtn) {
+      elements.voiceBtn.disabled = true
+      elements.voiceBtn.title = "Ditado indisponível neste navegador"
+    }
     return
   }
 
@@ -2710,23 +3237,32 @@ async function persistConversationRemote(userMessage, aiResponse, payload, uploa
 
 function buildLocalConversationPairs() {
   const pairs = []
+  const threadIds = state.chatThreads.length
+    ? state.chatThreads.map((thread) => thread.id)
+    : [state.currentThreadId].filter(Boolean)
 
-  for (let index = 0; index < state.chatHistory.length; index += 1) {
-    const entry = state.chatHistory[index]
-    if (entry.role !== "user") continue
+  threadIds.forEach((threadId) => {
+    const messages = threadId === state.currentThreadId
+      ? state.chatHistory
+      : readThreadMessages(threadId)
 
-    const reply = state.chatHistory
-      .slice(index + 1)
-      .find((candidate) => candidate.role === "assistant")
+    for (let index = 0; index < messages.length; index += 1) {
+      const entry = messages[index]
+      if (entry.role !== "user") continue
 
-    pairs.push({
-      prompt: entry.content,
-      response: reply?.content || "Sem resposta associada.",
-      createdAt: reply?.createdAt || entry.createdAt
-    })
-  }
+      const reply = messages
+        .slice(index + 1)
+        .find((candidate) => candidate.role === "assistant")
 
-  return pairs.reverse()
+      pairs.push({
+        prompt: entry.content,
+        response: reply?.content || "Sem resposta associada.",
+        createdAt: reply?.createdAt || entry.createdAt
+      })
+    }
+  })
+
+  return pairs.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
 }
 
 function formatMessage(text) {
@@ -3020,8 +3556,14 @@ function getUserDisplayName() {
 }
 
 function getUserInitial() {
-  const label = getUserDisplayName()
-  return label.trim().charAt(0).toUpperCase() || "G"
+  const parts = getUserDisplayName()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (!parts.length) return "G"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase()
 }
 
 function getProviderLabel(provider) {
@@ -3164,6 +3706,19 @@ function formatTime(value) {
   return new Date(value).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit"
+  })
+}
+
+function formatThreadTimestamp(value) {
+  const date = new Date(value)
+  const now = new Date()
+  if (date.toDateString() === now.toDateString()) {
+    return formatTime(value)
+  }
+
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit"
   })
 }
 

@@ -1,0 +1,28 @@
+{
+  "generatedAt": "2026-03-26T22:28:41.833Z",
+  "baseUrl": "http://localhost:3000",
+  "checks": [
+    {
+      "name": "sequential_messages",
+      "ok": true
+    },
+    {
+      "name": "burst_enter_single_thinking",
+      "ok": true
+    },
+    {
+      "name": "repeated_attachment_no_stuck_state",
+      "ok": true
+    },
+    {
+      "name": "mobile_open_close_quick",
+      "ok": true
+    }
+  ],
+  "issues": [],
+  "summary": {
+    "totalChecks": 4,
+    "passed": 4,
+    "failed": 0
+  }
+}

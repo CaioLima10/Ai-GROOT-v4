@@ -311,7 +311,8 @@ function getUploadCapabilities() {
       image: true,
       ocr: uploadOcrEnabled,
       officeBinaryDocuments: true,
-      genericBinaryInspection: false
+      genericBinaryInspection: false,
+      mimeSignatureValidation: true
     }
   }
 }
@@ -338,7 +339,7 @@ function buildRuntimeCapabilityMatrix() {
     imageGenerationEnabled: isImageGenerationEnabled(),
     imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
     imageControlsEnabled: true,
-    visualImageUnderstanding: false,
+    visualImageUnderstanding: uploadOcrEnabled,
     imageEditingEnabled: false,
     liveWebEnabled,
     weatherForecastEnabled: Boolean(runtimeResearchCapabilities.weatherForecast),
@@ -378,6 +379,129 @@ function safeFilename(name) {
   return String(name || "upload")
     .replace(/[^a-zA-Z0-9._-]/g, "_")
     .slice(0, 120)
+}
+
+function getFileExtension(name = "") {
+  const normalized = String(name || "").toLowerCase()
+  const parts = normalized.split(".")
+  return parts.length > 1 ? `.${parts.pop()}` : ""
+}
+
+function parseBase64Payload(input = "") {
+  const value = String(input || "").trim()
+  const stripped = value.startsWith("data:")
+    ? (value.split(",")[1] || "")
+    : value
+
+  if (!/^[A-Za-z0-9+/=\r\n]+$/.test(stripped)) {
+    return null
+  }
+
+  try {
+    const buffer = Buffer.from(stripped, "base64")
+    return buffer.length ? buffer : null
+  } catch {
+    return null
+  }
+}
+
+function detectMimeFromMagic(buffer, fileName = "") {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 4) return null
+
+  const signature = buffer.subarray(0, 16)
+  const startsWith = (...bytes) => bytes.every((byte, index) => signature[index] === byte)
+
+  if (startsWith(0x25, 0x50, 0x44, 0x46)) return "application/pdf"
+  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png"
+  if (startsWith(0xff, 0xd8, 0xff)) return "image/jpeg"
+  if (startsWith(0x47, 0x49, 0x46, 0x38)) return "image/gif"
+  if (startsWith(0x52, 0x49, 0x46, 0x46) && signature[8] === 0x57 && signature[9] === 0x45 && signature[10] === 0x42 && signature[11] === 0x50) {
+    return "image/webp"
+  }
+  if (startsWith(0x50, 0x4b, 0x03, 0x04)) {
+    const ext = getFileExtension(fileName)
+    if (ext === ".docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if (ext === ".xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    if (ext === ".pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    return "application/zip"
+  }
+
+  return null
+}
+
+function normalizeUploadMime(fileName = "", declaredType = "", detectedType = "") {
+  const ext = getFileExtension(fileName)
+  const declared = String(declaredType || "").trim().toLowerCase()
+  const detected = String(detectedType || "").trim().toLowerCase()
+
+  if (detected) {
+    return detected
+  }
+
+  if (declared) {
+    return declared
+  }
+
+  const extensionMimeMap = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".zip": "application/zip",
+    ".svg": "image/svg+xml",
+    ".json": "application/json",
+    ".jsonl": "application/x-ndjson",
+    ".csv": "text/csv",
+    ".tsv": "text/tab-separated-values",
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".xml": "application/xml",
+    ".yml": "text/yaml",
+    ".yaml": "text/yaml",
+    ".sql": "text/plain"
+  }
+
+  return extensionMimeMap[ext] || "application/octet-stream"
+}
+
+function isAllowedUploadByAccept(fileName = "", mimeType = "") {
+  const ext = getFileExtension(fileName)
+  const normalizedMime = String(mimeType || "").toLowerCase()
+  return SUPPORTED_UPLOAD_ACCEPT.some((rule) => {
+    const normalizedRule = String(rule || "").toLowerCase().trim()
+    if (!normalizedRule) return false
+    if (normalizedRule.endsWith("/*")) {
+      return normalizedMime.startsWith(normalizedRule.slice(0, -1))
+    }
+    if (normalizedRule.startsWith(".")) {
+      return ext === normalizedRule
+    }
+    return normalizedMime === normalizedRule
+  })
+}
+
+function isMimeCompatibleWithExtension(fileName = "", mimeType = "") {
+  const ext = getFileExtension(fileName)
+  const normalizedMime = String(mimeType || "").toLowerCase()
+  if (!ext || !normalizedMime) return true
+
+  const extensionCompatibilityMap = {
+    ".pdf": ["application/pdf"],
+    ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip"],
+    ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip"],
+    ".pptx": ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/zip"],
+    ".zip": ["application/zip", "application/x-zip-compressed"],
+    ".png": ["image/png"],
+    ".jpg": ["image/jpeg"],
+    ".jpeg": ["image/jpeg"],
+    ".gif": ["image/gif"],
+    ".webp": ["image/webp"],
+    ".svg": ["image/svg+xml", "text/xml", "application/xml", "text/plain"]
+  }
+
+  const allowed = extensionCompatibilityMap[ext]
+  if (!allowed) return true
+  return allowed.includes(normalizedMime)
 }
 
 function isTextLike(name, type) {
@@ -921,6 +1045,26 @@ function normalizeAnswerText(answer) {
   return String(responseText || "").trim()
 }
 
+function shouldKeepIdentityPreamble(question = "") {
+  return /\b(quem\s+(?:e|é)\s+(?:voce|você|o giom)|se apresente|apresente-se|o que voce faz|o que você faz|o que voce consegue|o que você consegue|suas capacidades|seus limites|who are you|what can you do)\b/i.test(String(question || ""))
+}
+
+function postProcessAssistantResponse(question = "", responseText = "") {
+  let text = String(responseText || "").trim()
+  if (!text || shouldKeepIdentityPreamble(question)) {
+    return text
+  }
+
+  text = text
+    .replace(/^(?:shalom[!,.:\s-]*)?(?:ol[aá][!,.:\s-]*)?(?:eu\s+sou|sou)\s+(?:o\s+)?giom(?:\s*,\s*|\s+)(?:um\s+assistente(?:\s+de\s+ia)?|assistente(?:\s+de\s+ia)?|uma\s+ia|uma\s+intelig[eê]ncia\s+artificial)?[!,.:\s-]*/i, "")
+    .replace(/^(?:shalom|ol[aá])[!,.:\s-]+/i, "")
+    .replace(/^(?:prazer|muito prazer)[!,.:\s-]*/i, "")
+    .replace(/^[-:,\s]+/i, "")
+    .trim()
+
+  return text
+}
+
 function resolveSafetyChatPayload(question, context = {}) {
   const safety = detectSafetyRisk(question)
   if (!safety?.triggered && !safety?.advisory) {
@@ -949,7 +1093,7 @@ async function askGiom(question, context = {}) {
     throw new Error("Resposta vazia da IA")
   }
 
-  return responseText
+  return postProcessAssistantResponse(question, responseText)
 }
 
 async function persistEvaluationArtifacts(userId, requestId, evaluation, metadata = {}) {
@@ -1215,7 +1359,7 @@ async function buildPreparedAskPayload(req, requestId) {
       if (ocrText) {
         finalQuestion += `${label}\nTexto extraído (OCR):\n${ocrText}`
       } else {
-        finalQuestion += `${label}\n(Imagem recebida, OCR desativado ou sem texto)`
+        finalQuestion += `${label}\n(Imagem recebida. OCR nao encontrou texto legivel; descreva o que deseja que eu analise.)`
       }
     } else {
       finalQuestion += `${label}\n(Leitura de imagens/arquivos binários ainda não habilitada)`
@@ -1359,7 +1503,7 @@ app.get("/config", async (req, res) => {
       imageGenerationEnabled: isImageGenerationEnabled(),
       imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
       imageControlsEnabled: true,
-      visualImageUnderstanding: false,
+      visualImageUnderstanding: uploadOcrEnabled,
       imageEditingEnabled: false,
       liveWebEnabled,
       weatherForecastEnabled: Boolean(runtimeResearchCapabilities.weatherForecast),
@@ -1698,7 +1842,7 @@ app.post("/upload", async (req, res) => {
       return res.status(400).json({ error: "Arquivo inválido", code: "INVALID_UPLOAD" })
     }
 
-    const buffer = Buffer.from(String(data), "base64")
+    const buffer = parseBase64Payload(data)
     if (!buffer || !buffer.length) {
       return res.status(400).json({ error: "Conteúdo vazio", code: "EMPTY_UPLOAD" })
     }
@@ -1714,6 +1858,27 @@ app.post("/upload", async (req, res) => {
     await ensureUploadDir()
     const id = crypto.randomUUID()
     const safeName = safeFilename(name)
+    const detectedType = detectMimeFromMagic(buffer, safeName)
+    const resolvedType = normalizeUploadMime(safeName, type || "", detectedType)
+
+    if (!isAllowedUploadByAccept(safeName, resolvedType)) {
+      return res.status(415).json({
+        error: "Tipo de arquivo não suportado",
+        code: "UPLOAD_UNSUPPORTED_TYPE",
+        detectedType: resolvedType,
+        name: safeName
+      })
+    }
+
+    if (!isMimeCompatibleWithExtension(safeName, resolvedType)) {
+      return res.status(415).json({
+        error: "Arquivo com tipo inconsistente para a extensão",
+        code: "UPLOAD_TYPE_MISMATCH",
+        detectedType: resolvedType,
+        name: safeName
+      })
+    }
+
     const filePath = path.join(UPLOAD_DIR, `${id}_${safeName}`)
 
     await fs.writeFile(filePath, buffer)
@@ -1722,7 +1887,7 @@ app.post("/upload", async (req, res) => {
     uploads.set(id, {
       id,
       name: safeName,
-      type: type || "application/octet-stream",
+      type: resolvedType,
       path: filePath,
       size: buffer.length,
       expiresAt
@@ -1732,9 +1897,10 @@ app.post("/upload", async (req, res) => {
     res.json({
       id,
       name: safeName,
-      type: type || "application/octet-stream",
+      type: resolvedType,
       size: buffer.length,
-      expiresAt
+      expiresAt,
+      detectedType: detectedType || resolvedType
     })
   } catch (error) {
     console.error("❌ Falha no upload:", error.message)
@@ -2063,7 +2229,7 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
       },
       async (payload) => {
         hasCompleted = true
-        const responseText = String(payload?.fullText || "").trim()
+        const responseText = postProcessAssistantResponse(question, String(payload?.fullText || "").trim())
 
         if (!responseText) {
           writeSSE(res, "error", {

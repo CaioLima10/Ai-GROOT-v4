@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-03-26T22:28:04.989Z",
+  "baseUrl": "http://localhost:3000",
+  "checks": [
+    {
+      "name": "load_chat",
+      "ok": true
+    },
+    {
+      "name": "send_loading_state",
+      "ok": true
+    },
+    {
+      "name": "thinking_single_instance",
+      "ok": true
+    },
+    {
+      "name": "attachment_chip",
+      "ok": true
+    },
+    {
+      "name": "attachment_upload_state",
+      "ok": true
+    },
+    {
+      "name": "scroll_button_visibility",
+      "ok": true
+    },
+    {
+      "name": "sidebar_position_stable",
+      "ok": true
+    },
+    {
+      "name": "settings_navigation",
+      "ok": true
+    },
+    {
+      "name": "mobile_sidebar_open",
+      "ok": true
+    },
+    {
+      "name": "mobile_sidebar_close",
+      "ok": true
+    }
+  ],
+  "issues": [],
+  "summary": {
+    "totalChecks": 10,
+    "passed": 10,
+    "failed": 0
+  }
+}
