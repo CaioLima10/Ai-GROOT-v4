@@ -890,6 +890,56 @@ export const EVALUATION_PACKS = {
       }
     ]
   },
+  bible_geography_atlas_expert: {
+    id: "bible_geography_atlas_expert",
+    label: "Bible Geography Atlas Expert",
+    summary: "Mede atlas biblico, cronologia, reinos e transparencia historico-cartografica.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "bible_atlas_geography_scenario",
+        label: "Bible atlas and kingdoms",
+        summary: "Checa periodizacao, reinos, regioes e limite metodologico.",
+        tags: ["comprehension", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Monte um quadro academico de atlas biblico com periodos, Israel e Juda, Assiria, Babilonia, Persia, Galileia, Samaria e Judeia, deixando claro o que e consenso e o que ja e reconstrucao historica.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "history_archaeology", "research"],
+              bibleStudyModules: ["biblical_periods", "biblical_history", "biblical_geography_kingdoms", "biblical_archaeology"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "gemini_research"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  bible_study_curriculum_expert: {
+    id: "bible_study_curriculum_expert",
+    label: "Bible Study Curriculum Expert",
+    summary: "Mede plano de estudo, devocional e escola dominical com rigor protestante.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "bible_curriculum_scenario",
+        label: "Bible study curriculum",
+        summary: "Checa metodologia, periodizacao e aplicacao pastoral.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Monte um plano de estudo biblico para Joao com hermeneutica, devocional, escola dominical, periodizacao biblica e criterio para nao confundir aplicacao com exegese.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["study_methods_hermeneutics", "devotional_practice", "sunday_school_curriculum", "biblical_periods"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
   module_agribusiness_expert: {
     id: "module_agribusiness_expert",
     label: "Module Agribusiness Expert",
@@ -1164,6 +1214,41 @@ export const EVALUATION_PACKS = {
               assistantProfile: "research_mentor",
               activeModules: ["law_policy", "cybersecurity", "research"],
               promptPacks: ["policy_compliance", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  agribusiness_weather_operations_expert: {
+    id: "agribusiness_weather_operations_expert",
+    label: "Agribusiness Weather Operations Expert",
+    summary: "Mede uso de clima operacional ao vivo em colheita, talhoes e logistica.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "agro_weather_operations_scenario",
+        label: "Agro weather operations",
+        summary: "Checa integracao entre clima, ordem de talhoes e decisao operacional.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Com clima ao vivo, monte um plano operacional de colheita para soja unindo janela climatica, ordem de talhoes, secagem e fila de descarga.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "research"],
+              promptPacks: ["agro_field_intelligence", "gemini_research", "chatgpt_reasoning"],
+              researchCapabilities: {
+                weatherForecast: true
+              },
+              weatherLocation: {
+                enabled: true,
+                label: "Sorriso - MT",
+                latitude: -12.5425,
+                longitude: -55.7211,
+                days: 3,
+                timezone: "auto"
+              }
             }
           }
         ]

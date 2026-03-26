@@ -449,6 +449,36 @@
                   <option value="light">Light</option>
                 </select>
               </label>
+
+              <div class="field field-span-full">
+                <span>Clima Agro Ao Vivo</span>
+                <small>Se você preencher latitude e longitude, o GIOM pode usar previsão operacional em perguntas de agro quando essa runtime tiver clima ao vivo habilitado.</small>
+              </div>
+
+              <label class="field toggle-field">
+                <span>Usar clima no Agro</span>
+                <input id="agroWeatherAutoToggle" type="checkbox">
+              </label>
+
+              <label class="field">
+                <span>Local de referência</span>
+                <input id="agroWeatherLabelInput" type="text" placeholder="Ex.: Sorriso - MT">
+              </label>
+
+              <label class="field">
+                <span>Latitude</span>
+                <input id="agroWeatherLatitudeInput" type="number" step="any" placeholder="-12.5425">
+              </label>
+
+              <label class="field">
+                <span>Longitude</span>
+                <input id="agroWeatherLongitudeInput" type="number" step="any" placeholder="-55.7211">
+              </label>
+
+              <label class="field">
+                <span>Dias de previsão</span>
+                <input id="agroWeatherDaysInput" type="number" min="1" max="7" step="1" placeholder="3">
+              </label>
             </div>
 
             <div class="panel-actions">

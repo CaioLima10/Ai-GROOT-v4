@@ -767,7 +767,10 @@ export class ReasoningAgent {
 
   isBiblicalGeographyQuestion(task = '') {
     const input = String(task || '')
-    return /\b(mapa biblico|mapa mental|periodos biblicos|periodos bíblicos|geografia biblica|reinos biblicos|reino do norte|reino do sul|judeia|galileia|samaria|assiria|babilonia|persia|israel e juda|israel e jud[aá])\b/i.test(input)
+    const directGeographySignal = /\b(geografia biblica|reinos biblicos|reino do norte|reino do sul|judeia|galileia|samaria|assiria|babilonia|persia|israel e juda|israel e jud[aá])\b/i.test(input)
+    const mappedPeriodsSignal = /\b(mapa biblico|mapa mental)\b/i.test(input)
+      && /\b(periodos biblicos|periodos bíblicos|reinos|galileia|samaria|judeia|israel e juda|israel e jud[aá])\b/i.test(input)
+    return directGeographySignal || mappedPeriodsSignal
   }
 
   buildBiblicalGeographyResponse() {
@@ -825,9 +828,30 @@ export class ReasoningAgent {
       && /\b(clima|chuva|tempo|previs[aã]o|janela operacional|inteligente)\b/i.test(input)
   }
 
-  buildHarvestIntelligenceResponse() {
+  buildWeatherOperationalLines(context = {}) {
+    const weather = context?.agroWeather || context?.weatherForecastData || null
+    if (!weather?.summary) {
+      return []
+    }
+
+    const lines = [
+      'Clima ao vivo nesta execucao:',
+      weather.summary
+    ]
+
+    if (weather?.error) {
+      lines.push('Limite operacional: a integracao meteorologica foi chamada, mas nao retornou um quadro completo; trate o plano abaixo como guia tecnico sem confirmacao de campo.')
+    } else {
+      lines.push('Regra operacional: quando o clima ao vivo conflitar com uma suposicao padrao, o dado meteorologico atual deve pesar mais na ordem de talhoes.')
+    }
+
+    return lines
+  }
+
+  buildHarvestIntelligenceResponse(context = {}) {
     return [
       'Plano profissional de colheita organizada e inteligente para soja:',
+      ...this.buildWeatherOperationalLines(context),
       'Janela operacional:',
       '1. Combine previsao do tempo, chuva prevista, umidade do grao, trafegabilidade, risco de acamamento e capacidade de secagem antes de liberar a entrada em cada talhao.',
       '2. Se o clima estiver instavel, o talhao nao deve ser escolhido por conveniencia de rota, e sim por risco tecnico e economico.',
@@ -875,9 +899,10 @@ export class ReasoningAgent {
     return mentionsHarvest && mentionsLogistics
   }
 
-  buildPrecisionHarvestLogisticsResponse() {
+  buildPrecisionHarvestLogisticsResponse(context = {}) {
     return [
       'Plano de colheita de precisao com logistica integrada para soja:',
+      ...this.buildWeatherOperationalLines(context),
       'Janela operacional:',
       '1. Priorize talhoes por maturacao, umidade, previsao do tempo, risco de quebra, risco de acamamento, historico de produtividade e distancia ate a estrutura de armazenagem.',
       '2. A janela climatica precisa conversar com a capacidade real de secagem, recepcao e transporte.',
@@ -1515,24 +1540,24 @@ export class ReasoningAgent {
       return this.buildStudyBibleResourcesResponse()
     }
 
+    if (this.isBibleStudyMethodQuestion(task)) {
+      return this.buildBibleStudyMethodResponse()
+    }
+
     if (this.isBiblicalGeographyQuestion(task)) {
-      return this.buildBiblicalGeographyResponse()
+      return this.buildBiblicalGeographyResponse(context)
     }
 
     if (this.isProtestantPreachingQuestion(task)) {
       return this.buildProtestantPreachingResponse()
     }
 
-    if (this.isBibleStudyMethodQuestion(task)) {
-      return this.buildBibleStudyMethodResponse()
-    }
-
     if (this.isPrecisionHarvestLogisticsQuestion(task)) {
-      return this.buildPrecisionHarvestLogisticsResponse()
+      return this.buildPrecisionHarvestLogisticsResponse(context)
     }
 
     if (this.isHarvestIntelligenceQuestion(task)) {
-      return this.buildHarvestIntelligenceResponse()
+      return this.buildHarvestIntelligenceResponse(context)
     }
 
     if (this.isAgroGpsTelematicsQuestion(task)) {

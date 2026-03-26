@@ -974,6 +974,160 @@ function writeSSE(res, event, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`)
 }
 
+function isAgroWeatherRelevant(question = "", context = {}) {
+  const input = String(question || "")
+  const activeModules = Array.isArray(context?.activeModules) ? context.activeModules : []
+  if (activeModules.includes("agribusiness")) {
+    return true
+  }
+
+  return /\b(agro|agric|soja|safra|talh[aã]o|colheita|plantio|pulveriza[cç][aã]o|gps agricola|rtk|telemetria|armazenagem|secagem|fila de descarga|clima|chuva|janela operacional|fazenda)\b/i.test(input)
+}
+
+function resolveWeatherLocationContext(context = {}) {
+  const source = context?.weatherLocation || context?.agroWeather || {}
+  if (source?.enabled === false || source?.auto === false) {
+    return null
+  }
+
+  const latitude = Number(source.latitude ?? source.lat)
+  const longitude = Number(source.longitude ?? source.lon)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null
+  }
+
+  return {
+    label: String(source.label || source.name || "").trim(),
+    latitude,
+    longitude,
+    forecastDays: Math.max(1, Math.min(Number(source.days || source.forecastDays || 3) || 3, 7)),
+    timezone: String(source.timezone || "auto")
+  }
+}
+
+async function fetchWeatherForecastPayload({
+  latitude,
+  longitude,
+  timezone = "auto",
+  forecastDays = 3
+} = {}) {
+  const url = new URL(process.env.WEATHER_API_BASE_URL || "https://api.open-meteo.com/v1/forecast")
+  url.searchParams.set("latitude", String(latitude))
+  url.searchParams.set("longitude", String(longitude))
+  url.searchParams.set("timezone", timezone)
+  url.searchParams.set("forecast_days", String(forecastDays))
+  url.searchParams.set("current", "temperature_2m,precipitation,weather_code,wind_speed_10m")
+  url.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m")
+  url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset")
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": `${AI_ENTERPRISE_NAME}/weather`
+    }
+  })
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "")
+    const error = new Error("Falha ao consultar o provedor de clima.")
+    error.code = "WEATHER_PROVIDER_FAILED"
+    error.details = details.slice(0, 400)
+    throw error
+  }
+
+  return response.json()
+}
+
+function buildWeatherSnapshot(payload = {}, weatherLocation = {}) {
+  const current = payload?.current
+    ? {
+        temperature: payload.current.temperature_2m ?? null,
+        precipitation: payload.current.precipitation ?? null,
+        windSpeed: payload.current.wind_speed_10m ?? null,
+        weatherCode: payload.current.weather_code ?? null
+      }
+    : null
+
+  const daily = Array.isArray(payload?.daily?.time)
+    ? payload.daily.time.slice(0, 3).map((date, index) => ({
+        date,
+        tempMax: payload.daily.temperature_2m_max?.[index] ?? null,
+        tempMin: payload.daily.temperature_2m_min?.[index] ?? null,
+        precipitationProbability: payload.daily.precipitation_probability_max?.[index] ?? null,
+        precipitationSum: payload.daily.precipitation_sum?.[index] ?? null,
+        windSpeedMax: payload.daily.wind_speed_10m_max?.[index] ?? null,
+        weatherCode: payload.daily.weather_code?.[index] ?? null
+      }))
+    : []
+
+  const locationLabel = weatherLocation.label
+    || `${weatherLocation.latitude.toFixed(3)}, ${weatherLocation.longitude.toFixed(3)}`
+
+  const summaryLines = [
+    `Local de referencia: ${locationLabel}.`,
+    current
+      ? `Agora: ${current.temperature ?? "?"}°C, chuva ${current.precipitation ?? 0} mm e vento ${current.windSpeed ?? "?"} km/h.`
+      : null,
+    daily[0]
+      ? `Hoje: max ${daily[0].tempMax ?? "?"}°C, min ${daily[0].tempMin ?? "?"}°C, chance de chuva ${daily[0].precipitationProbability ?? "?"}% e acumulado ${daily[0].precipitationSum ?? 0} mm.`
+      : null,
+    daily[1]
+      ? `Amanha: max ${daily[1].tempMax ?? "?"}°C, min ${daily[1].tempMin ?? "?"}°C, chance de chuva ${daily[1].precipitationProbability ?? "?"}% e acumulado ${daily[1].precipitationSum ?? 0} mm.`
+      : null,
+    daily[2]
+      ? `Dia seguinte: max ${daily[2].tempMax ?? "?"}°C, min ${daily[2].tempMin ?? "?"}°C, chance de chuva ${daily[2].precipitationProbability ?? "?"}% e acumulado ${daily[2].precipitationSum ?? 0} mm.`
+      : null
+  ].filter(Boolean)
+
+  return {
+    provider: "open-meteo",
+    locationLabel,
+    forecastDays: weatherLocation.forecastDays,
+    timezone: payload?.timezone || weatherLocation.timezone || "auto",
+    fetchedAt: new Date().toISOString(),
+    current,
+    daily,
+    summary: summaryLines.join("\n")
+  }
+}
+
+async function buildRuntimeConversationContext(question = "", context = {}, extras = {}) {
+  const capabilityMatrix = buildRuntimeCapabilityMatrix()
+  const researchCapabilities = getResearchCapabilities(context?.researchCapabilities || {})
+  const enhancedContext = {
+    ...context,
+    ...extras,
+    researchCapabilities,
+    capabilityMatrix,
+    privacyCapabilities: {
+      sensitiveDataRedaction: true,
+      sensitiveLearningBlocked: true,
+      temporaryUploadStorage: true
+    },
+    timestamp: extras.timestamp || new Date().toISOString()
+  }
+
+  const weatherLocation = resolveWeatherLocationContext(context)
+  if (researchCapabilities.weatherForecast && weatherLocation && isAgroWeatherRelevant(question, context)) {
+    try {
+      const weatherPayload = await fetchWeatherForecastPayload(weatherLocation)
+      enhancedContext.agroWeather = buildWeatherSnapshot(weatherPayload, weatherLocation)
+      enhancedContext.weatherForecastData = enhancedContext.agroWeather
+    } catch (error) {
+      enhancedContext.agroWeather = {
+        provider: "open-meteo",
+        locationLabel: weatherLocation.label || `${weatherLocation.latitude.toFixed(3)}, ${weatherLocation.longitude.toFixed(3)}`,
+        forecastDays: weatherLocation.forecastDays,
+        fetchedAt: new Date().toISOString(),
+        error: error.code || "WEATHER_LOOKUP_FAILED",
+        summary: `Local de referencia: ${weatherLocation.label || `${weatherLocation.latitude.toFixed(3)}, ${weatherLocation.longitude.toFixed(3)}`}. Falha ao obter clima ao vivo nesta execucao; trate a resposta como plano tecnico sem confirmacao meteorologica externa.`
+      }
+      enhancedContext.weatherForecastData = enhancedContext.agroWeather
+    }
+  }
+
+  return enhancedContext
+}
+
 async function buildPreparedAskPayload(req, requestId) {
   const { question, context = {} } = req.body || {}
 
@@ -1058,21 +1212,16 @@ async function buildPreparedAskPayload(req, requestId) {
   }
 
   const userId = req.get("X-User-Id") || req.ip || "default_user"
-  const capabilityMatrix = buildRuntimeCapabilityMatrix()
-  const enhancedContext = {
-    ...context,
+  const enhancedContext = await buildRuntimeConversationContext(finalQuestion, context, {
     userAgent: req.get("User-Agent"),
     ip: req.ip,
     userId,
-    researchCapabilities: getResearchCapabilities(context?.researchCapabilities || {}),
-    capabilityMatrix,
-    privacyCapabilities: {
-      sensitiveDataRedaction: true,
-      sensitiveLearningBlocked: true,
-      temporaryUploadStorage: true
-    },
     timestamp: new Date().toISOString(),
     requestId
+  })
+
+  if (enhancedContext?.agroWeather?.summary) {
+    finalQuestion += `\n\n[Clima operacional nesta execucao]\n${enhancedContext.agroWeather.summary}`
   }
 
   return {
@@ -1241,31 +1390,12 @@ app.get("/research/weather", async (req, res) => {
   }
 
   try {
-    const url = new URL(process.env.WEATHER_API_BASE_URL || "https://api.open-meteo.com/v1/forecast")
-    url.searchParams.set("latitude", String(latitude))
-    url.searchParams.set("longitude", String(longitude))
-    url.searchParams.set("timezone", timezone)
-    url.searchParams.set("forecast_days", String(forecastDays))
-    url.searchParams.set("current", "temperature_2m,precipitation,weather_code,wind_speed_10m")
-    url.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m")
-    url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset")
-
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": `${AI_ENTERPRISE_NAME}/weather`
-      }
+    const payload = await fetchWeatherForecastPayload({
+      latitude,
+      longitude,
+      timezone,
+      forecastDays
     })
-
-    if (!response.ok) {
-      const details = await response.text().catch(() => "")
-      return res.status(502).json({
-        error: "Falha ao consultar o provedor de clima.",
-        code: "WEATHER_PROVIDER_FAILED",
-        details: process.env.NODE_ENV === "development" ? details.slice(0, 400) : undefined
-      })
-    }
-
-    const payload = await response.json()
     return res.json({
       success: true,
       provider: "open-meteo",
@@ -1278,10 +1408,10 @@ app.get("/research/weather", async (req, res) => {
       data: payload
     })
   } catch (error) {
-    return res.status(500).json({
-      error: "Falha ao obter previsao do tempo.",
-      code: "WEATHER_LOOKUP_FAILED",
-      details: process.env.NODE_ENV === "development" ? error.message : undefined
+    return res.status(error.code === "WEATHER_PROVIDER_FAILED" ? 502 : 500).json({
+      error: error.message || "Falha ao obter previsao do tempo.",
+      code: error.code || "WEATHER_LOOKUP_FAILED",
+      details: process.env.NODE_ENV === "development" ? (error.details || error.message) : undefined
     })
   }
 })
@@ -2027,15 +2157,13 @@ app.post("/evaluation/conversation", requireAdmin, async (req, res) => {
     }
 
     const evaluationUserId = String(sessionId || req.get("X-User-Id") || req.ip || "evaluation_user")
-    const researchCapabilities = getResearchCapabilities(context?.researchCapabilities || {})
-    const preparedContext = {
-      ...context,
+    const preparedContext = await buildRuntimeConversationContext(String(message), context, {
       userId: evaluationUserId,
       requestId,
       evaluationMode: true,
-      conversationHistory: Array.isArray(history) ? history : [],
-      researchCapabilities
-    }
+      conversationHistory: Array.isArray(history) ? history : []
+    })
+    const researchCapabilities = preparedContext.researchCapabilities
 
     const responseText = await askGiom(String(message), preparedContext)
     const evaluation = evaluateConversationTurn({
@@ -2087,15 +2215,14 @@ app.post("/evaluation/run", requireAdmin, async (req, res) => {
       researchCapabilities: getResearchCapabilities(),
       requestTurn: async ({ scenario, turn, history }) => {
         const requestId = `bench_${scenario.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-        const context = {
+        const context = await buildRuntimeConversationContext(turn.question, {
           ...(turn.context || {}),
           userId: benchmarkUserId,
           requestId,
           evaluationMode: true,
           evaluationScenario: scenario.id,
-          conversationHistory: history,
-          researchCapabilities: getResearchCapabilities(turn.context?.researchCapabilities || {})
-        }
+          conversationHistory: history
+        })
 
         const answer = await askGiom(turn.question, context)
         return {

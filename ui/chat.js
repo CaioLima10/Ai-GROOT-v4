@@ -16,6 +16,11 @@ const DEFAULT_PREFERENCES = {
   activeModules: [],
   moduleSelectionLocked: false,
   bibleStudyModules: [],
+  agroWeatherAuto: false,
+  agroWeatherLabel: "",
+  agroWeatherLatitude: "",
+  agroWeatherLongitude: "",
+  agroWeatherDays: 3,
   promptPacks: [
     "chatgpt_reasoning",
     "github_copilot_engineering",
@@ -100,6 +105,11 @@ const elements = {
   safetySelect: document.getElementById("safetySelect"),
   ageGroupSelect: document.getElementById("ageGroupSelect"),
   themeSelect: document.getElementById("themeSelect"),
+  agroWeatherAutoToggle: document.getElementById("agroWeatherAutoToggle"),
+  agroWeatherLabelInput: document.getElementById("agroWeatherLabelInput"),
+  agroWeatherLatitudeInput: document.getElementById("agroWeatherLatitudeInput"),
+  agroWeatherLongitudeInput: document.getElementById("agroWeatherLongitudeInput"),
+  agroWeatherDaysInput: document.getElementById("agroWeatherDaysInput"),
   assistantProfileSelect: document.getElementById("assistantProfileSelect"),
   promptPackToggles: Array.from(document.querySelectorAll("[data-prompt-pack-toggle]")),
   promptPackHint: document.getElementById("promptPackHint"),
@@ -407,6 +417,7 @@ function refreshCapabilityUI() {
   const profileName = elements.assistantProfileSelect?.selectedOptions?.[0]?.textContent || "Professor Genial"
   const modules = getSelectedModulesFromUI()
   const liveResearch = state.config?.research?.mode === "live"
+  const weatherLabel = describeAgroWeatherStatus()
   const pdfReady = Boolean(state.config?.features?.pdfParsing || state.config?.uploads?.supports?.pdf)
   const officeReady = Boolean(
     state.config?.uploads?.supports?.docx
@@ -427,7 +438,7 @@ function refreshCapabilityUI() {
   }
   if (elements.chatResearchBadge) {
     elements.chatResearchBadge.textContent = liveResearch
-      ? `Pesquisa: ${describeResearchStatus()}`
+      ? `Pesquisa: ${describeResearchStatus()}${weatherLabel ? ` • ${weatherLabel}` : ""}`
       : "Pesquisa: memoria + RAG"
   }
   if (elements.chatUploadsBadge) {
@@ -435,7 +446,9 @@ function refreshCapabilityUI() {
   }
 
   if (elements.helpResearchStatus) {
-    elements.helpResearchStatus.textContent = liveResearch ? describeResearchStatus() : "Interna / curada"
+    elements.helpResearchStatus.textContent = liveResearch
+      ? `${describeResearchStatus()}${weatherLabel ? ` • ${weatherLabel}` : ""}`
+      : "Interna / curada"
   }
   if (elements.helpPdfStatus) {
     elements.helpPdfStatus.textContent = pdfReady ? "Ativo" : "Inativo"
@@ -636,6 +649,16 @@ function normalizePreferences(preferences = {}) {
     normalized.moduleSelectionLocked = false
   }
 
+  normalized.agroWeatherAuto = normalized.agroWeatherAuto === true
+  normalized.agroWeatherLabel = String(normalized.agroWeatherLabel || "").trim()
+  normalized.agroWeatherLatitude = String(normalized.agroWeatherLatitude || "").trim()
+  normalized.agroWeatherLongitude = String(normalized.agroWeatherLongitude || "").trim()
+
+  const parsedDays = Number.parseInt(normalized.agroWeatherDays, 10)
+  normalized.agroWeatherDays = Number.isFinite(parsedDays)
+    ? Math.max(1, Math.min(parsedDays, 7))
+    : 3
+
   return normalized
 }
 
@@ -659,6 +682,11 @@ function applyPreferencesToUI() {
   elements.safetySelect.value = state.preferences.safetyLevel
   elements.ageGroupSelect.value = state.preferences.ageGroup
   elements.themeSelect.value = state.preferences.theme
+  elements.agroWeatherAutoToggle.checked = Boolean(state.preferences.agroWeatherAuto)
+  elements.agroWeatherLabelInput.value = state.preferences.agroWeatherLabel || ""
+  elements.agroWeatherLatitudeInput.value = state.preferences.agroWeatherLatitude || ""
+  elements.agroWeatherLongitudeInput.value = state.preferences.agroWeatherLongitude || ""
+  elements.agroWeatherDaysInput.value = String(state.preferences.agroWeatherDays || 3)
   elements.assistantProfileSelect.value = state.preferences.assistantProfile || DEFAULT_PREFERENCES.assistantProfile
   applyPromptPackPreferences(state.preferences.promptPacks || DEFAULT_PREFERENCES.promptPacks)
   applyModulePreferences(state.preferences.activeModules || DEFAULT_PREFERENCES.activeModules)
@@ -759,6 +787,11 @@ async function savePreferences() {
     safetyLevel: elements.safetySelect.value,
     ageGroup: elements.ageGroupSelect.value,
     theme: elements.themeSelect.value,
+    agroWeatherAuto: elements.agroWeatherAutoToggle.checked,
+    agroWeatherLabel: elements.agroWeatherLabelInput.value.trim(),
+    agroWeatherLatitude: elements.agroWeatherLatitudeInput.value.trim(),
+    agroWeatherLongitude: elements.agroWeatherLongitudeInput.value.trim(),
+    agroWeatherDays: Math.max(1, Math.min(Number.parseInt(elements.agroWeatherDaysInput.value, 10) || 3, 7)),
     assistantProfile: selectedAssistantProfile,
     assistantProfileLocked: selectedAssistantProfile !== "auto",
     promptPacks: getSelectedPromptPacksFromUI(),
@@ -869,6 +902,36 @@ function cleanAuthUrl() {
   ) {
     history.replaceState({}, document.title, window.location.pathname)
   }
+}
+
+function buildAgroWeatherContext() {
+  if (!state.preferences.agroWeatherAuto) return null
+
+  const latitude = Number.parseFloat(state.preferences.agroWeatherLatitude)
+  const longitude = Number.parseFloat(state.preferences.agroWeatherLongitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null
+  }
+
+  return {
+    enabled: true,
+    label: state.preferences.agroWeatherLabel || "",
+    latitude,
+    longitude,
+    days: Math.max(1, Math.min(Number.parseInt(state.preferences.agroWeatherDays, 10) || 3, 7)),
+    timezone: "auto"
+  }
+}
+
+function describeAgroWeatherStatus() {
+  if (!state.preferences.agroWeatherAuto) return ""
+
+  const weatherContext = buildAgroWeatherContext()
+  if (!weatherContext) {
+    return state.config?.features?.weatherForecast ? "Clima agro: configurar local" : ""
+  }
+
+  return `Clima agro: ${weatherContext.label || `${weatherContext.latitude.toFixed(2)}, ${weatherContext.longitude.toFixed(2)}`}`
 }
 
 function restoreLegacyLocalSession() {
@@ -1731,6 +1794,7 @@ async function sendMessage() {
       promptPacks: state.preferences.promptPacks,
       activeModules: state.preferences.activeModules,
       bibleStudyModules: state.preferences.bibleStudyModules,
+      weatherLocation: buildAgroWeatherContext(),
       uploadId: upload?.id || null,
       uploadName: upload?.name || null,
       uploadType: upload?.type || null
@@ -2459,6 +2523,7 @@ async function renderMemoryView() {
     `Prompt packs: ${(state.preferences.promptPacks || DEFAULT_PREFERENCES.promptPacks).join(", ")}`,
     `Módulos: ${(state.preferences.activeModules || []).join(", ") || "auto por intenção"}`,
     `Foco bíblico: ${(state.preferences.bibleStudyModules || []).join(", ") || "nenhum"}`,
+    `Clima agro: ${describeAgroWeatherStatus() || "desligado"}`,
     `Autenticação: ${state.supabase ? "Supabase / OAuth" : "Local"}`,
     `Mensagens salvas: ${state.chatHistory.length}`
   ]
