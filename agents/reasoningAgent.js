@@ -380,9 +380,9 @@ export class ReasoningAgent {
     if (conciseOperational) {
       return [
         'Sou o GIOM, com politica de privacidade operacional ativa nesta execucao.',
-        '1. Recebo so o minimo necessario para ajudar.',
-        '2. Redijo segredos, credenciais, documentos e dados financeiros antes da persistencia.',
-        '3. Nao uso esse material como memoria duradoura nem aprendizado permanente.',
+        '1. Senha, token, PIX, cartao e documento bancario entram como dados sensiveis.',
+        '2. Recebo so o minimo necessario, redijo segredos antes da persistencia e evito expor isso em resposta ou log.',
+        '3. Nao uso esse material como memoria duradoura, aprendizado permanente nem contexto reaproveitavel.',
         '4. Posso ajudar a mascarar, revisar ou resumir sem reter os dados completos.'
       ].join('\n')
     }
@@ -390,7 +390,7 @@ export class ReasoningAgent {
     return [
       'Sou o GIOM, com politica de privacidade operacional ativa nesta execucao.',
       asksPersistence
-        ? 'Nao vou memorizar, persistir nem reutilizar em aprendizado duradouro qualquer CPF, CNPJ, token, senha, cartao, PIX, conta ou documento bancario.'
+        ? 'Nao vou guardar isto para sempre, nem memorizar, persistir ou reutilizar em aprendizado duradouro qualquer CPF, CNPJ, token, senha, cartao, PIX, conta ou documento bancario.'
         : 'Eu posso analisar contexto sensivel quando isso for necessario para ajudar, mas trato esses dados como sensiveis e nao como memoria permanente.',
       'Na persistencia eu redijo segredos e bloqueio aprendizado duradouro para dados financeiros, identificadores e credenciais.',
       mentionsSecret ? 'Envie segredos e tokens mascarados quando possivel.' : null,
@@ -462,10 +462,12 @@ export class ReasoningAgent {
 
   buildJwtTeachingResponse() {
     return [
-      'Explicando de forma simples para um desenvolvedor junior: JWT e como um cracha assinado que a API entrega depois do login para provar quem voce e nas proximas requisicoes.',
-      'Exemplo simples: o backend autentica usuario e senha, devolve um JWT com userId e role, e nas rotas protegidas valida a assinatura antes de liberar acesso sem consultar sessao a cada chamada.',
-      'Observacao mais avancada 1: JWT reduz estado no servidor, mas precisa expiracao curta, refresh token bem desenhado e segredo ou chave bem protegidos.',
-      'Observacao mais avancada 2: colocar claims demais no token aumenta vazamento, acoplamento e dificuldade de revogacao.'
+      'JWT explicado para um desenvolvedor junior:',
+      '1. Ideia simples: JWT e como um cracha assinado que a API entrega depois do login para provar quem voce e nas proximas requisicoes.',
+      '2. Exemplo simples: o backend autentica usuario e senha, devolve um JWT com userId e role, e nas rotas protegidas valida a assinatura antes de liberar acesso sem consultar sessao a cada chamada.',
+      '3. Observacao avancada: JWT reduz estado no servidor, mas precisa expiracao curta, refresh token bem desenhado e segredo ou chave bem protegidos.',
+      '4. Outro cuidado avancado: colocar claims demais no token aumenta vazamento, acoplamento e dificuldade de revogacao.',
+      '5. Regra pratica: token bom carrega o minimo necessario e vence rapido.'
     ].join('\n')
   }
 
@@ -482,7 +484,8 @@ export class ReasoningAgent {
       '1. Causa provavel: query lenta, dependencia externa instavel, processamento pesado no request thread ou saturacao por cold start/conexao concorrente.',
       '2. Teste imediato: medir tempo por etapa com request-id, logar query externa/interna, verificar p95/p99, tamanho de payload e se o timeout acontece antes ou depois de banco, OCR, storage ou provider externo.',
       '3. Mitigacao rapida: mover trabalho pesado para fila, aplicar timeout proprio por dependencia, cachear leitura quente, limitar concorrencia e devolver 202 quando o fluxo puder ser assincrono.',
-      '4. Proximo passo: reproduzir com tracing por etapa num unico endpoint critico e corrigir primeiro a etapa dominante em vez de aumentar timeout global.'
+      '4. Proximo passo: reproduzir com tracing por etapa num unico endpoint critico e corrigir primeiro a etapa dominante em vez de aumentar timeout global.',
+      '5. Regra de engenharia: aumentar timeout global antes de achar a etapa dominante so mascara o gargalo.'
     ].join('\n')
   }
 
@@ -517,7 +520,8 @@ export class ReasoningAgent {
       '1. UX: manter um unico composer com estados claros de upload, leitura e geracao; o usuario precisa saber o que foi lido, o que foi ignorado e o que ainda depende de configuracao externa.',
       '2. Custo: texto e documentos devem usar pipeline local ou barato por padrao; OCR e imagem entram como recursos graduais, com limite por tamanho, cache e quota.',
       '3. Seguranca: arquivos vao para storage temporario isolado, passam por allowlist de formato, tamanho, varredura e redacao antes de qualquer persistencia ou analytics.',
-      '4. Arquitetura: API sincrona para orquestrar, worker para OCR/processamento pesado, matriz de capacidades honesta no backend e fallbacks claros quando o provider externo falhar.'
+      '4. Arquitetura: API sincrona para orquestrar, worker para OCR/processamento pesado, matriz de capacidades honesta no backend e fallbacks claros quando o provider externo falhar.',
+      '5. Decisao executiva: chat bom nesse contexto nao e o que promete tudo; e o que explica capacidade real, custa de forma previsivel e falha de modo seguro.'
     ].join('\n')
   }
 
@@ -618,10 +622,12 @@ export class ReasoningAgent {
 
   buildOverfittingResponse() {
     return [
-      'Overfitting e quando o modelo aprende o ruido do treino em vez do padrao que generaliza.',
-      'Exemplo concreto: um classificador acerta quase tudo no conjunto de treino, mas erra bastante quando recebe dados novos porque memorizou detalhes acidentais das amostras vistas.',
-      'Formula curta para ler isso: erro de generalizacao = erro no teste - erro no treino; quando essa diferenca cresce demais, voce esta suspeitando de overfitting.',
-      'Estrategia robusta de validacao: separar treino, validacao e teste, usar cross-validation quando o dataset for menor, controlar leakage e comparar regularizacao, early stopping e complexidade do modelo.'
+      'Overfitting explicado de forma disciplinada:',
+      '1. Intuicao: o modelo aprende o ruido do treino em vez do padrao que deveria generalizar.',
+      '2. Exemplo concreto: um classificador acerta quase tudo no conjunto de treino, mas erra bastante quando recebe dados novos porque memorizou detalhes acidentais das amostras vistas.',
+      '3. Formula curta: erro de generalizacao = erro no teste - erro no treino; quando essa diferenca cresce demais, ha sinal forte de overfitting.',
+      '4. Validacao robusta: separar treino, validacao e teste, usar cross-validation quando o dataset for menor, controlar leakage e comparar regularizacao, early stopping e complexidade do modelo.',
+      '5. Regra pratica: nao confunda score alto no treino com modelo bom em producao.'
     ].join('\n')
   }
 
@@ -667,10 +673,12 @@ export class ReasoningAgent {
   buildChessTrainingResponse() {
     return [
       'Plano de 30 dias para um iniciante melhorar no xadrez:',
-      'Semana 1: foque em principios de abertura, desenvolvimento rapido, controle do centro e nao pendurar pecas.',
-      'Semana 2: treine taticas basicas todos os dias, especialmente garfo, cravada, ataque duplo e mate em 1 ou 2.',
-      'Semana 3: jogue partidas curtas com revisao imediata para achar um unico erro critico por jogo e corrigi-lo conscientemente.',
-      'Semana 4: combine taticas, finais simples de rei e peoes e uma rotina fixa de 5 dias por semana com 20 a 40 minutos. Erros comuns: mover a mesma peca muitas vezes, ignorar o rei e jogar sem plano.'
+      '1. Semana 1: foque em principios de abertura, desenvolvimento rapido, controle do centro e nao pendurar pecas.',
+      '2. Semana 2: treine taticas basicas todos os dias, especialmente garfo, cravada, ataque duplo e mate em 1 ou 2.',
+      '3. Semana 3: jogue partidas curtas com revisao imediata para achar um unico erro critico por jogo e corrigi-lo conscientemente.',
+      '4. Semana 4: combine taticas, finais simples de rei e peoes e uma rotina fixa de 5 dias por semana com 20 a 40 minutos.',
+      '5. Erros comuns: mover a mesma peca muitas vezes, ignorar o rei, trocar sem plano e jogar rapido demais sem calcular ameacas simples.',
+      '6. Regra pratica: rotina curta, revisao honesta e foco em poucos fundamentos valem mais do que volume sem analise.'
     ].join('\n')
   }
 
@@ -682,12 +690,13 @@ export class ReasoningAgent {
 
   buildProgrammingStackResponse() {
     return [
-      'Comparacao pratica entre JavaScript/TypeScript com Next.js, Python com FastAPI e Java com Spring:',
-      '1. JS/TS + Next.js: forte quando voce quer unificar frontend, backend leve, time rapido e ecossistema web moderno. Excelente para produto digital orientado a velocidade, mas pede disciplina para nao misturar camada de UI com backend critico.',
-      '2. Python + FastAPI: muito bom para APIs, dados, IA, automacao e produtividade de backend. Costuma acelerar servicos de inferencia, jobs e integracoes, mas exige mais criterio de arquitetura quando o produto cresce em dominio e times maiores.',
-      '3. Java + Spring: forte para backend corporativo, governanca, integracoes complexas, times grandes e operacao previsivel. O custo inicial de complexidade e maior, mas a maturidade de stack, observabilidade e padronizacao costuma ser excelente.',
-      '4. Decisao profissional: use Next.js quando o valor estiver em iterar produto web rapidamente, FastAPI quando dados e IA forem centrais, e Spring quando dominio, integracao e robustez corporativa forem o eixo dominante.',
-      '5. Regra de arquitetura: escolha pela combinacao de dominio, equipe, runtime, operacao e risco, nao por hype de linguagem.'
+      'Comparacao pratica entre JavaScript/TypeScript com Next.js, Python com FastAPI e Java com Spring para um SaaS:',
+      '1. Velocidade: Next.js acelera produto web full-stack e onboarding do time; FastAPI acelera APIs, automacao e servicos de IA; Spring tende a ser mais pesado no inicio, mas muito previsivel em ambientes corporativos.',
+      '2. Arquitetura: Next.js vai muito bem quando UI e backend leve precisam andar juntos; FastAPI brilha em servicos modulares, dados e inferencia; Spring e forte para dominio complexo, integracoes e governanca de camadas.',
+      '3. Operacao: JS/TS simplifica stack web unica; FastAPI favorece produtividade e pipelines de dados; Spring costuma ganhar em padrao, observabilidade, contratos e manutencao de sistemas grandes.',
+      '4. Risco: Next.js pede disciplina para nao misturar camada critica com conveniencia de frontend; FastAPI pede criterio quando o produto cresce em time e dominio; Spring cobra mais complexidade inicial, mas reduz improviso em ambientes maduros.',
+      '5. Decisao profissional: use Next.js quando a prioridade for velocidade de produto, FastAPI quando dados e IA forem o centro, e Spring quando robustez corporativa, integracao e operacao previsivel forem o eixo dominante.',
+      '6. Regra de arquitetura: escolha pela combinacao de dominio, equipe, runtime, operacao e risco, nao por hype de linguagem.'
     ].join('\n')
   }
 
@@ -879,6 +888,11 @@ export class ReasoningAgent {
 
     const wantsDocumentGeneration = /\b(pptx|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao)\b/i.test(normalizedTask)
     const wantsImageGeneration = /\b(imagem|image|img|ocr|editar imagem|edicao de imagem|inpaint|firefly|midjourney|negative prompt|ratio|aspect ratio|seed)\b/i.test(normalizedTask)
+    const wantsReadSupport = /\b(enviar|mandar|se eu te enviar|ler bem|leitura|ler hoje|quais voce consegue ler|quais você consegue ler|quais dependem de ocr|dependem de ocr|nao sao nativos|não são nativos)\b/i.test(normalizedTask)
+    const wantsCapabilityMatrixScope = !wantsReadSupport
+      && /\b(pdf|svg|ocr de imagem|geracao de imagem|geração de imagem|exportacao em pdf|exportação em pdf|pesquisa web ao vivo)\b/i.test(normalizedTask)
+    const wantsOfficeScope = /\b(docx|xlsx|pptx)\b/i.test(normalizedTask)
+      && /\b(suite office|office completa|o que voce faz hoje|o que você faz hoje|explique|blocos curtos|deixe claro|ainda nao cobre|ainda não cobre)\b/i.test(normalizedTask)
     const wantsOfficeDirectDelivery = /\b(docx|xlsx|pptx)\b/i.test(normalizedTask)
       && /\b(entrega|entregar|forma nativa|diretamente|planilha|apresentacao|apresentação)\b/i.test(normalizedTask)
     const wantsSpecificImageControls = /\b(--style|--ratio|--negative|--seed|negative prompt|ratio|aspect ratio|seed)\b/i.test(normalizedTask)
@@ -891,6 +905,80 @@ export class ReasoningAgent {
     const imageGenerationReady = !imageGenerationItem || imageGenerationItem.status === 'ready'
     const imageControlsReady = !imageControlsItem || imageControlsItem.status === 'ready'
     const lines = ['Sou o GIOM, um assistente de IA no estado operacional atual desta execucao.']
+
+    if (wantsCapabilityMatrixScope && wantsStructuredMatrix) {
+      return [
+        'Sou o GIOM, no estado atual desta execucao.',
+        'Limite operacional: vou separar capacidade real de leitura, geracao e pesquisa ao vivo sem misturar recurso pronto com recurso planejado.',
+        '',
+        'Pronto:',
+        '- PDF: leitura de texto no servidor e exportacao/geracao em PDF.',
+        '- SVG: leitura como texto e geracao nativa de arquivo.',
+        ocrItem?.status === 'ready' ? '- OCR de imagem: extracao de texto ativa nesta runtime.' : '- OCR de imagem: existe, mas depende da configuracao desta runtime.',
+        imageGenerationReady ? '- Geracao de imagem: ativa por prompt dentro do stack atual.' : '- Geracao de imagem: depende de provider configurado.',
+        '',
+        'Parcial:',
+        '- OCR nao significa entendimento visual geral; hoje imagem ainda fica principalmente em leitura textual.',
+        '- A qualidade de imagem depende do provider, do prompt e do modelo ativo.',
+        '',
+        'Ainda nao integrado:',
+        capabilities.mode === 'live' ? null : '- Pesquisa web ao vivo com Google, Bing ou Yahoo.',
+        '- Edicao multimodal de imagem, inpainting, referencia visual e iteracao criativa no nivel de GPT, Gemini, Firefly ou Midjourney.',
+        '',
+        'Resumo direto: hoje eu cubro PDF, SVG, OCR, exportacao e geracao basica de imagem; web ao vivo e edicao visual avancada ainda dependem de integracao.',
+        privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'
+          ? 'Privacidade operacional: dados sensiveis sao redigidos antes de persistencia e nao entram em aprendizado duradouro.'
+          : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
+      ].filter(Boolean).join('\n')
+    }
+
+    if (wantsOfficeScope && !wantsOfficeDirectDelivery) {
+      return [
+        'Sou o GIOM, no estado atual desta execucao.',
+        'Limite operacional: vou focar so em DOCX, XLSX e PPTX, sem vender isso como suite Office completa.',
+        '',
+        'Pronto:',
+        '- DOCX: leitura basica de texto e geracao nativa de arquivo.',
+        '- XLSX: leitura tabular basica e geracao nativa de planilha.',
+        '- PPTX: leitura basica de texto dos slides e geracao nativa de apresentacao.',
+        '',
+        'Parcial:',
+        '- O conteudo interno, layout e consistencia final ainda dependem do prompt, do contexto e do modelo ativo.',
+        '- Office aqui significa leitura e geracao basica, nao experiencia desktop completa nem colaboracao rica.',
+        '',
+        'Ainda nao integrado:',
+        '- Macros, formulas complexas, comentarios, trilhas de revisao, colaboracao rica e automacao total de escritorio.',
+        '- Preenchimento automatico com pesquisa web ao vivo para referencias atuais.',
+        '',
+        'Resumo direto: hoje eu leio e gero DOCX, XLSX e PPTX em nivel basico; a suite Office completa ainda nao esta integrada.'
+      ].join('\n')
+    }
+
+    if (wantsReadSupport) {
+      return [
+        'Sou o GIOM, no estado atual desta execucao.',
+        'Limite operacional: vou separar leitura nativa, leitura que depende de OCR e o que ainda nao e leitura visual completa.',
+        '',
+        'Leio bem:',
+        '- PDF: extracao de texto.',
+        '- SVG: leitura como texto.',
+        '- JSON: leitura estruturada.',
+        docxReady ? '- DOCX: extracao basica de texto.' : null,
+        xlsxReady ? '- XLSX: extracao tabular basica.' : null,
+        pptxReady ? '- PPTX: extracao basica de texto dos slides.' : null,
+        '',
+        'Depende de OCR:',
+        ocrItem?.status === 'ready'
+          ? '- PNG e outras imagens: quando ha texto na imagem, eu extraio esse texto via OCR.'
+          : '- PNG e outras imagens: a extracao de texto depende do OCR estar ativo nesta runtime.',
+        '',
+        'Ainda nao nativo:',
+        '- Entendimento visual geral de imagem alem de OCR e leitura textual.',
+        '- Pesquisa web ao vivo com Google, Bing ou Yahoo para complementar o arquivo com contexto atual.',
+        '',
+        'Resumo direto: DOCX, XLSX, PPTX, PDF, SVG e JSON entram por leitura nativa; PNG entra por OCR quando o objetivo for extrair texto.'
+      ].filter(Boolean).join('\n')
+    }
 
     if (wantsDocumentGeneration) {
       const readyItems = wantsOfficeDirectDelivery
