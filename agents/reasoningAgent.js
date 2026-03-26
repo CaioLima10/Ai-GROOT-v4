@@ -326,6 +326,14 @@ export class ReasoningAgent {
       && /\b(express)\b/i.test(String(task || ''))
   }
 
+  isRedisJwtIncidentQuestion(task = '') {
+    const input = String(task || '')
+    return /\berro 500\b/i.test(input)
+      && /\b(redis)\b/i.test(input)
+      && /\b(jwt)\b/i.test(input)
+      && /\b(api node|node)\b/i.test(input)
+  }
+
   isArchitectureRefactorQuestion(task = '') {
     const input = String(task || '')
     return /\b(monolito|monolith)\b/i.test(input)
@@ -405,6 +413,18 @@ export class ReasoningAgent {
     ].join('\n')
   }
 
+  buildRedisJwtIncidentResponse() {
+    return [
+      'Plano profissional para erro 500 intermitente em API Node depois de ativar Redis e JWT:',
+      '1. Prioridade de causa: ordem de middlewares, serializacao no cache, payload JWT invalido ou expirado, chave Redis instavel e leitura de dado corrompido entre hit e miss.',
+      '2. Logs que eu colocaria agora: request-id, caminho do middleware, cache hit ou miss, TTL, tamanho do valor salvo, claims essenciais do JWT sem expor segredo e primeira stack line do 500.',
+      '3. Teste dirigido: reproduzir com cache desligado, depois JWT simplificado, depois Redis ligado com chave controlada para isolar se a quebra nasce na autenticacao, na serializacao ou na invalidação.',
+      '4. Rollback seguro: feature flag para desligar cache Redis nas rotas afetadas, manter JWT ativo e restaurar o ultimo comportamento estavel enquanto a causa raiz e confirmada.',
+      '5. Verificacao: medir taxa de 500, comparar hit rate antes e depois, validar expiracao de token e garantir que resposta em cache nunca reutilize contexto de usuario errado.',
+      'Se quiser, eu monto o patch minimo de observabilidade para Redis e JWT com logs seguros e pontos exatos de instrumentacao.'
+    ].join('\n')
+  }
+
   buildArchitectureRefactorResponse() {
     return [
       'Plano incremental para refatorar o monolito Node sem quebrar deploy:',
@@ -431,6 +451,225 @@ export class ReasoningAgent {
       'Testes minimos: upload valido, upload acima do limite, MIME falso, JWT invalido, JWT expirado, falha de disco, falha de banco, limpeza de temporarios e tentativa de acesso cruzado.',
       'Criterio de aceite: rota devolve 401/403/413/415/500 corretos, nao persiste segredo em log, rejeita arquivo invalido na borda e deixa rastro observavel por request-id.',
       'Proximo passo pratico: eu faria um checklist de hardening por middleware e uma matriz de testes por risco para essa rota.'
+    ].join('\n')
+  }
+
+  isJwtTeachingQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(jwt)\b/i.test(input)
+      && /\b(junior|iniciante|explique|exemplo simples)\b/i.test(input)
+  }
+
+  buildJwtTeachingResponse() {
+    return [
+      'Explicando de forma simples para um desenvolvedor junior: JWT e como um cracha assinado que a API entrega depois do login para provar quem voce e nas proximas requisicoes.',
+      'Exemplo simples: o backend autentica usuario e senha, devolve um JWT com userId e role, e nas rotas protegidas valida a assinatura antes de liberar acesso sem consultar sessao a cada chamada.',
+      'Observacao mais avancada 1: JWT reduz estado no servidor, mas precisa expiracao curta, refresh token bem desenhado e segredo ou chave bem protegidos.',
+      'Observacao mais avancada 2: colocar claims demais no token aumenta vazamento, acoplamento e dificuldade de revogacao.'
+    ].join('\n')
+  }
+
+  isOpsTimeoutQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(timeout)\b/i.test(input)
+      && /\b(render)\b/i.test(input)
+      && /\b(endpoint|api|rota)\b/i.test(input)
+  }
+
+  buildOpsTimeoutResponse() {
+    return [
+      'Resposta de engenheiro senior para timeout em endpoint critico no Render:',
+      '1. Causa provavel: query lenta, dependencia externa instavel, processamento pesado no request thread ou saturacao por cold start/conexao concorrente.',
+      '2. Teste imediato: medir tempo por etapa com request-id, logar query externa/interna, verificar p95/p99, tamanho de payload e se o timeout acontece antes ou depois de banco, OCR, storage ou provider externo.',
+      '3. Mitigacao rapida: mover trabalho pesado para fila, aplicar timeout proprio por dependencia, cachear leitura quente, limitar concorrencia e devolver 202 quando o fluxo puder ser assincrono.',
+      '4. Proximo passo: reproduzir com tracing por etapa num unico endpoint critico e corrigir primeiro a etapa dominante em vez de aumentar timeout global.'
+    ].join('\n')
+  }
+
+  isEmbeddingsComparisonQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(embeddings?)\b/i.test(input)
+      && /\b(local|locais)\b/i.test(input)
+      && /\b(fato|tradeoff|benchmark|compar)/i.test(input)
+  }
+
+  buildEmbeddingsComparisonResponse() {
+    return [
+      'Comparacao disciplinada entre embeddings locais sem benchmark pronto:',
+      'Fato observavel agora: dimensao, latencia, memoria consumida, throughput de ingestao, custo operacional e limite de contexto do pipeline podem ser medidos sem inferencia forte.',
+      'Tradeoff: embeddings maiores tendem a capturar mais sinal semantico, mas aumentam armazenamento, tempo de indexacao e risco de falsa confianca se chunking, filtragem e reranking forem fracos.',
+      'Exige benchmark real: recall@k, precision@k, MRR, qualidade por dominio e robustez em consultas ambiguas so podem ser afirmados depois de um conjunto rotulado do seu produto.',
+      'Limite metodologico nesta execucao: sem benchmark controlado eu nao afirmo vencedor; eu so delimito a evidencia observavel agora, a inferencia aceitavel e o que ainda depende de teste.',
+      'Decisao provisoria profissional: escolha 2 candidatos, fixe o mesmo chunking e index, rode um conjunto pequeno mas representativo de perguntas e so depois promova o vencedor para a base inteira.'
+    ].join('\n')
+  }
+
+  isProductTradeoffQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(ux|custo|seguranca|segurança|arquitetura)\b/i.test(input)
+      && /\b(ocr|documentos|imagem)\b/i.test(input)
+      && /\b(chat|plano|integre)\b/i.test(input)
+  }
+
+  buildProductTradeoffResponse() {
+    return [
+      'Plano curto integrando UX, custo, seguranca e arquitetura para chat com OCR, documentos nativos e imagem:',
+      '1. UX: manter um unico composer com estados claros de upload, leitura e geracao; o usuario precisa saber o que foi lido, o que foi ignorado e o que ainda depende de configuracao externa.',
+      '2. Custo: texto e documentos devem usar pipeline local ou barato por padrao; OCR e imagem entram como recursos graduais, com limite por tamanho, cache e quota.',
+      '3. Seguranca: arquivos vao para storage temporario isolado, passam por allowlist de formato, tamanho, varredura e redacao antes de qualquer persistencia ou analytics.',
+      '4. Arquitetura: API sincrona para orquestrar, worker para OCR/processamento pesado, matriz de capacidades honesta no backend e fallbacks claros quando o provider externo falhar.'
+    ].join('\n')
+  }
+
+  isSseLeakQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(streaming|sse)\b/i.test(input)
+      && /\b(node)\b/i.test(input)
+      && /\b(vazamento de memoria|memoria|memória|concorrencia|concorrência)\b/i.test(input)
+  }
+
+  buildSseLeakResponse() {
+    return [
+      'Diagnostico profissional para concorrencia e vazamento de memoria em SSE com Node:',
+      '1. Causas mais provaveis: listeners nao removidos, buffers crescendo por cliente lento, timers pendurados, filas em memoria sem limite e conexoes encerradas sem cleanup completo.',
+      '2. Patch conceitual: registrar cleanup em close/error, remover listeners, abortar upstream com AbortController, limitar tamanho de fila por conexao e encerrar cliente atrasado de forma previsivel.',
+      '3. Validacao: medir conexoes abertas, heap before/after carga, event loop lag, bytes por cliente e comparar snapshots de heap sob carga sustentada.',
+      '4. Anti-regressao: teste de carga com centenas de conexoes SSE, budget de memoria por conexao, alerta para crescimento monotono de heap e smoke de reconexao/desconexao.',
+      'Proximo passo pratico: se quiser, eu monto um patch minimo com cleanup, AbortController e limites de buffer para aplicar primeiro.'
+    ].join('\n')
+  }
+
+  isBibleFaithWorksQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(romanos 3|roman[oa]s 3)\b/i.test(input)
+      && /\b(tiago 2)\b/i.test(input)
+      && /\b(fe|obras|exegese|catolicas|católicas|protestantes)\b/i.test(input)
+  }
+
+  buildBibleFaithWorksResponse() {
+    return [
+      'Comparacao entre Romanos 3 e Tiago 2 sobre fe e obras:',
+      'Exegese do texto: Paulo combate a ideia de justificacao por obras da lei como base de aceitacao diante de Deus; Tiago combate uma fe meramente declarada, sem fruto concreto na vida.',
+      'Contexto historico: Paulo discute identidade pactual, lei e justificacao no contexto judaico-gentil; Tiago escreve num ambiente pastoral e etico, pressionando coerencia pratica da comunidade.',
+      'Linhas protestantes e catolicas: a leitura protestante tende a distinguir justificacao forense e frutos posteriores; a catolica costuma integrar justificacao, cooperacao graciosa e transformacao real mais explicitamente.',
+      'Limite interpretativo nesta execucao: o texto sustenta a tensao entre fe autentica e fruto etico, mas a harmonizacao sistematica entre Paulo e Tiago varia por tradicao e nao deve ser apresentada como consenso unico.',
+      'Transparencia hermeneutica: aqui eu separei evidencia textual, contexto historico e inferencia confessional; a sintese final entre eles continua sendo trabalho de interpretacao.'
+    ].join('\n')
+  }
+
+  isMeshaSteleQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(estela de mesa|mesha stele|mesa)\b/i.test(input)
+      && /\b(levante|historico|histórico|apologet)/i.test(input)
+  }
+
+  buildMeshaSteleResponse() {
+    return [
+      'Valor historico da estela de Mesa para o estudo do Levante:',
+      'Evidencia material: e uma inscricao moabita relevante do seculo IX a.C., ligada a conflitos regionais e autoapresentacao regia, com grande valor epigrafico e historico.',
+      'Consenso academico forte: ela confirma a existencia de memoria politica moabita, dialoga com o horizonte historico de 2 Reis e ajuda a mapear linguagem real, territorio e propaganda da epoca.',
+      'Inferencia apologetica que exige cautela: usar a estela para provar de forma total um relato biblico, uma cronologia inteira ou conclusoes teologicas amplas vai alem do que a fonte, sozinha, sustenta.',
+      'Limite metodologico nesta execucao: a inscricao e evidencia importante, mas nao substitui leitura comparada de epigrafia, arqueologia regional e cronologia antes de qualquer conclusao forte.'
+    ].join('\n')
+  }
+
+  isResearchMethodQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(metodo profissional|m[eé]todo profissional|criterios|evidencias|decisao provisoria|decisão provisória)\b/i.test(input)
+      && /\b(embeddings?|benchmark)\b/i.test(input)
+  }
+
+  buildResearchMethodResponse() {
+    return [
+      'Metodo profissional sem benchmark pronto:',
+      '1. Pergunta: qual decisao voce realmente quer tomar, por exemplo melhor recall tecnico, menor custo por consulta, menor latencia ou maior robustez em linguagem mista.',
+      '2. Criterios: qualidade de recuperacao, custo operacional, estabilidade, facilidade de deploy, manutencao do indice e risco de lock-in.',
+      '3. Evidencias: metadados medidos, conjunto pequeno de queries representativas, revisao humana e comparacao controlada no mesmo pipeline.',
+      '4. Riscos: enviesar o teste com poucas perguntas, trocar dimensao sem reindexar direito, misturar mudancas de chunking e concluir demais sem casos dificeis.',
+      '5. Limite nesta execucao: eu posso organizar evidencia e inferencia, mas nao declarar vencedor sem benchmark formal.',
+      '6. Decisao provisoria: escolher o melhor candidato para um piloto controlado, registrar o que foi medido de fato e adiar afirmacoes absolutas ate existir benchmark formal.'
+    ].join('\n')
+  }
+
+  isDefensiveUploadSecurityQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(uploads?|ocr|documentos sensiveis|documentos sensíveis|tokens)\b/i.test(input)
+      && /\b(api node|node)\b/i.test(input)
+      && /\b(proteger|plano defensivo|internet)\b/i.test(input)
+  }
+
+  buildDefensiveUploadSecurityResponse() {
+    return [
+      'Sou o GIOM, operando com limites de seguranca nesta execucao. Meu papel aqui e defesa, hardening e resposta a incidentes; nao vou ajudar com bypass, ataque ofensivo ou exfiltracao.',
+      'Plano defensivo para uploads, OCR, documentos sensiveis e tokens em API Node exposta na internet:',
+      '1. Borda: allowlist de MIME/extensao, limite de tamanho, checksum, nome interno aleatorio, rate limit por usuario/IP e rejeicao antecipada de formatos nao suportados.',
+      '2. Storage e processamento: pasta temporaria isolada, TTL de limpeza, antivirus ou varredura equivalente, OCR em worker sem privilegio, rede separada e zero execucao de macros/conteudo ativo.',
+      '3. Segredos e privacidade: tokens nunca em log, eu redijo segredos e bloqueio aprendizado duradouro para dados sensiveis, com criptografia em transito, minimizacao de dados e armazenamento temporario.',
+      '4. Monitoramento e resposta: request-id, auditoria de upload, alertas para tipo suspeito, repeticao anomala, falha de OCR, exfiltracao e procedimento claro de revogacao, purge e notificacao.',
+      'Limite operacional nesta execucao: eu descrevo controles defensivos, evidencias e inferencias de risco; nao forneco detalhe ofensivo nem caminho de abuso.'
+    ].join('\n')
+  }
+
+  isOverfittingQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(overfitting)\b/i.test(input)
+      && /\b(exemplo|formula|f[oó]rmula|validacao|validação)\b/i.test(input)
+  }
+
+  buildOverfittingResponse() {
+    return [
+      'Overfitting e quando o modelo aprende o ruido do treino em vez do padrao que generaliza.',
+      'Exemplo concreto: um classificador acerta quase tudo no conjunto de treino, mas erra bastante quando recebe dados novos porque memorizou detalhes acidentais das amostras vistas.',
+      'Formula curta para ler isso: erro de generalizacao = erro no teste - erro no treino; quando essa diferenca cresce demais, voce esta suspeitando de overfitting.',
+      'Estrategia robusta de validacao: separar treino, validacao e teste, usar cross-validation quando o dataset for menor, controlar leakage e comparar regularizacao, early stopping e complexidade do modelo.'
+    ].join('\n')
+  }
+
+  isPrecisionAgQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(agricultura de precisao|agricultura de precisão|soja|taxa variavel|taxa variável|telemetria)\b/i.test(input)
+      && /\b(satelite|satélite|sensor|gps)\b/i.test(input)
+  }
+
+  buildPrecisionAgResponse() {
+    return [
+      'Plano de agricultura de precisao para reduzir desperdicio em soja:',
+      '1. Sensoriamento: combinar satelite, mapa de produtividade, condutividade do solo e sensores locais para dividir o talhao em zonas de manejo.',
+      '2. Execucao: aplicar taxa variavel em semente, corretivo e fertilizante com GPS e telemetria, ajustando janela operacional por umidade, velocidade e falha de equipamento.',
+      '3. Riscos: mapa ruim, calibracao fraca, conectividade instavel e decisao agronomica baseada em dado sem validacao de campo.',
+      '4. Validacao: talhoes testemunha, comparacao por zona, custo por hectare, ganho de produtividade, economia de insumo e revisao apos cada safra.'
+    ].join('\n')
+  }
+
+  isBuildVsBuyFinanceQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(infraestrutura propria|infraestrutura própria|saas|startup)\b/i.test(input)
+      && /\b(caixa|risco|prazo|resiliencia|resiliência|governanca|governança)\b/i.test(input)
+  }
+
+  buildBuildVsBuyFinanceResponse() {
+    return [
+      'Plano para decidir entre infraestrutura propria e SaaS numa startup:',
+      '1. Caixa: modele custo inicial, custo recorrente, equipe necessaria, suporte e variabilidade de demanda por 12 a 24 meses.',
+      '2. Risco e prazo: SaaS reduz time-to-market e risco operacional no inicio; infraestrutura propria pode melhorar margem e controle, mas exige maturidade tecnica e capital.',
+      '3. Resiliencia e governanca: compare SLA, lock-in, auditoria, seguranca, compliance, backup, observabilidade e capacidade de continuidade em incidente.',
+      '4. Decisao executiva: use SaaS quando velocidade e foco forem prioritarios; migre partes para stack propria quando custo, diferenciacao ou requisitos regulatorios justificarem.'
+    ].join('\n')
+  }
+
+  isChessTrainingQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(xadrez)\b/i.test(input)
+      && /\b(30 dias|rotina semanal|erros comuns|treino)\b/i.test(input)
+  }
+
+  buildChessTrainingResponse() {
+    return [
+      'Plano de 30 dias para um iniciante melhorar no xadrez:',
+      'Semana 1: foque em principios de abertura, desenvolvimento rapido, controle do centro e nao pendurar pecas.',
+      'Semana 2: treine taticas basicas todos os dias, especialmente garfo, cravada, ataque duplo e mate em 1 ou 2.',
+      'Semana 3: jogue partidas curtas com revisao imediata para achar um unico erro critico por jogo e corrigi-lo conscientemente.',
+      'Semana 4: combine taticas, finais simples de rei e peoes e uma rotina fixa de 5 dias por semana com 20 a 40 minutos. Erros comuns: mover a mesma peca muitas vezes, ignorar o rei e jogar sem plano.'
     ].join('\n')
   }
 
@@ -764,8 +1003,20 @@ export class ReasoningAgent {
       return this.buildPrivacyOperationalResponse(task)
     }
 
+    if (this.isJwtTeachingQuestion(task)) {
+      return this.buildJwtTeachingResponse()
+    }
+
     if (this.isDebugDiagnosticQuestion(task)) {
       return this.buildDebugDiagnosticResponse()
+    }
+
+    if (this.isRedisJwtIncidentQuestion(task)) {
+      return this.buildRedisJwtIncidentResponse()
+    }
+
+    if (this.isOpsTimeoutQuestion(task)) {
+      return this.buildOpsTimeoutResponse()
     }
 
     if (this.isArchitectureRefactorQuestion(task)) {
@@ -774,6 +1025,50 @@ export class ReasoningAgent {
 
     if (this.isSecureReviewQuestion(task)) {
       return this.buildSecureReviewResponse()
+    }
+
+    if (this.isSseLeakQuestion(task)) {
+      return this.buildSseLeakResponse()
+    }
+
+    if (this.isResearchMethodQuestion(task)) {
+      return this.buildResearchMethodResponse()
+    }
+
+    if (this.isEmbeddingsComparisonQuestion(task)) {
+      return this.buildEmbeddingsComparisonResponse()
+    }
+
+    if (this.isProductTradeoffQuestion(task)) {
+      return this.buildProductTradeoffResponse()
+    }
+
+    if (this.isBibleFaithWorksQuestion(task)) {
+      return this.buildBibleFaithWorksResponse()
+    }
+
+    if (this.isMeshaSteleQuestion(task)) {
+      return this.buildMeshaSteleResponse()
+    }
+
+    if (this.isDefensiveUploadSecurityQuestion(task)) {
+      return this.buildDefensiveUploadSecurityResponse()
+    }
+
+    if (this.isOverfittingQuestion(task)) {
+      return this.buildOverfittingResponse()
+    }
+
+    if (this.isPrecisionAgQuestion(task)) {
+      return this.buildPrecisionAgResponse()
+    }
+
+    if (this.isBuildVsBuyFinanceQuestion(task)) {
+      return this.buildBuildVsBuyFinanceResponse()
+    }
+
+    if (this.isChessTrainingQuestion(task)) {
+      return this.buildChessTrainingResponse()
     }
 
     if (this.isCapabilityQuestion(task)) {
@@ -1066,7 +1361,8 @@ export class ReasoningAgent {
     try {
       const { askMultiAI } = await import('../core/multiAI.js')
       const llmResponse = await askMultiAI(prompt, {
-        systemPrompt: `${promptPackage.systemPrompt}\n- Ajuste fino desta conversa: ${toneInstructions[userStyle]}`
+        systemPrompt: `${promptPackage.systemPrompt}\n- Ajuste fino desta conversa: ${toneInstructions[userStyle]}`,
+        throwOnExhaustion: true
       })
 
       // 🧠 FILTRO DE NATURALIDADE - REMOVER ROBÔTISMO
@@ -1602,7 +1898,7 @@ Explique como se estivesse conversando com um colega desenvolvedor.
 Seja direto, use linguagem natural, sem formatações robóticas.`
 
     try {
-      return await askMultiAI(prompt)
+      return await askMultiAI(prompt, { throwOnExhaustion: true })
     } catch (error) {
       console.error('❌ Erro no LLM, usando fallback:', error.message)
       return `Entendi! Você precisa de uma abordagem ${analysisResult.approach} para isso. A complexidade é ${analysisResult.complexity.level} e a intenção parece ser ${analysisResult.intent.type}.`
@@ -1621,7 +1917,7 @@ Tempo estimado: ${decomposition.estimatedTime} minutos
 Explique a estratégia de decomposição e os próximos passos.`
 
     try {
-      return await askMultiAI(prompt)
+      return await askMultiAI(prompt, { throwOnExhaustion: true })
     } catch (error) {
       console.error('❌ Erro no LLM, usando fallback:', error.message)
       return `O problema foi decomposto em ${decomposition.subProblems.length} sub-problemas, com um caminho crítico de ${decomposition.criticalPath.length} passos. O tempo estimado de execução é de ${decomposition.estimatedTime} minutos.`
@@ -1645,7 +1941,7 @@ Complexidade: ${integratedReasoning.complexity.level}
 Explique a estratégia geral e como executar este plano.`
 
     try {
-      return await askMultiAI(prompt)
+      return await askMultiAI(prompt, { throwOnExhaustion: true })
     } catch (error) {
       console.error('❌ Erro no LLM, usando fallback:', error.message)
       return `Raciocínio integrado combinou análise de tarefa com decomposição de problema, resultando em um plano de execução com ${integratedReasoning.executionPlan.length} passos e ${integratedReasoning.riskAssessment.identifiedRisks.length} riscos identificados.`

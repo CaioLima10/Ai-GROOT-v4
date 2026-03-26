@@ -9,6 +9,10 @@ const PRIMARY_PROVIDER = (process.env.GROOT_AI_PROVIDER || "auto").toLowerCase()
 const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "")
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")
 const OPENROUTER_KEY = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY
+const AI_PROVIDER_AUTH_COOLDOWN_MS = Number(process.env.AI_PROVIDER_AUTH_COOLDOWN_MS || 15 * 60 * 1000)
+const AI_PROVIDER_RATE_LIMIT_COOLDOWN_MS = Number(process.env.AI_PROVIDER_RATE_LIMIT_COOLDOWN_MS || 30 * 1000)
+const AI_PROVIDER_TRANSIENT_COOLDOWN_MS = Number(process.env.AI_PROVIDER_TRANSIENT_COOLDOWN_MS || 8 * 1000)
+const AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS = Number(process.env.AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS || 60 * 1000)
 
 const SYSTEM_PROMPT = `Voce e ${AI_BRAND_NAME}, uma IA profissional multiespecialista com foco em engenharia de software, pesquisa, ciencia aplicada, pensamento estruturado e seguranca defensiva. Responda com clareza, precisao, honestidade epistemica e foco em implementacao. Nao finja pesquisa externa nao realizada. Recuse crimes, pornografia explicita, abuso e ciberataques ofensivos; ofereca alternativas seguras e defensivas quando couber.`
 
@@ -51,10 +55,87 @@ function uniqueByKey(list, key) {
   })
 }
 
-function buildProviderError(name, error) {
-  const status = error?.response?.status
-  const details = error?.response?.data?.error?.message || error?.response?.data?.error || error?.message
-  return new Error(`${name}: ${status ? `${status} ` : ""}${details || "falhou"}`.trim())
+function getProviderErrorStatus(error) {
+  return error?.statusCode || error?.response?.status || null
+}
+
+function getProviderErrorDetails(error) {
+  return error?.details
+    || error?.response?.data?.error?.message
+    || error?.response?.data?.error
+    || error?.message
+    || "falhou"
+}
+
+function parseRetryAfterMs(error) {
+  const retryAfterHeader = error?.response?.headers?.["retry-after"]
+  if (retryAfterHeader) {
+    const seconds = Number(retryAfterHeader)
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.round(seconds * 1000)
+    }
+  }
+
+  const text = String(getProviderErrorDetails(error) || "")
+  const secondsMatch = text.match(/try again in\s+([\d.]+)\s*s/i)
+  if (secondsMatch) {
+    return Math.max(1000, Math.round(Number(secondsMatch[1]) * 1000))
+  }
+
+  const msMatch = text.match(/retry after\s+(\d+)\s*ms/i)
+  if (msMatch) {
+    return Math.max(1000, Number(msMatch[1]))
+  }
+
+  return null
+}
+
+function classifyProviderFailure(error) {
+  const status = getProviderErrorStatus(error)
+  const details = String(getProviderErrorDetails(error) || "").toLowerCase()
+
+  if (
+    status === 401
+    || /unauthorized|forbidden|invalid api key|api key not valid|user not found|invalid key|authentication|auth failed/.test(details)
+  ) {
+    return "auth"
+  }
+
+  if (
+    status === 429
+    || /rate limit|quota|too many requests|resource exhausted|retry after|try again in/.test(details)
+  ) {
+    return "rate_limit"
+  }
+
+  if (
+    error?.code === "ECONNABORTED"
+    || /timeout|timed out|deadline exceeded|socket hang up/.test(details)
+  ) {
+    return "timeout"
+  }
+
+  if (
+    /econnrefused|enotfound|network error|failed to fetch|nao respondeu|não respondeu|dns/.test(details)
+  ) {
+    return "network"
+  }
+
+  return "unknown"
+}
+
+function buildProviderError(name, error, providerKey = null) {
+  const status = getProviderErrorStatus(error)
+  const details = getProviderErrorDetails(error)
+  const wrappedError = new Error(`${name}: ${status ? `${status} ` : ""}${details || "falhou"}`.trim())
+  wrappedError.statusCode = status
+  wrappedError.details = String(details || "falhou")
+  wrappedError.providerName = name
+  wrappedError.providerKey = providerKey
+  wrappedError.failureType = classifyProviderFailure(error)
+  wrappedError.retryAfterMs = parseRetryAfterMs(error)
+  wrappedError.originalCode = error?.code || null
+  return wrappedError
 }
 
 export class AIProviders {
@@ -66,6 +147,10 @@ export class AIProviders {
     }
 
     this.providers = this.buildProviders()
+    this.providerHealth = new Map()
+    this.providers.forEach(provider => {
+      this.providerHealth.set(provider.key, this.createProviderHealth(provider))
+    })
     this.logProviders()
   }
 
@@ -163,13 +248,171 @@ export class AIProviders {
     })
   }
 
-  getProviderSummary() {
-    return this.providers.map(provider => ({
+  createProviderHealth(provider) {
+    return {
       key: provider.key,
       name: provider.name,
       enabled: provider.enabled,
-      supports: provider.supports
-    }))
+      consecutiveFailures: 0,
+      lastAttemptAt: null,
+      lastSuccessAt: null,
+      lastFailureAt: null,
+      lastError: null,
+      lastStatusCode: null,
+      lastFailureType: null,
+      disabledUntil: 0,
+      authInvalid: false
+    }
+  }
+
+  getProviderModel(providerKey) {
+    switch (providerKey) {
+      case "ollama":
+        return process.env.OLLAMA_MODEL || tier.ollama
+      case "groq":
+        return process.env.GROQ_MODEL || tier.groq
+      case "openrouter":
+        return process.env.OPENROUTER_MODEL || tier.openrouter
+      case "gemini":
+        return process.env.GEMINI_MODEL || tier.gemini
+      case "openai":
+        return process.env.OPENAI_MODEL || tier.openai
+      default:
+        return null
+    }
+  }
+
+  getProviderHealth(providerKey) {
+    if (!this.providerHealth.has(providerKey)) {
+      const provider = this.providers.find(item => item.key === providerKey)
+      if (provider) {
+        this.providerHealth.set(providerKey, this.createProviderHealth(provider))
+      } else {
+        this.providerHealth.set(providerKey, this.createProviderHealth({
+          key: providerKey,
+          name: providerKey,
+          enabled: false
+        }))
+      }
+    }
+
+    return this.providerHealth.get(providerKey)
+  }
+
+  markProviderAttempt(provider) {
+    const health = this.getProviderHealth(provider.key)
+    health.lastAttemptAt = Date.now()
+    return health
+  }
+
+  markProviderSuccess(provider) {
+    const health = this.getProviderHealth(provider.key)
+    const now = Date.now()
+    health.lastAttemptAt = now
+    health.lastSuccessAt = now
+    health.lastError = null
+    health.lastStatusCode = null
+    health.lastFailureType = null
+    health.consecutiveFailures = 0
+    health.disabledUntil = 0
+    health.authInvalid = false
+    return health
+  }
+
+  markProviderFailure(provider, error) {
+    const health = this.getProviderHealth(provider.key)
+    const now = Date.now()
+    const failureType = error?.failureType || classifyProviderFailure(error)
+    const retryAfterMs = error?.retryAfterMs || parseRetryAfterMs(error)
+
+    health.lastAttemptAt = now
+    health.lastFailureAt = now
+    health.lastError = String(error?.message || getProviderErrorDetails(error) || "falhou")
+    health.lastStatusCode = getProviderErrorStatus(error)
+    health.lastFailureType = failureType
+    health.consecutiveFailures += 1
+
+    if (failureType === "auth") {
+      health.authInvalid = true
+      health.disabledUntil = now + AI_PROVIDER_AUTH_COOLDOWN_MS
+      return health
+    }
+
+    health.authInvalid = false
+
+    if (failureType === "rate_limit") {
+      health.disabledUntil = now + Math.max(1000, retryAfterMs || AI_PROVIDER_RATE_LIMIT_COOLDOWN_MS)
+      return health
+    }
+
+    if (failureType === "timeout" || failureType === "network") {
+      const transientCooldown = Math.min(
+        AI_PROVIDER_TRANSIENT_COOLDOWN_MS * Math.max(1, health.consecutiveFailures),
+        AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS
+      )
+      health.disabledUntil = now + transientCooldown
+      return health
+    }
+
+    if (health.consecutiveFailures >= 2) {
+      health.disabledUntil = now + Math.min(5000 * health.consecutiveFailures, 20000)
+      return health
+    }
+
+    health.disabledUntil = 0
+    return health
+  }
+
+  shouldSkipProvider(provider) {
+    const health = this.getProviderHealth(provider.key)
+    const now = Date.now()
+
+    if (!provider?.enabled) {
+      return { skip: true, reason: "disabled" }
+    }
+
+    if (health.disabledUntil && health.disabledUntil > now) {
+      return {
+        skip: true,
+        reason: health.authInvalid ? "auth_invalid" : "cooldown",
+        cooldownMsRemaining: health.disabledUntil - now
+      }
+    }
+
+    return { skip: false, reason: null, cooldownMsRemaining: 0 }
+  }
+
+  getProviderSummary() {
+    const now = Date.now()
+    return this.providers.map(provider => {
+      const health = this.getProviderHealth(provider.key)
+      const cooldownMsRemaining = Math.max(0, (health.disabledUntil || 0) - now)
+      const runtimeStatus = !provider.enabled
+        ? "disabled"
+        : cooldownMsRemaining > 0
+          ? (health.authInvalid ? "auth_invalid" : "cooldown")
+          : health.consecutiveFailures > 0
+            ? "degraded"
+            : "ready"
+
+      return {
+        key: provider.key,
+        name: provider.name,
+        enabled: provider.enabled,
+        model: this.getProviderModel(provider.key),
+        supports: provider.supports,
+        runtimeStatus,
+        cooldownMsRemaining,
+        authInvalid: !!health.authInvalid,
+        consecutiveFailures: health.consecutiveFailures,
+        lastFailureType: health.lastFailureType,
+        lastStatusCode: health.lastStatusCode,
+        lastError: health.lastError,
+        lastAttemptAt: health.lastAttemptAt ? new Date(health.lastAttemptAt).toISOString() : null,
+        lastSuccessAt: health.lastSuccessAt ? new Date(health.lastSuccessAt).toISOString() : null,
+        lastFailureAt: health.lastFailureAt ? new Date(health.lastFailureAt).toISOString() : null
+      }
+    })
   }
 
   getActiveProviders() {
@@ -193,22 +436,49 @@ export class AIProviders {
 
     const providers = this.getActiveProviders()
     const startTime = Date.now()
+    const providerFailures = []
+    const skippedProviders = []
 
     if (providers.length === 0) {
       return this.getFallbackResponse(question)
     }
 
     for (let attempt = 0; attempt < Math.max(1, maxRetries); attempt++) {
+      let attemptedThisRound = 0
+
       for (let index = 0; index < providers.length; index++) {
         const provider = providers[index]
+        const skipState = this.shouldSkipProvider(provider)
+
+        if (skipState.skip) {
+          skippedProviders.push({
+            key: provider.key,
+            name: provider.name,
+            reason: skipState.reason,
+            cooldownMsRemaining: skipState.cooldownMsRemaining || 0
+          })
+          continue
+        }
 
         try {
+          attemptedThisRound += 1
+          this.markProviderAttempt(provider)
           console.log(`🔄 [${index + 1}/${providers.length}] Tentando ${provider.name}...`)
           const response = await provider.apiCall(question, normalizedOptions)
+          this.markProviderSuccess(provider)
           console.log(`✅ Sucesso com ${provider.name} (${Date.now() - startTime}ms)`)
           return response
         } catch (error) {
+          const health = this.markProviderFailure(provider, error)
           console.error(`❌ ${provider.name} falhou:`, error.message)
+          providerFailures.push({
+            key: provider.key,
+            name: provider.name,
+            failureType: health.lastFailureType,
+            statusCode: health.lastStatusCode,
+            cooldownMsRemaining: Math.max(0, (health.disabledUntil || 0) - Date.now()),
+            message: health.lastError
+          })
 
           const isLastProvider = index === providers.length - 1
           const isLastAttempt = attempt === Math.max(1, maxRetries) - 1
@@ -219,15 +489,72 @@ export class AIProviders {
           }
         }
       }
+
+      if (attemptedThisRound === 0) {
+        break
+      }
     }
 
     console.log("⚠️ Todos os providers falharam -> modo fallback seguro")
-    return this.getFallbackResponse(question)
+    const exhaustionError = new Error(this.buildProviderFailureSummary(providerFailures, skippedProviders))
+    exhaustionError.code = "AI_PROVIDERS_EXHAUSTED"
+    exhaustionError.providerFailures = providerFailures
+    exhaustionError.skippedProviders = skippedProviders
+    exhaustionError.providerSummary = this.getProviderSummary()
+
+    if (normalizedOptions?.throwOnExhaustion === true) {
+      throw exhaustionError
+    }
+
+    return this.getFallbackResponse(question, exhaustionError.providerSummary)
   }
 
-  getFallbackResponse(question) {
+  buildProviderFailureSummary(providerFailures = [], skippedProviders = []) {
+    const failedNotes = providerFailures
+      .slice(-5)
+      .map(provider => `${provider.name}: ${provider.failureType || "erro"}${provider.statusCode ? ` (${provider.statusCode})` : ""}`)
+
+    const skippedNotes = skippedProviders
+      .slice(-5)
+      .map(provider => `${provider.name}: ${provider.reason}${provider.cooldownMsRemaining ? ` (${Math.ceil(provider.cooldownMsRemaining / 1000)}s)` : ""}`)
+
+    return [
+      failedNotes.length > 0 ? `Falhas: ${failedNotes.join(", ")}` : null,
+      skippedNotes.length > 0 ? `Indisponiveis: ${skippedNotes.join(", ")}` : null
+    ].filter(Boolean).join(" | ") || "Todos os providers estao indisponiveis nesta execucao."
+  }
+
+  getFallbackResponse(question, providerSummary = []) {
     const preview = String(question || "").slice(0, 100)
-    return `Estou em modo de contingencia no momento.\n\nPergunta recebida: "${preview}${preview.length === 100 ? "..." : ""}"\n\nTente novamente em alguns instantes ou revise as configuracoes de provider no .env.\n\n${AI_ENTERPRISE_NAME}`
+    const providerNotes = Array.isArray(providerSummary)
+      ? providerSummary
+          .filter(provider => provider.runtimeStatus !== "ready")
+          .slice(0, 4)
+          .map(provider => {
+            if (provider.runtimeStatus === "auth_invalid") {
+              return `${provider.name}: credencial rejeitada`
+            }
+            if (provider.runtimeStatus === "cooldown") {
+              const seconds = Math.max(1, Math.ceil((provider.cooldownMsRemaining || 0) / 1000))
+              return `${provider.name}: em cooldown por ${seconds}s`
+            }
+            if (provider.runtimeStatus === "degraded") {
+              return `${provider.name}: degradado`
+            }
+            return null
+          })
+          .filter(Boolean)
+      : []
+
+    return [
+      "Estou em modo de contingencia operacional no momento.",
+      `Pergunta recebida: "${preview}${preview.length === 100 ? "..." : ""}"`,
+      providerNotes.length > 0
+        ? `Estado dos providers: ${providerNotes.join(", ")}.`
+        : "Os providers externos nao responderam de forma confiavel nesta tentativa.",
+      "Tente novamente em alguns instantes ou revise as credenciais e limites do provider no .env.",
+      AI_ENTERPRISE_NAME
+    ].join("\n\n")
   }
 
   buildMessages(question, options = {}) {
@@ -385,7 +712,7 @@ export class AIProviders {
 
       throw new Error("Resposta invalida do Ollama")
     } catch (error) {
-      throw buildProviderError("Ollama", error)
+      throw buildProviderError("Ollama", error, "ollama")
     }
   }
 
@@ -407,7 +734,7 @@ export class AIProviders {
 
       return this.extractOpenAICompatibleText(response, "Groq")
     } catch (error) {
-      throw buildProviderError("Groq", error)
+      throw buildProviderError("Groq", error, "groq")
     }
   }
 
@@ -429,7 +756,7 @@ export class AIProviders {
 
       return this.extractOpenAICompatibleText(response, "OpenRouter")
     } catch (error) {
-      throw buildProviderError("OpenRouter", error)
+      throw buildProviderError("OpenRouter", error, "openrouter")
     }
   }
 
@@ -524,7 +851,7 @@ export class AIProviders {
 
       return this.extractGeminiText(response.data)
     } catch (error) {
-      throw buildProviderError("Gemini", error)
+      throw buildProviderError("Gemini", error, "gemini")
     }
   }
 
@@ -562,7 +889,7 @@ export class AIProviders {
 
       throw new Error("Resposta invalida do OpenAI")
     } catch (error) {
-      throw buildProviderError("OpenAI", error)
+      throw buildProviderError("OpenAI", error, "openai")
     }
   }
 }

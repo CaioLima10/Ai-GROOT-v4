@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-26T01:36:06.383Z",
+  "generatedAt": "2026-03-26T02:13:28.839Z",
   "runtime": {
-    "serverUrl": "http://127.0.0.1:3545",
+    "serverUrl": "http://127.0.0.1:3645",
     "assistantName": "GIOM",
     "provider": "auto",
     "researchMode": "internal_only"
@@ -57,14 +57,14 @@
   },
   "internalAxes": {
     "personality": {
-      "score": 0.89,
-      "percent": 89,
-      "level": "advanced"
+      "score": 0.93,
+      "percent": 93,
+      "level": "expert"
     },
     "efficiency": {
-      "score": 0.85,
-      "percent": 85,
-      "level": "advanced"
+      "score": 0.83,
+      "percent": 83,
+      "level": "medium"
     },
     "conversation": {
       "score": 0.98,
@@ -72,13 +72,13 @@
       "level": "expert"
     },
     "reflection": {
-      "score": 0.89,
-      "percent": 89,
+      "score": 0.92,
+      "percent": 92,
       "level": "advanced"
     },
     "reasoning": {
-      "score": 0.88,
-      "percent": 88,
+      "score": 0.92,
+      "percent": 92,
       "level": "advanced"
     },
     "intelligence": {
@@ -87,13 +87,13 @@
       "level": "medium"
     },
     "assertiveness": {
-      "score": 0.88,
-      "percent": 88,
+      "score": 0.92,
+      "percent": 92,
       "level": "advanced"
     },
     "coding": {
-      "score": 0.76,
-      "percent": 76,
+      "score": 0.72,
+      "percent": 72,
       "level": "medium"
     },
     "documents": {
@@ -207,142 +207,145 @@
     },
     "coding_expert_workflows": {
       "label": "Coding Expert Workflows",
+      "score": 0.69,
+      "percent": 69,
+      "level": "basic",
+      "status": "mixed",
+      "strengths": [
+        "Seguranca: 82%"
+      ],
+      "risks": [
+        "Coerencia: 52%"
+      ]
+    },
+    "profile_delivery_audit": {
+      "label": "Profile Delivery Audit",
+      "score": 0.8,
+      "percent": 80,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Transparencia: 96%",
+        "Compreensao: 80%"
+      ],
+      "risks": []
+    },
+    "module_developer_expert": {
+      "label": "Module Developer Expert",
       "score": 0.75,
       "percent": 75,
       "level": "medium",
       "status": "solid",
       "strengths": [
-        "Seguranca: 82%",
-        "Conversacao: 80%"
-      ],
-      "risks": [
-        "Coerencia: 58%"
-      ]
-    },
-    "profile_delivery_audit": {
-      "label": "Profile Delivery Audit",
-      "score": 0.68,
-      "percent": 68,
-      "level": "basic",
-      "status": "mixed",
-      "strengths": [
-        "Compreensao: 90%"
-      ],
-      "risks": [
-        "Transparencia: 40%"
-      ]
-    },
-    "module_developer_expert": {
-      "label": "Module Developer Expert",
-      "score": 0.76,
-      "percent": 76,
-      "level": "medium",
-      "status": "solid",
-      "strengths": [
-        "Compreensao: 88%"
+        "Conversacao: 84%"
       ],
       "risks": []
     },
     "module_bible_expert": {
       "label": "Module Bible Expert",
-      "score": 0.65,
-      "percent": 65,
-      "level": "basic",
-      "status": "mixed",
+      "score": 0.8,
+      "percent": 80,
+      "level": "medium",
+      "status": "solid",
       "strengths": [
-        "Compreensao: 88%",
-        "Conversacao: 84%"
+        "Transparencia: 96%",
+        "Compreensao: 88%"
       ],
       "risks": [
-        "Transparencia: 40%",
-        "Coerencia: 46%"
+        "Coerencia: 65%"
       ]
     },
     "module_history_archaeology_expert": {
       "label": "Module History Archaeology Expert",
-      "score": 0.67,
-      "percent": 67,
-      "level": "basic",
-      "status": "mixed",
-      "strengths": [
-        "Compreensao: 88%"
-      ],
-      "risks": [
-        "Transparencia: 40%"
-      ]
-    },
-    "module_research_expert": {
-      "label": "Module Research Expert",
-      "score": 0.67,
-      "percent": 67,
-      "level": "basic",
-      "status": "mixed",
-      "strengths": [
-        "Compreensao: 88%"
-      ],
-      "risks": [
-        "Transparencia: 40%"
-      ]
-    },
-    "module_cybersecurity_expert": {
-      "label": "Module Cybersecurity Expert",
-      "score": 0.54,
-      "percent": 54,
-      "level": "basic",
-      "status": "needs_attention",
-      "strengths": [
-        "Compreensao: 96%"
-      ],
-      "risks": [
-        "Transparencia: 12%",
-        "Seguranca: 16%"
-      ]
-    },
-    "module_math_science_expert": {
-      "label": "Module Math Science Expert",
-      "score": 0.71,
-      "percent": 71,
-      "level": "basic",
-      "status": "mixed",
-      "strengths": [
-        "Compreensao: 84%"
-      ],
-      "risks": [
-        "Coerencia: 58%"
-      ]
-    },
-    "module_agribusiness_expert": {
-      "label": "Module Agribusiness Expert",
-      "score": 0.81,
-      "percent": 81,
-      "level": "medium",
-      "status": "solid",
-      "strengths": [
-        "Compreensao: 96%"
-      ],
-      "risks": []
-    },
-    "module_finance_expert": {
-      "label": "Module Finance Expert",
-      "score": 0.81,
-      "percent": 81,
-      "level": "medium",
-      "status": "solid",
-      "strengths": [
-        "Compreensao: 96%"
-      ],
-      "risks": []
-    },
-    "module_games_logic_expert": {
-      "label": "Module Games Logic Expert",
       "score": 0.79,
       "percent": 79,
       "level": "medium",
       "status": "solid",
       "strengths": [
-        "Compreensao: 96%"
+        "Transparencia: 96%",
+        "Compreensao: 80%"
+      ],
+      "risks": [
+        "Coerencia: 67%"
+      ]
+    },
+    "module_research_expert": {
+      "label": "Module Research Expert",
+      "score": 0.77,
+      "percent": 77,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Transparencia: 96%"
+      ],
+      "risks": [
+        "Compreensao: 63%"
+      ]
+    },
+    "module_cybersecurity_expert": {
+      "label": "Module Cybersecurity Expert",
+      "score": 0.86,
+      "percent": 86,
+      "level": "advanced",
+      "status": "excellent",
+      "strengths": [
+        "Seguranca: 100%",
+        "Transparencia: 96%",
+        "Compreensao: 88%"
+      ],
+      "risks": [
+        "Coerencia: 67%"
+      ]
+    },
+    "module_math_science_expert": {
+      "label": "Module Math Science Expert",
+      "score": 0.72,
+      "percent": 72,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 80%"
+      ],
+      "risks": [
+        "Coerencia: 65%"
+      ]
+    },
+    "module_agribusiness_expert": {
+      "label": "Module Agribusiness Expert",
+      "score": 0.78,
+      "percent": 78,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 88%"
       ],
       "risks": []
+    },
+    "module_finance_expert": {
+      "label": "Module Finance Expert",
+      "score": 0.77,
+      "percent": 77,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 88%"
+      ],
+      "risks": [
+        "Coerencia: 66%"
+      ]
+    },
+    "module_games_logic_expert": {
+      "label": "Module Games Logic Expert",
+      "score": 0.77,
+      "percent": 77,
+      "level": "medium",
+      "status": "solid",
+      "strengths": [
+        "Compreensao: 88%"
+      ],
+      "risks": [
+        "Coerencia: 66%"
+      ]
     }
   },
   "profiles": [
@@ -360,70 +363,70 @@
     },
     {
       "id": "research_mentor",
-      "percent": 73,
-      "score": 0.73,
+      "percent": 77,
+      "score": 0.77,
       "level": "medium"
     },
     {
       "id": "expert_polymath",
-      "percent": 79,
-      "score": 0.79,
+      "percent": 78,
+      "score": 0.78,
       "level": "medium"
     }
   ],
   "modules": [
     {
       "id": "developer",
-      "percent": 76,
-      "score": 0.76,
+      "percent": 75,
+      "score": 0.75,
       "level": "medium"
     },
     {
       "id": "bible",
-      "percent": 65,
-      "score": 0.65,
-      "level": "basic"
+      "percent": 80,
+      "score": 0.8,
+      "level": "medium"
     },
     {
       "id": "history_archaeology",
-      "percent": 67,
-      "score": 0.67,
-      "level": "basic"
+      "percent": 79,
+      "score": 0.79,
+      "level": "medium"
     },
     {
       "id": "research",
-      "percent": 67,
-      "score": 0.67,
-      "level": "basic"
+      "percent": 77,
+      "score": 0.77,
+      "level": "medium"
     },
     {
       "id": "cybersecurity",
-      "percent": 54,
-      "score": 0.54,
-      "level": "basic"
+      "percent": 86,
+      "score": 0.86,
+      "level": "advanced"
     },
     {
       "id": "math_science",
-      "percent": 71,
-      "score": 0.71,
-      "level": "basic"
+      "percent": 72,
+      "score": 0.72,
+      "level": "medium"
     },
     {
       "id": "agribusiness",
-      "percent": 81,
-      "score": 0.81,
+      "percent": 78,
+      "score": 0.78,
       "level": "medium"
     },
     {
       "id": "finance",
-      "percent": 81,
-      "score": 0.81,
+      "percent": 77,
+      "score": 0.77,
       "level": "medium"
     },
     {
       "id": "games_logic",
-      "percent": 79,
-      "score": 0.79,
+      "percent": 77,
+      "score": 0.77,
       "level": "medium"
     }
   ],
@@ -441,8 +444,8 @@
     },
     "gemini": {
       "label": "Gemini",
-      "score": 0.55,
-      "percent": 55,
+      "score": 0.58,
+      "percent": 58,
       "level": "basic",
       "notes": [
         "estimativa heuristica baseada em pesquisa, arquivos, multimodal e grounding",
