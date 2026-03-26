@@ -55,6 +55,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "patristics_church_fathers",
+    label: "Patristica & Pais da Igreja",
+    summary: "Pais apostolicos, apologistas, nicenos, controversias doutrinarias e recepcao patristica.",
+    categories: ["church_history", "bible", "theology"],
+    keywords: ["patristica", "patristics", "pais da igreja", "pais apostolicos", "inacio", "ireneu", "atanasio", "agostinho", "crisostomo"],
+    instructions: [
+      "Diferencie testemunho historico, desenvolvimento doutrinario e autoridade canonica do texto biblico.",
+      "Apresente os pais da igreja por periodo, contribuicao principal, controversia enfrentada e limite historico."
+    ]
+  },
+  {
     id: "systematic_theology",
     label: "Teologia Sistematica",
     summary: "Doutrinas centrais, apologetica, escolas teologicas e comparacao entre tradicoes.",
@@ -99,6 +110,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "study_bibles_resources",
+    label: "Biblias de Estudo & Recursos",
+    summary: "Biblias de estudo, referencias cruzadas, atlas, comentarios introdutorios e uso responsavel de notas.",
+    categories: ["bible", "theology", "church_history"],
+    keywords: ["biblia de estudo", "bible de estudo", "nota de estudo", "atlas biblico", "atlas biblico", "comentario biblico", "thompson", "genebra", "esv study bible"],
+    instructions: [
+      "Explique diferenca entre traducao biblica, notas editoriais, comentario pastoral e recurso academico.",
+      "Ao comparar biblias de estudo, destaque linha editorial, publico, forcas, limites e risco de dependencia das notas."
+    ]
+  },
+  {
     id: "biblical_archaeology",
     label: "Arqueologia Biblica",
     summary: "Achados arqueologicos, inscricoes, geografia e limites da evidencia material.",
@@ -110,6 +132,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "biblical_geography_kingdoms",
+    label: "Geografia Biblica, Mapas & Reinos",
+    summary: "Regioes, reinos, rotas, provincias, exilios, fronteiras e leitura geografica da narrativa biblica.",
+    categories: ["biblical_history", "biblical_archaeology", "bible"],
+    keywords: ["mapa biblico", "mapa biblico", "geografia biblica", "reinos biblicos", "israel", "juda", "assiria", "babilonia", "persia", "galileia", "judeia"],
+    instructions: [
+      "Organize por periodo, territorio, reinos, potencias imperiais e relevancia para a leitura do texto.",
+      "Explique mapa e geografia como ferramenta de interpretacao historica, nao como prova automatica de uma conclusao teologica."
+    ]
+  },
+  {
     id: "homiletics_preaching",
     label: "Pregacao & Homiletica",
     summary: "Estrutura de sermão, aplicação fiel ao texto, retórica pastoral e responsabilidade expositiva.",
@@ -118,6 +151,17 @@ export const BIBLE_STUDY_MODULES = [
     instructions: [
       "Diferencie exegese do texto, estrutura homilética e aplicação pastoral.",
       "Evite transformar inferência fraca em autoridade de púlpito."
+    ]
+  },
+  {
+    id: "protestant_preaching_traditions",
+    label: "Tradicoes Protestantes de Pregacao",
+    summary: "Pregacao expositiva, puritana, reformada, evangelica, avivada e seus pregadores de referencia.",
+    categories: ["preaching", "church_history", "pastoral_theology", "bible"],
+    keywords: ["pregadores protestantes", "sermoes protestantes", "sermoes cristaos", "pregacao expositiva", "spurgeon", "lloyd jones", "stott", "calvino", "lutero"],
+    instructions: [
+      "Apresente correntes de pregacao, nomes de referencia, estilo homiletico, pontos fortes e riscos pastorais.",
+      "Nao transforme respeito historico por um pregador em autoridade infalivel; submeta sermoes e tradicoes ao texto biblico."
     ]
   },
   {

@@ -419,6 +419,16 @@ const MODULE_SUBMODULES = {
       ]
     },
     {
+      id: "gps_guidance_telematics",
+      label: "GPS, RTK & Telemetria",
+      summary: "Piloto automatico, barra de luz, RTK, rastreio, rotas de maquina e leitura de telemetria.",
+      keywords: ["gps agricola", "gps agricola", "rtk", "piloto automatico", "autosteer", "barra de luz", "telematica", "telemetria"],
+      instructions: [
+        "Explique precisao de sinal, calibracao, cobertura, falha operacional e valor real para a operacao.",
+        "Diferencie mapa bonito de telemetria confiavel para decisao agronomica e logistica."
+      ]
+    },
+    {
       id: "irrigation_water",
       label: "Irrigacao & Agua",
       summary: "Lâmina, déficit, manejo de água, clima e risco operacional.",
@@ -456,6 +466,16 @@ const MODULE_SUBMODULES = {
       instructions: [
         "Una sensores, dados de máquina, telemetria e decisão de rota ou velocidade.",
         "Explique ganho operacional, qualidade do dado e necessidade de calibração."
+      ]
+    },
+    {
+      id: "precision_harvest_logistics",
+      label: "Colheita de Precisao & Logistica",
+      summary: "Ordem de talhoes, perdas, armazenagem, transporte, fila de descarga e governanca operacional.",
+      keywords: ["colheita de precisao", "colheita de precisão", "ordem de talhoes", "fila de descarga", "armazenagem", "transporte de graos", "perdas na colheita"],
+      instructions: [
+        "Integre clima, capacidade de maquina, qualidade do grao, armazenagem e transporte no mesmo plano.",
+        "Ao falar de colheita de precisao, una monitor, perda, umidade, fila logistica e decisao por talhao."
       ]
     },
     {
@@ -925,13 +945,14 @@ export const DOMAIN_MODULES = {
   agribusiness: {
     id: "agribusiness",
     label: "Agronegocio",
-    summary: "Solo, satelite, GPS, plantio, clima, colheita organizada, automacao agro e diagnostico operacional.",
-    keywords: ["agro", "agronegocio", "solo", "plantio", "colheita", "gps", "satelite", "fazenda", "clima", "previsao do tempo"],
+    summary: "Solo, satelite, GPS, RTK, plantio, clima, colheita organizada, colheita de precisao, automacao agro e diagnostico operacional.",
+    keywords: ["agro", "agronegocio", "solo", "plantio", "colheita", "gps", "rtk", "satelite", "fazenda", "clima", "previsao do tempo", "telemetria"],
     submodules: MODULE_SUBMODULES.agribusiness,
     instructions: [
       "Foque em diagnostico pratico, observacao de campo, monitoramento, produtividade e risco operacional.",
       "Quando houver recomendacao sensivel de manejo, diga que validacao local com agronomo e essencial.",
-      "Una clima, operacao, tecnologia, logistica de colheita e decisao economica sempre que fizer sentido."
+      "Una clima, operacao, tecnologia, logistica de colheita e decisao economica sempre que fizer sentido.",
+      "Quando o tema for agricultura digital, conecte GPS, RTK, piloto automatico, telemetria, mapa de produtividade e validacao em campo."
     ]
   },
   finance: {

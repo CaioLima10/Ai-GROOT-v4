@@ -203,7 +203,7 @@
               <span class="chat-badge" id="chatUploadsBadge">Uploads básicos</span>
             </div>
             <p class="chat-head-copy">
-              Chat premium com streaming, anexos, exportacao e modos especialistas. Use <code>/image --style editorial --ratio 16:9</code> para gerar imagens com mais controle, e <code>/pdf</code>, <code>/docx</code>, <code>/xlsx</code>, <code>/pptx</code> ou <code>/svg</code> para gerar arquivos nativos.
+              Chat premium com streaming, anexos, exportacao e modos especialistas. O GIOM agora destaca codigos, tabelas, timelines, versos e documentos dentro da conversa. Use <code>/image --style editorial --ratio 16:9</code> para gerar imagens com mais controle, e <code>/pdf</code>, <code>/docx</code>, <code>/xlsx</code>, <code>/pptx</code> ou <code>/svg</code> para gerar arquivos nativos.
             </p>
           </div>
 
@@ -214,7 +214,7 @@
           <section class="composer-wrap" id="composerWrap">
             <div class="file-preview hidden" id="filePreview"></div>
 
-            <div class="composer-shell">
+            <div class="composer-shell" id="composerShell">
               <input id="fileInput" type="file" class="hidden" accept="image/*,.pdf,.zip,.docx,.xlsx,.pptx,.txt,.md,.svg,.json,.jsonl,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.php,.rb,.html,.css,.xml,.yml,.yaml,.log,.tsv,.csv,.sql">
 
               <textarea id="msg" rows="1"
@@ -239,11 +239,19 @@
                   <span class="composer-support-pill">Texto, código, PDF, ZIP, Office, imagem e documentos nativos</span>
                 </div>
 
-                <button class="send-btn" id="sendBtn" type="button" title="Enviar">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 2 11 13" />
-                    <path d="M22 2 15 22 11 13 2 9 22 2Z" />
-                  </svg>
+                <button class="send-btn" id="sendBtn" type="button" title="Enviar" aria-live="polite">
+                  <span class="send-btn-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 2 11 13" />
+                      <path d="M22 2 15 22 11 13 2 9 22 2Z" />
+                    </svg>
+                  </span>
+                  <span class="send-btn-loader" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+                  <span class="send-btn-status">Enviar</span>
                 </button>
               </div>
             </div>

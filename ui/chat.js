@@ -31,6 +31,13 @@ const VIEW_META = {
   settings: { title: "Configurações", eyebrow: "Preferências" }
 }
 
+const WORKING_STATUS_MAP = {
+  default: ["Processando", "Verificando", "Aplicando", "Trabalhando", "Quase lá"],
+  image: ["Esboçando", "Renderizando", "Refinando", "Finalizando", "Quase lá"],
+  document: ["Montando documento", "Formatando", "Aplicando estrutura", "Preparando prévia", "Quase lá"],
+  upload: ["Lendo anexo", "Verificando arquivo", "Extraindo contexto", "Trabalhando na resposta", "Quase lá"]
+}
+
 const elements = {
   appShell: document.getElementById("appShell"),
   body: document.body,
@@ -61,6 +68,7 @@ const elements = {
   chatView: document.getElementById("view-chat"),
   chat: document.getElementById("chat"),
   chatInner: document.getElementById("chatStreamInner"),
+  composerShell: document.getElementById("composerShell"),
   chatProfileBadge: document.getElementById("chatProfileBadge"),
   chatModulesBadge: document.getElementById("chatModulesBadge"),
   chatResearchBadge: document.getElementById("chatResearchBadge"),
@@ -140,6 +148,9 @@ const state = {
   pendingFile: null,
   pendingFileUrl: null,
   isSending: false,
+  workingStatusTimer: null,
+  workingStatusIndex: 0,
+  currentWorkingMode: "default",
   speechRecognition: null,
   isRecording: false,
   speechBaseText: ""
@@ -224,6 +235,36 @@ function bindEvents() {
   elements.voiceBtn?.addEventListener("click", toggleVoiceInput)
 
   elements.chat?.addEventListener("click", async (event) => {
+    const messageActionButton = event.target.closest("[data-message-action]")
+    if (messageActionButton) {
+      await handleMessageAction(messageActionButton)
+      return
+    }
+
+    const documentToggle = event.target.closest("[data-document-toggle]")
+    if (documentToggle) {
+      toggleDocumentPreview(documentToggle.dataset.documentToggle || "")
+      return
+    }
+
+    const fillButton = event.target.closest("[data-fill]")
+    if (fillButton) {
+      fillComposer(decodeURIComponent(fillButton.dataset.fill || ""))
+      showToast("Conteúdo levado para o editor.", "success")
+      return
+    }
+
+    const downloadTextButton = event.target.closest("[data-download-text]")
+    if (downloadTextButton) {
+      downloadTextContent(
+        decodeURIComponent(downloadTextButton.dataset.downloadText || ""),
+        downloadTextButton.dataset.fileName || "giom-snippet.txt",
+        downloadTextButton.dataset.mimeType || "text/plain;charset=utf-8"
+      )
+      showToast("Arquivo preparado para download.", "success")
+      return
+    }
+
     const copyButton = event.target.closest("[data-copy]")
     if (!copyButton) return
     await copyText(decodeURIComponent(copyButton.dataset.copy || ""))
@@ -1097,7 +1138,10 @@ function getPreferencesKey() {
 }
 
 function loadChatHistory() {
-  state.chatHistory = readJson(getHistoryKey(), [])
+  const stored = readJson(getHistoryKey(), [])
+  state.chatHistory = Array.isArray(stored)
+    ? stored.map((message) => normalizeChatMessage(message))
+    : []
 }
 
 function saveChatHistory() {
@@ -1110,7 +1154,10 @@ function saveChatHistory() {
         : null,
       documentDataUrl: message.documentDataUrl && message.documentDataUrl.length < 180_000
         ? message.documentDataUrl
-        : null
+        : null,
+      documentPreviewText: message.documentPreviewText && message.documentPreviewText.length < 90_000
+        ? message.documentPreviewText
+        : ""
     }))
   )
 }
@@ -1131,9 +1178,27 @@ function getChatContentNode() {
   return elements.chatInner || elements.chat
 }
 
+function normalizeChatMessage(message = {}) {
+  return {
+    id: message.id || crypto.randomUUID(),
+    role: message.role || "assistant",
+    content: String(message.content || ""),
+    createdAt: message.createdAt || new Date().toISOString(),
+    isError: Boolean(message.isError),
+    requestId: message.requestId || null,
+    imageDataUrl: message.imageDataUrl || null,
+    mimeType: message.mimeType || null,
+    documentDataUrl: message.documentDataUrl || null,
+    documentFileName: message.documentFileName || null,
+    documentMimeType: message.documentMimeType || null,
+    documentFormat: message.documentFormat || null,
+    documentPreviewText: message.documentPreviewText || ""
+  }
+}
+
 function addMessageToHistory(role, content, meta = {}) {
   state.chatHistory.push({
-    id: crypto.randomUUID(),
+    id: meta.id || crypto.randomUUID(),
     role,
     content,
     createdAt: new Date().toISOString(),
@@ -1144,7 +1209,8 @@ function addMessageToHistory(role, content, meta = {}) {
     documentDataUrl: meta.documentDataUrl || null,
     documentFileName: meta.documentFileName || null,
     documentMimeType: meta.documentMimeType || null,
-    documentFormat: meta.documentFormat || null
+    documentFormat: meta.documentFormat || null,
+    documentPreviewText: meta.documentPreviewText || ""
   })
   saveChatHistory()
 }
@@ -1156,6 +1222,9 @@ function buildDocumentNode(message = {}) {
 
   const wrap = document.createElement("div")
   wrap.className = "message-document"
+
+  const summary = document.createElement("div")
+  summary.className = "message-document-summary"
 
   const icon = document.createElement("div")
   icon.className = "message-document-icon"
@@ -1170,6 +1239,36 @@ function buildDocumentNode(message = {}) {
   const meta = document.createElement("span")
   meta.textContent = message.documentMimeType || "application/octet-stream"
 
+  const toolbar = document.createElement("div")
+  toolbar.className = "message-document-toolbar"
+
+  const previewId = `document-preview-${message.id || crypto.randomUUID()}`
+  if (canPreviewDocument(message)) {
+    const toggle = document.createElement("button")
+    toggle.type = "button"
+    toggle.className = "message-document-button"
+    toggle.dataset.documentToggle = previewId
+    toggle.dataset.openLabel = "Ocultar prévia"
+    toggle.dataset.closedLabel = "Ver prévia"
+    toggle.setAttribute("aria-expanded", "false")
+    toggle.textContent = "Ver prévia"
+    toolbar.appendChild(toggle)
+
+    const copyPreview = document.createElement("button")
+    copyPreview.type = "button"
+    copyPreview.className = "message-document-button"
+    copyPreview.dataset.copy = encodeURIComponent(message.documentPreviewText)
+    copyPreview.textContent = "Copiar prévia"
+    toolbar.appendChild(copyPreview)
+
+    const editPreview = document.createElement("button")
+    editPreview.type = "button"
+    editPreview.className = "message-document-button"
+    editPreview.dataset.fill = encodeURIComponent(message.documentPreviewText)
+    editPreview.textContent = "Editar"
+    toolbar.appendChild(editPreview)
+  }
+
   const action = document.createElement("a")
   action.className = "message-document-action"
   action.href = message.documentDataUrl
@@ -1178,11 +1277,101 @@ function buildDocumentNode(message = {}) {
 
   copy.appendChild(title)
   copy.appendChild(meta)
-  wrap.appendChild(icon)
-  wrap.appendChild(copy)
-  wrap.appendChild(action)
+  summary.appendChild(icon)
+  summary.appendChild(copy)
+
+  if (toolbar.childElementCount > 0) {
+    toolbar.appendChild(action)
+    wrap.appendChild(summary)
+    wrap.appendChild(toolbar)
+  } else {
+    wrap.appendChild(summary)
+    wrap.appendChild(action)
+  }
+
+  if (canPreviewDocument(message)) {
+    const preview = document.createElement("div")
+    preview.id = previewId
+    preview.className = "message-document-preview hidden"
+    preview.innerHTML = formatMessage(message.documentPreviewText)
+    wrap.appendChild(preview)
+  }
 
   return wrap
+}
+
+function buildMediaNode(message = {}) {
+  if (!message.imageDataUrl) {
+    return null
+  }
+
+  const media = document.createElement("figure")
+  media.className = "message-media"
+
+  const image = document.createElement("img")
+  image.src = message.imageDataUrl
+  image.alt = message.content || "Imagem gerada pelo GIOM"
+  media.appendChild(image)
+
+  const toolbar = document.createElement("div")
+  toolbar.className = "message-media-toolbar"
+
+  const open = document.createElement("a")
+  open.href = message.imageDataUrl
+  open.target = "_blank"
+  open.rel = "noreferrer"
+  open.className = "message-document-button"
+  open.textContent = "Abrir"
+
+  const download = document.createElement("a")
+  download.href = message.imageDataUrl
+  download.download = buildDownloadFileName(message, message.mimeType || "image/png")
+  download.className = "message-document-action"
+  download.textContent = "Baixar imagem"
+
+  toolbar.appendChild(open)
+  toolbar.appendChild(download)
+  media.appendChild(toolbar)
+
+  return media
+}
+
+function buildMessageActions(message = {}) {
+  const actions = document.createElement("div")
+  actions.className = "message-actions"
+
+  const sourceText = message.documentPreviewText || message.content || ""
+  const messageId = message.id || ""
+
+  actions.appendChild(
+    buildMessageActionButton("Copiar", "copy", messageId)
+  )
+
+  actions.appendChild(
+    buildMessageActionButton(message.role === "user" ? "Editar" : "Levar ao editor", "fill", messageId)
+  )
+
+  actions.appendChild(
+    buildMessageActionButton("Baixar txt", "download", messageId)
+  )
+
+  if (message.role === "assistant" && sourceText) {
+    actions.appendChild(
+      buildMessageActionButton("Usar como prompt", "prompt", messageId)
+    )
+  }
+
+  return actions
+}
+
+function buildMessageActionButton(label, action, messageId) {
+  const button = document.createElement("button")
+  button.type = "button"
+  button.className = "message-action-btn"
+  button.dataset.messageAction = action
+  button.dataset.messageId = messageId
+  button.textContent = label
+  return button
 }
 
 function renderChatHistory() {
@@ -1199,6 +1388,7 @@ function renderChatHistory() {
 function buildMessageNode(message) {
   const node = document.createElement("article")
   node.className = `message ${message.role}`
+  node.dataset.messageId = message.id || ""
 
   const avatar = document.createElement("div")
   avatar.className = "message-avatar"
@@ -1211,17 +1401,7 @@ function buildMessageNode(message) {
   meta.className = "message-meta"
   meta.textContent = `${message.role === "user" ? "Você" : "GIOM"} • ${formatTime(message.createdAt)}`
 
-  let media = null
-  if (message.imageDataUrl) {
-    media = document.createElement("div")
-    media.className = "message-media"
-
-    const image = document.createElement("img")
-    image.src = message.imageDataUrl
-    image.alt = message.content || "Imagem gerada pelo GIOM"
-
-    media.appendChild(image)
-  }
+  const media = buildMediaNode(message)
 
   const text = document.createElement("div")
   text.className = "message-text"
@@ -1240,13 +1420,14 @@ function buildMessageNode(message) {
     body.appendChild(documentNode)
   }
   body.appendChild(text)
+  body.appendChild(buildMessageActions(message))
   node.appendChild(avatar)
   node.appendChild(body)
 
   return node
 }
 
-function appendThinkingMessage() {
+function appendThinkingMessage(mode = "default") {
   const node = document.createElement("article")
   node.className = "message assistant"
 
@@ -1260,7 +1441,7 @@ function appendThinkingMessage() {
     <div class="message-meta">GIOM • pensando</div>
     <div class="message-text">
       <div class="thinking-bubble">
-        <span>Processando</span>
+        <span class="thinking-status">Processando</span>
         <div class="leaf-loader">
           <span></span>
           <span></span>
@@ -1273,51 +1454,38 @@ function appendThinkingMessage() {
   node.appendChild(avatar)
   node.appendChild(body)
   getChatContentNode().appendChild(node)
+  startWorkingState(node, mode)
   scrollChatToBottom()
   return node
 }
 
 function replaceThinkingMessage(node, content, isError = false, metaExtras = {}) {
-  const meta = node.querySelector(".message-meta")
-  const text = node.querySelector(".message-text")
-  if (meta) {
-    meta.textContent = `GIOM • ${formatTime(new Date().toISOString())}`
-  }
-  if (metaExtras.imageDataUrl) {
-    const existingMedia = node.querySelector(".message-media")
-    if (!existingMedia) {
-      const media = document.createElement("div")
-      media.className = "message-media"
-
-      const image = document.createElement("img")
-      image.src = metaExtras.imageDataUrl
-      image.alt = content || "Imagem gerada pelo GIOM"
-
-      media.appendChild(image)
-      node.querySelector(".message-body")?.insertBefore(media, text)
-    }
-  }
-  if (metaExtras.documentDataUrl && metaExtras.documentFileName) {
-    const existingDocument = node.querySelector(".message-document")
-    if (!existingDocument) {
-      const documentNode = buildDocumentNode(metaExtras)
-      if (documentNode) {
-        node.querySelector(".message-body")?.insertBefore(documentNode, text)
-      }
-    }
-  }
-  if (text) {
-    text.innerHTML = formatMessage(content)
-  }
-  if (isError) {
-    node.querySelector(".message-body").style.borderColor = "rgba(255, 139, 139, 0.26)"
-  }
+  stopWorkingState()
+  const replacement = buildMessageNode(normalizeChatMessage({
+    id: metaExtras.id || crypto.randomUUID(),
+    role: "assistant",
+    content,
+    createdAt: new Date().toISOString(),
+    isError,
+    requestId: metaExtras.requestId || null,
+    imageDataUrl: metaExtras.imageDataUrl || null,
+    mimeType: metaExtras.mimeType || null,
+    documentDataUrl: metaExtras.documentDataUrl || null,
+    documentFileName: metaExtras.documentFileName || null,
+    documentMimeType: metaExtras.documentMimeType || null,
+    documentFormat: metaExtras.documentFormat || null,
+    documentPreviewText: metaExtras.documentPreviewText || ""
+  }))
+  node.replaceWith(replacement)
   scrollChatToBottom()
+  return replacement
 }
 
 function updateThinkingMessage(node, content, status = "respondendo") {
   const meta = node.querySelector(".message-meta")
   const text = node.querySelector(".message-text")
+  stopWorkingState(false)
+  setSendButtonWorking(true, "Respondendo")
   if (meta) {
     meta.textContent = `GIOM • ${status}`
   }
@@ -1325,6 +1493,149 @@ function updateThinkingMessage(node, content, status = "respondendo") {
     text.innerHTML = `<p>${escapeHtml(String(content || "")).replace(/\n/g, "<br>")}</p>`
   }
   scrollChatToBottom()
+}
+
+function startWorkingState(node, mode = "default") {
+  stopWorkingState(false)
+  state.currentWorkingMode = mode
+  state.workingStatusIndex = 0
+  const statuses = WORKING_STATUS_MAP[mode] || WORKING_STATUS_MAP.default
+  updateThinkingStatus(node, statuses[0])
+  setSendButtonWorking(true, statuses[0])
+
+  state.workingStatusTimer = window.setInterval(() => {
+    state.workingStatusIndex = (state.workingStatusIndex + 1) % statuses.length
+    const label = statuses[state.workingStatusIndex]
+    updateThinkingStatus(node, label)
+    setSendButtonWorking(true, label)
+  }, 1650)
+}
+
+function stopWorkingState(resetSendButton = true) {
+  if (state.workingStatusTimer) {
+    window.clearInterval(state.workingStatusTimer)
+    state.workingStatusTimer = null
+  }
+
+  if (resetSendButton) {
+    setSendButtonWorking(false)
+  }
+}
+
+function updateThinkingStatus(node, label) {
+  const status = node?.querySelector(".thinking-status")
+  if (status) {
+    status.textContent = label
+  }
+}
+
+function setSendButtonWorking(isWorking, label = "Enviar") {
+  if (!elements.sendBtn) return
+  elements.sendBtn.classList.toggle("is-working", Boolean(isWorking))
+  elements.composerShell?.classList.toggle("is-working", Boolean(isWorking))
+  const statusLabel = elements.sendBtn.querySelector(".send-btn-status")
+  if (statusLabel) {
+    statusLabel.textContent = isWorking ? label : "Enviar"
+  }
+}
+
+function findMessageById(messageId = "") {
+  return state.chatHistory.find((message) => message.id === messageId) || null
+}
+
+async function handleMessageAction(button) {
+  const action = button.dataset.messageAction || ""
+  const message = findMessageById(button.dataset.messageId || "")
+  if (!message) return
+
+  const sourceText = message.documentPreviewText || message.content || ""
+  if (!sourceText && action !== "download") return
+
+  if (action === "copy") {
+    await copyText(sourceText)
+    showToast("Conteúdo copiado.", "success")
+    return
+  }
+
+  if (action === "fill" || action === "prompt") {
+    fillComposer(sourceText)
+    showToast(action === "prompt" ? "Conteúdo enviado como prompt base." : "Conteúdo levado para o editor.", "success")
+    return
+  }
+
+  if (action === "download") {
+    downloadTextContent(
+      sourceText,
+      buildDownloadFileName(message, "text/plain"),
+      "text/plain;charset=utf-8"
+    )
+    showToast("Arquivo preparado para download.", "success")
+  }
+}
+
+function toggleDocumentPreview(previewId = "") {
+  if (!previewId) return
+  const preview = document.getElementById(previewId)
+  if (!preview) return
+
+  const willOpen = preview.classList.contains("hidden")
+  preview.classList.toggle("hidden", !willOpen)
+
+  document.querySelectorAll(`[data-document-toggle="${previewId}"]`).forEach((button) => {
+    button.setAttribute("aria-expanded", String(willOpen))
+    button.textContent = willOpen
+      ? (button.dataset.openLabel || "Ocultar prévia")
+      : (button.dataset.closedLabel || "Ver prévia")
+  })
+
+  if (willOpen) {
+    scrollChatToBottom()
+  }
+}
+
+function fillComposer(text = "") {
+  elements.textarea.value = String(text || "").trim()
+  autoResizeTextarea()
+  syncChatMode()
+  elements.textarea.focus()
+}
+
+function downloadTextContent(text = "", fileName = "giom-snippet.txt", mimeType = "text/plain;charset=utf-8") {
+  const blob = new Blob([String(text || "")], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+function canPreviewDocument(message = {}) {
+  return Boolean(String(message.documentPreviewText || "").trim())
+}
+
+function buildDownloadFileName(message = {}, mimeType = "text/plain") {
+  if (message.documentFileName) {
+    return message.documentFileName
+  }
+
+  const base = String(
+    message.role === "user"
+      ? (message.content || "pergunta")
+      : (message.documentPreviewText || message.content || "resposta")
+  )
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 48)
+
+  const extension = mimeType.startsWith("image/")
+    ? (mimeType.split("/")[1] || "png")
+    : "txt"
+
+  return `${base || "giom-export"}.${extension}`
 }
 
 function syncChatMode() {
@@ -1355,6 +1666,10 @@ function disableComposer(disabled) {
   elements.attachBtn.disabled = disabled
   elements.voiceBtn.disabled = disabled
   elements.textarea.disabled = disabled
+  elements.composerShell?.classList.toggle("is-working", Boolean(disabled))
+  if (!disabled) {
+    stopWorkingState()
+  }
 }
 
 async function sendMessage() {
@@ -1367,6 +1682,7 @@ async function sendMessage() {
   const imageMode = Boolean(imageCommand)
   const documentCommand = parseDocumentCommand(rawText)
   const documentMode = Boolean(documentCommand)
+  const workingMode = imageMode ? "image" : (documentMode ? "document" : (file ? "upload" : "default"))
   const userDisplayText = buildUserDisplayText(rawText, file)
 
   setView("chat")
@@ -1392,7 +1708,7 @@ async function sendMessage() {
       : (file ? "Enviando anexo e consultando a IA..." : "Consultando a IA...")
   )
 
-  const thinking = appendThinkingMessage()
+  const thinking = appendThinkingMessage(workingMode)
 
   try {
     if (imageMode && file) {
@@ -1422,6 +1738,7 @@ async function sendMessage() {
 
     if (imageMode) {
       const generated = await requestImageGeneration(question, requestContext, imageCommand)
+      const assistantId = crypto.randomUUID()
       const appliedControls = generated.payload?.controls || {}
       const caption = [
         `Imagem gerada para: ${question}`,
@@ -1430,9 +1747,13 @@ async function sendMessage() {
         appliedControls.width && appliedControls.height ? `Tamanho alvo: ${appliedControls.width}x${appliedControls.height}.` : null
       ].filter(Boolean).join("\n\n")
       replaceThinkingMessage(thinking, caption, false, {
-        imageDataUrl: generated.imageDataUrl
+        id: assistantId,
+        requestId: generated.payload?.requestId || null,
+        imageDataUrl: generated.imageDataUrl,
+        mimeType: generated.mimeType
       })
       addMessageToHistory("assistant", caption, {
+        id: assistantId,
         requestId: generated.payload?.requestId || null,
         imageDataUrl: generated.imageDataUrl,
         mimeType: generated.mimeType
@@ -1444,6 +1765,7 @@ async function sendMessage() {
 
     if (documentMode) {
       const generated = await requestDocumentGeneration(question, documentCommand.format, requestContext)
+      const assistantId = crypto.randomUUID()
       const caption = [
         `Documento ${generated.fileName} pronto.`,
         `Formato: ${generated.format.toUpperCase()}.`,
@@ -1451,17 +1773,22 @@ async function sendMessage() {
       ].filter(Boolean).join("\n\n")
 
       replaceThinkingMessage(thinking, caption, false, {
-        documentDataUrl: generated.documentDataUrl,
-        documentFileName: generated.fileName,
-        documentMimeType: generated.mimeType,
-        documentFormat: generated.format
-      })
-      addMessageToHistory("assistant", caption, {
+        id: assistantId,
         requestId: generated.payload?.requestId || null,
         documentDataUrl: generated.documentDataUrl,
         documentFileName: generated.fileName,
         documentMimeType: generated.mimeType,
-        documentFormat: generated.format
+        documentFormat: generated.format,
+        documentPreviewText: generated.previewText
+      })
+      addMessageToHistory("assistant", caption, {
+        id: assistantId,
+        requestId: generated.payload?.requestId || null,
+        documentDataUrl: generated.documentDataUrl,
+        documentFileName: generated.fileName,
+        documentMimeType: generated.mimeType,
+        documentFormat: generated.format,
+        documentPreviewText: generated.previewText
       })
       await persistConversationRemote(userDisplayText, caption, generated.payload, null)
       setComposerStatus(`Documento ${generated.fileName} gerado.`)
@@ -1474,8 +1801,15 @@ async function sendMessage() {
       setComposerStatus("Transmitindo resposta...")
     })
 
-    replaceThinkingMessage(thinking, answer)
-    addMessageToHistory("assistant", answer, { requestId: payload.requestId })
+    const assistantId = crypto.randomUUID()
+    replaceThinkingMessage(thinking, answer, false, {
+      id: assistantId,
+      requestId: payload.requestId || null
+    })
+    addMessageToHistory("assistant", answer, {
+      id: assistantId,
+      requestId: payload.requestId
+    })
     await persistConversationRemote(userDisplayText, answer, payload, upload)
 
     if (upload?.name) {
@@ -1485,8 +1819,14 @@ async function sendMessage() {
     }
   } catch (error) {
     const fallback = "Não consegui processar a solicitação agora. Verifique backend, login ou anexo e tente novamente."
-    replaceThinkingMessage(thinking, fallback, true)
-    addMessageToHistory("assistant", fallback, { isError: true })
+    const assistantId = crypto.randomUUID()
+    replaceThinkingMessage(thinking, fallback, true, {
+      id: assistantId
+    })
+    addMessageToHistory("assistant", fallback, {
+      id: assistantId,
+      isError: true
+    })
     setComposerStatus(error.message || "Falha ao enviar.", true)
   } finally {
     disableComposer(false)
@@ -2211,29 +2551,17 @@ function buildLocalConversationPairs() {
 
 function formatMessage(text) {
   const codeBlocks = []
-  let html = escapeHtml(String(text || "")).replace(/\r\n/g, "\n")
+  let source = String(text || "").replace(/\r\n/g, "\n")
 
-  html = html.replace(/```([a-z0-9_-]+)?\n?([\s\S]*?)```/gi, (_match, language = "texto", code = "") => {
-    const copyValue = encodeURIComponent(code)
-    const block = `
-      <div class="code-block">
-        <div class="code-header">
-          <span>${escapeHtml(language)}</span>
-          <button class="copy-btn" type="button" data-copy="${copyValue}">Copiar</button>
-        </div>
-        <pre><code>${escapeHtml(code.trim())}</code></pre>
-      </div>
-    `
+  source = source.replace(/```([a-z0-9_-]+)?\n?([\s\S]*?)```/gi, (_match, language = "texto", code = "") => {
     const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`
-    codeBlocks.push(block)
+    codeBlocks.push(renderCodeBlock(language, code))
     return placeholder
   })
 
-  html = html.replace(/`([^`\n]+)`/g, "<code class=\"inline-code\">$1</code>")
-  html = html.replace(/(https?:\/\/[^\s<]+)/g, "<a href=\"$1\" target=\"_blank\" rel=\"noreferrer\">$1</a>")
-  html = html
+  let html = source
     .split(/\n{2,}/)
-    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`)
+    .map((segment) => formatMessageSegment(segment.trim()))
     .join("")
 
   codeBlocks.forEach((block, index) => {
@@ -2241,6 +2569,244 @@ function formatMessage(text) {
   })
 
   return html
+}
+
+function renderCodeBlock(language = "texto", code = "") {
+  const copyValue = encodeURIComponent(String(code || ""))
+  return `
+    <div class="code-block">
+      <div class="code-header">
+        <span>${escapeHtml(language)}</span>
+        <button class="copy-btn" type="button" data-copy="${copyValue}">Copiar</button>
+      </div>
+      <pre><code>${escapeHtml(String(code || "").trim())}</code></pre>
+    </div>
+  `
+}
+
+function formatMessageSegment(segment = "") {
+  if (!segment) return ""
+  if (/^__CODE_BLOCK_\d+__$/.test(segment)) {
+    return segment
+  }
+
+  const table = parseMarkdownTableSegment(segment)
+  if (table) {
+    return renderMarkdownTableSegment(table, segment)
+  }
+
+  const timeline = parseTimelineSegment(segment)
+  if (timeline) {
+    return renderTimelineSegment(timeline)
+  }
+
+  const steps = parseStepListSegment(segment)
+  if (steps) {
+    return renderStepListSegment(steps)
+  }
+
+  const bullets = parseBulletListSegment(segment)
+  if (bullets) {
+    return renderBulletListSegment(bullets)
+  }
+
+  const verse = parseVerseSegment(segment)
+  if (verse) {
+    return renderVerseSegment(verse)
+  }
+
+  return `<p>${formatInlineContent(segment).replace(/\n/g, "<br>")}</p>`
+}
+
+function formatInlineContent(content = "") {
+  let html = escapeHtml(String(content || ""))
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+  html = html.replace(/(^|[\s(])_([^_\n]+)_/g, "$1<em>$2</em>")
+  html = html.replace(/`([^`\n]+)`/g, "<code class=\"inline-code\">$1</code>")
+  html = html.replace(/(https?:\/\/[^\s<]+)/g, "<a href=\"$1\" target=\"_blank\" rel=\"noreferrer\">$1</a>")
+  return html
+}
+
+function parseMarkdownTableSegment(segment = "") {
+  const lines = String(segment || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 3) return null
+  if (!lines[0].includes("|")) return null
+  if (!/^\|?[\s:-|]+\|?$/.test(lines[1])) return null
+
+  const splitRow = (row) => row
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim())
+
+  const headers = splitRow(lines[0])
+  const rows = lines.slice(2).map(splitRow).filter((row) => row.some(Boolean))
+
+  if (!headers.length || !rows.length) return null
+
+  return { headers, rows }
+}
+
+function renderMarkdownTableSegment(table, source = "") {
+  const csv = [
+    table.headers.join(","),
+    ...table.rows.map((row) => row.join(","))
+  ].join("\n")
+
+  return `
+    <div class="rich-table-wrap">
+      <div class="rich-table-toolbar">
+        <span>Tabela</span>
+        <div class="rich-table-actions">
+          <button class="copy-btn" type="button" data-copy="${encodeURIComponent(source)}">Copiar</button>
+          <button class="copy-btn" type="button" data-download-text="${encodeURIComponent(csv)}" data-file-name="giom-table.csv" data-mime-type="text/csv;charset=utf-8">Baixar CSV</button>
+        </div>
+      </div>
+      <table class="rich-table">
+        <thead>
+          <tr>${table.headers.map((header) => `<th>${formatInlineContent(header)}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${table.rows.map((row) => `
+            <tr>${table.headers.map((_header, index) => `<td>${formatInlineContent(row[index] || "")}</td>`).join("")}</tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
+function parseTimelineSegment(segment = "") {
+  const lines = String(segment || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 2) return null
+
+  const items = lines.map((line) => {
+    const clean = line.replace(/^[-*]\s*/, "")
+    const match = clean.match(/^(.{2,40}?)(?:\s*[-–:]\s*)(.+)$/)
+    if (!match) return null
+    return {
+      label: match[1].trim(),
+      detail: match[2].trim()
+    }
+  }).filter(Boolean)
+
+  if (items.length < 2) return null
+
+  const hasTimeSignal = items.some((item) => /(\d|a\.?\s?c\.?|d\.?\s?c\.?|século|periodo|período|reino|era|exilio|êxodo|tempo)/i.test(`${item.label} ${item.detail}`))
+  return hasTimeSignal ? items : null
+}
+
+function renderTimelineSegment(items = []) {
+  return `
+    <div class="timeline-block">
+      ${items.map((item) => `
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <strong>${formatInlineContent(item.label)}</strong>
+            <p>${formatInlineContent(item.detail)}</p>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `
+}
+
+function parseStepListSegment(segment = "") {
+  const lines = String(segment || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length || !lines.every((line) => /^\d+\.\s+/.test(line))) {
+    return null
+  }
+
+  return lines.map((line) => line.replace(/^\d+\.\s+/, "").trim()).filter(Boolean)
+}
+
+function renderStepListSegment(items = []) {
+  return `
+    <div class="steps-block">
+      ${items.map((item, index) => `
+        <div class="step-card">
+          <span class="step-index">${index + 1}</span>
+          <div class="step-copy">${formatInlineContent(item)}</div>
+        </div>
+      `).join("")}
+    </div>
+  `
+}
+
+function parseBulletListSegment(segment = "") {
+  const lines = String(segment || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length || !lines.every((line) => /^[-*]\s+/.test(line))) {
+    return null
+  }
+
+  return lines.map((line) => line.replace(/^[-*]\s+/, "").trim()).filter(Boolean)
+}
+
+function renderBulletListSegment(items = []) {
+  return `
+    <div class="steps-block bullets">
+      ${items.map((item) => `
+        <div class="step-card">
+          <span class="step-index bullet"></span>
+          <div class="step-copy">${formatInlineContent(item)}</div>
+        </div>
+      `).join("")}
+    </div>
+  `
+}
+
+function parseVerseSegment(segment = "") {
+  const lines = String(segment || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length) return null
+
+  const match = lines[0].match(/^((?:[1-3]\s*)?[A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+){0,4}\s+\d+:\d+(?:-\d+)?)(?:\s*\(([^)]+)\))?(?:\s*[-–:]\s*(.+))?$/)
+  if (!match) return null
+
+  const reference = match[1].trim()
+  const version = (match[2] || "").trim()
+  const inlineText = (match[3] || "").trim()
+  const verseText = [inlineText, ...lines.slice(1)].filter(Boolean).join(" ").trim()
+
+  if (!verseText) return null
+
+  return { reference, version, text: verseText }
+}
+
+function renderVerseSegment(verse) {
+  const copyValue = encodeURIComponent(`${verse.reference}${verse.version ? ` (${verse.version})` : ""} — ${verse.text}`)
+  return `
+    <div class="verse-card">
+      <div class="verse-card-head">
+        <div>
+          <span class="verse-reference">${formatInlineContent(verse.reference)}</span>
+          ${verse.version ? `<small class="verse-version">${formatInlineContent(verse.version)}</small>` : ""}
+        </div>
+        <button class="copy-btn" type="button" data-copy="${copyValue}">Copiar verso</button>
+      </div>
+      <p class="verse-text">${formatInlineContent(verse.text)}</p>
+    </div>
+  `
 }
 
 function extractAnswer(payload) {

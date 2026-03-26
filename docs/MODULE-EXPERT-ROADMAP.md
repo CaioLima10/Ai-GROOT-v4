@@ -11,12 +11,16 @@ Este documento organiza as frentes para levar cada modulo do GIOM a um nivel mai
   - Hebraico, Aramaico & Grego
   - Historia Biblica
   - Igreja Primitiva & Historia da Igreja
+  - Patristica & Pais da Igreja
   - Teologia Sistematica
   - Tecnicas de Estudo & Hermeneutica
   - Teologia Biblica
   - Devocional & Discipulado
+  - Biblias de Estudo & Recursos
   - Arqueologia Biblica
+  - Geografia Biblica, Mapas & Reinos
   - Pregacao & Homiletica
+  - Tradicoes Protestantes de Pregacao
   - Angeologia & Demonologia
   - Profecia & Escatologia
   - Etica Biblica
@@ -25,6 +29,7 @@ Este documento organiza as frentes para levar cada modulo do GIOM a um nivel mai
 - Direcao academica:
   - separar texto, contexto, tradicao, escola teologica e aplicacao pastoral
   - aumentar rigor em exegese, historia da igreja, arqueologia e divergencias confessionais
+  - cobrir pais da igreja, biblias de estudo, geografia biblica, mapas e tradicoes protestantes de pregacao
 
 ### Dev & Bugs
 - Subareas principais:
@@ -99,14 +104,17 @@ Este documento organiza as frentes para levar cada modulo do GIOM a um nivel mai
   - Solo & Fertilidade
   - Sanidade & Protecao de Culturas
   - Agricultura de Precisao
+  - GPS, RTK & Telemetria
   - Irrigacao & Agua
   - Previsao de Tempo & Clima
   - Colheita Organizada
   - Colheita Inteligente
+  - Colheita de Precisao & Logistica
   - Agro GPTs & Automacao
   - Gestao Agro
 - Direcao academica:
   - combinar dado de campo, operacao, risco e validacao local
+  - unir GPS, RTK, piloto automatico, clima, armazenagem, transporte e validacao por talhao
 
 ### Financeiro
 - Subareas principais:

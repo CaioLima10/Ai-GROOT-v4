@@ -723,6 +723,74 @@ export const EVALUATION_PACKS = {
             }
           }
         ]
+      },
+      {
+        id: "bible_church_fathers_scenario",
+        label: "Church fathers and patristics",
+        summary: "Checa se o GIOM organiza pais da igreja com utilidade historica e limite protestante responsavel.",
+        tags: ["comprehension", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Organize um panorama dos pais da igreja para um protestante, separando periodos, nomes centrais, valor historico, desenvolvimento doutrinario e limites de autoridade.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "history_archaeology", "research"],
+              bibleStudyModules: ["church_history", "patristics_church_fathers", "systematic_theology"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "bible_study_bibles_scenario",
+        label: "Study Bibles and resources",
+        summary: "Checa comparacao responsavel entre biblias de estudo e recursos protestantes.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Compare biblias de estudo protestantes e recursos como Genebra, Thompson, ESV Study Bible e linhas pentecostais, explicando objetivo, publico, riscos e como usar sem depender das notas.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["study_bibles_resources", "study_methods_hermeneutics", "homiletics_preaching"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "bible_geography_kingdoms_scenario",
+        label: "Biblical geography and kingdoms",
+        summary: "Checa leitura por mapas, reinos, periodos e potencias imperiais.",
+        tags: ["comprehension", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Monte um mapa mental dos periodos biblicos e reinos, de patriarcas ao Novo Testamento, explicando Israel e Juda, Assiria, Babilonia, Persia e as regioes de Galileia, Samaria e Judeia.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "history_archaeology", "research"],
+              bibleStudyModules: ["biblical_periods", "biblical_history", "biblical_geography_kingdoms", "biblical_archaeology"],
+              promptPacks: ["gemini_research", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "bible_protestant_preaching_scenario",
+        label: "Protestant preaching traditions",
+        summary: "Checa tradicoes de pregacao protestante, pregadores de referencia e criterio biblico para sermoes.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Explique tradicoes protestantes de pregacao, cite pregadores muito respeitados, mostre o que aprender com eles e como manter o texto biblico acima do estilo do pregador.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["protestant_preaching_traditions", "homiletics_preaching", "pastoral_theology"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
       }
     ]
   },
@@ -852,6 +920,38 @@ export const EVALUATION_PACKS = {
         turns: [
           {
             question: "Estruture uma colheita organizada e inteligente para soja usando previsao do tempo, mapa de produtividade, telemetria e ordem de talhoes.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "research"],
+              promptPacks: ["agro_field_intelligence", "gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "agribusiness_gps_telematics_scenario",
+        label: "GPS RTK and telematics",
+        summary: "Checa GPS agricola, RTK, piloto automatico, telemetria e validacao de campo.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Monte um plano tecnico para GPS agricola, RTK, piloto automatico e telemetria numa fazenda de graos, separando calibracao, indicadores, riscos e validacao por talhao.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "research", "math_science"],
+              promptPacks: ["agro_field_intelligence", "scientific_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "agribusiness_precision_harvest_logistics_scenario",
+        label: "Precision harvest logistics",
+        summary: "Checa colheita de precisao, armazenagem, fila de descarga, transporte e clima no mesmo plano.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estruture uma colheita de precisao para soja unindo ordem de talhoes, monitor de perdas, previsao do tempo, armazenagem, secagem, transporte e fila de descarga.",
             context: {
               assistantProfile: "expert_polymath",
               activeModules: ["agribusiness", "research"],

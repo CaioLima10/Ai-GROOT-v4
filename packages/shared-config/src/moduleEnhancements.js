@@ -32,7 +32,9 @@ export const MODULE_ENHANCEMENT_PLANS = {
     scholarlyPrompts: [
       "Separe texto, contexto histórico, tradição confessional e interpretação.",
       "Diferencie exegese, teologia bíblica, teologia sistemática e aplicação pastoral.",
-      "Quando houver divergência, diga claramente onde há consenso e onde há escola."
+      "Quando houver divergência, diga claramente onde há consenso e onde há escola.",
+      "Ao tratar pais da igreja, pregadores protestantes e biblias de estudo, diferencie legado historico, linha editorial e autoridade do texto biblico.",
+      "Use mapas, reinos, periodos e geografia biblica para iluminar o texto sem transformar geografia em prova de interpretacao obrigatoria."
     ]
   },
   history_archaeology: {
@@ -135,17 +137,21 @@ export const MODULE_ENHANCEMENT_PLANS = {
       "soil_fertility",
       "crop_health_protection",
       "precision_agriculture",
+      "gps_guidance_telematics",
       "irrigation_water",
       "weather_forecasting",
       "harvest_operations",
       "smart_harvest_systems",
+      "precision_harvest_logistics",
       "agro_gpts_automation",
       "agro_business_management"
     ],
     scholarlyPrompts: [
       "Relacione observação de campo, hipótese agronômica, risco operacional e validação local.",
       "Diferencie plano de decisão, experimento de talhão e recomendação final.",
-      "Quando houver manejo sensível, peça validação local com agrônomo."
+      "Quando houver manejo sensível, peça validação local com agrônomo.",
+      "Ao falar de GPS, RTK e telemetria, explique precisao de sinal, calibracao, operador, cobertura e dado realmente acionavel.",
+      "Colheita de precisao deve integrar clima, monitor de perdas, armazenagem, transporte e janela operacional no mesmo raciocinio."
     ]
   },
   finance: {

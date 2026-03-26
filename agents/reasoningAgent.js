@@ -643,8 +643,8 @@ export class ReasoningAgent {
 
   isPrecisionAgQuestion(task = '') {
     const input = String(task || '')
-    return /\b(agricultura de precisao|agricultura de precisão|soja|taxa variavel|taxa variável|telemetria)\b/i.test(input)
-      && /\b(satelite|satélite|sensor|gps)\b/i.test(input)
+    return /\b(agricultura de precisao|agricultura de precisão|taxa variavel|taxa variável|zona de manejo)\b/i.test(input)
+      && /\b(satelite|satélite|sensor|sensores|gps|telemetria)\b/i.test(input)
   }
 
   buildPrecisionAgResponse() {
@@ -731,6 +731,76 @@ export class ReasoningAgent {
     ].join('\n')
   }
 
+  isChurchFathersQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(pais da igreja|patristica|patristics|pais apostolicos|ireneu|inacio|atanasio|agostinho|crisostomo)\b/i.test(input)
+  }
+
+  buildChurchFathersResponse() {
+    return [
+      'Panorama academico de patristica e pais da igreja:',
+      '1. Periodizacao util: pais apostolicos e testemunhas subapostolicas, apologistas do segundo seculo, pais nicenos e pos-nicenos.',
+      '2. Nomes-chave: Inacio de Antioquia e Policarpo ajudam na leitura da igreja primitiva; Justino Martir e Ireneu ajudam em apologetica e contra heresias; Atanasio marca a controversia ariana; Agostinho pesa em pecado, graca e cidade de Deus; Crisostomo e referencia em exposicao e pregacao.',
+      '3. Valor para o meio protestante: eles sao testemunhas historicas importantes da recepcao antiga do texto, da vida liturgica e do desenvolvimento doutrinario, mas nao substituem a autoridade canonica da Escritura.',
+      '4. Uso responsavel: ler pais da igreja por periodo, controversia, genero textual e contexto, distinguindo comentario biblico, polemica doutrinaria, espiritualidade e politica eclesiastica.',
+      '5. Limite metodologico: nem toda atribuicao textual antiga e segura, nem todo consenso patristrico existe; por isso convem separar fonte primaria, recepcao posterior e sintese teologica moderna.',
+      '6. Aplicacao madura: use patristrica para iluminar historia da interpretacao, linguagem doutrinaria e cuidado pastoral, sempre submetendo a conclusao final ao texto biblico bem lido.'
+    ].join('\n')
+  }
+
+  isStudyBibleResourcesQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(biblia de estudo|study bible|thompson|genebra|esv study bible|macarthur|pentecostal|nvi de estudo|comentario biblico)\b/i.test(input)
+  }
+
+  buildStudyBibleResourcesResponse() {
+    return [
+      'Guia profissional para biblias de estudo e recursos:',
+      '1. Regra principal: traducoes e biblias de estudo nao sao a mesma coisa; a traducao entrega o texto base, enquanto as notas refletem uma linha editorial e teologica.',
+      '2. Uso por objetivo: Biblia de Estudo de Genebra e recursos reformados ajudam em teologia historica; Thompson ajuda em cadeias tematicas; ESV Study Bible e conhecida por notas extensas; linhas pentecostais ajudam em aplicacao ministerial e temas carismaticos; NVI de estudo e boa porta de entrada para leitura ampla.',
+      '3. Risco comum: o leitor pode tratar nota editorial como se fosse o proprio texto biblico; por isso vale sempre voltar ao contexto, comparar traducoes e consultar mais de uma tradicao quando o tema for controverso.',
+      '4. Kit academico equilibrado: texto biblico confiavel, referencias cruzadas, atlas biblico, dicionario biblico, introducao historico-literaria e ao menos um comentario serio por livro.',
+      '5. Criterio protestante maduro: escolher recurso pela fidelidade textual, clareza, publico, profundidade e transparencia confessional, nao so pela fama do editor.',
+      '6. Regra pratica: a melhor biblia de estudo e a que ajuda voce a enxergar melhor o texto sem sequestrar a leitura do texto.'
+    ].join('\n')
+  }
+
+  isBiblicalGeographyQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(mapa biblico|mapa biblico|geografia biblica|reinos biblicos|reino do norte|reino do sul|judeia|galileia|samaria|assiria|babilonia|persia|israel e juda|israel e jud[aá])\b/i.test(input)
+  }
+
+  buildBiblicalGeographyResponse() {
+    return [
+      'Mapa mental de geografia biblica, reinos e periodos:',
+      '1. Patriarcas e exodo: a narrativa comeca entre Mesopotamia, Canaa, Egito e deserto; isso organiza chamado de Abraao, peregrinacao, escravidao, libertacao e entrada na terra.',
+      '2. Monarquia unida: Saul, Davi e Salomao formam um reino unificado com Jerusalem como centro politico e cultual antes da divisao.',
+      '3. Israel e Juda: depois de Salomao, o reino se divide; Israel fica ao norte com capital em Samaria, e Juda ao sul com Jerusalem. Essa divisao e essencial para ler profetas, alianças e crise politica.',
+      '4. Assiria, Babilonia e Persia: a Assiria domina e derruba o reino do norte; a Babilonia derruba Juda e leva ao exilio; a Persia permite retorno parcial, reorganizacao da cidade e reconstrucao do templo no periodo do segundo templo.',
+      '5. Regioes do Novo Testamento: Galileia marca grande parte do ministerio de Jesus, Samaria ajuda a ler tensoes etnicas e religiosas, e Judeia concentra Jerusalem, templo, lideranca judaica e eventos da paixao.',
+      '6. Linha cronologica curta: patriarcas, exodo, conquista, juizes, monarquia unida, reinos divididos, exilio, retorno persa, periodo intertestamentario e dominio romano no Novo Testamento.',
+      '7. Mapa de reinos e circulacao: Decapolis, Asia Menor, Macedonia, Acaia e Roma ampliam o quadro geografico para a expansao apostolica e a logica missionaria do cristianismo nascente.',
+      '8. Transparencia metodologica: aqui eu separei dado textual, reconstrucao historica e sintese pedagogica. Datas exatas, fronteiras e alguns nomes de periodo podem variar entre atlas e historiadores; por isso o mapa serve para iluminar o texto e nao para vender certeza alem da evidencia.'
+    ].join('\n')
+  }
+
+  isProtestantPreachingQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(pregadores protestantes|pregadores muito respeitados|sermoes protestantes|sermoes crist[aã]os|tradicoes protestantes de pregacao|tradicoes protestantes de prega[cç][aã]o|pregacao expositiva|spurgeon|lloyd jones|stott|lutero|calvino)\b/i.test(input)
+  }
+
+  buildProtestantPreachingResponse() {
+    return [
+      'Panorama protestante de pregacao e sermoes:',
+      '1. Trilhas historicas: reformadores como Lutero e Calvino reforcam centralidade do texto; puritanos aprofundam aplicacao da verdade ao coracao; avivamentos valorizam urgencia evangelistica; tradicao expositiva moderna enfatiza estrutura fiel ao texto.',
+      '2. Nomes frequentemente respeitados no meio protestante: Lutero, Calvino, John Owen, Jonathan Edwards, Charles Spurgeon, Martyn Lloyd-Jones, John Stott e outros expositores influentes em suas correntes.',
+      '3. Como usar esse legado: estudar estrutura do sermao, tratamento do texto, clareza doutrinaria, aplicacao pastoral e equilibrio entre explicacao e exortacao.',
+      '4. Cuidado necessario: nenhum pregador vira norma final; a avaliacao madura compara o sermao com o texto biblico, o contexto historico e a fidelidade pastoral.',
+      '5. Esboco seguro de sermo protestante: contexto, ideia central, movimentos do texto, conexao com o evangelho, aplicacoes legitimas e chamada pastoral sem manipular emocao.',
+      '6. Regra de ouro: sermoes fortes nascem de exegese honesta, teologia clara e aplicacao pastoral fiel, nao apenas de retorica.'
+    ].join('\n')
+  }
+
   isHarvestIntelligenceQuestion(task = '') {
     const input = String(task || '')
     return /\b(colheita|colheitadeira|mapa de produtividade|telemetria|talh[aã]o)\b/i.test(input)
@@ -747,6 +817,43 @@ export class ReasoningAgent {
       '5. Validacao: acompanhe perda por talhao, tempo parado, consumo, qualidade do grao, fila logistica e diferenca entre planejamento e execucao real.',
       '6. Decisao profissional: clima, maquina, armazenagem, transporte e destino do produto precisam entrar juntos na mesma conversa operacional.',
       '7. Regra executiva: ordem de talhoes deve seguir risco economico e janela climatica, nao apenas conveniencia de deslocamento.'
+    ].join('\n')
+  }
+
+  isAgroGpsTelematicsQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(gps|rtk|piloto automatico|autosteer|barra de luz)\b/i.test(input)
+      && /\b(agro|agric|colheita|plantio|pulverizacao|talh[aã]o|fazenda)\b/i.test(input)
+  }
+
+  buildAgroGpsTelematicsResponse() {
+    return [
+      'Plano tecnico para GPS, RTK e telemetria no agro:',
+      '1. Base operacional: definir onde GPS simples basta e onde RTK ou correcao mais precisa e necessaria, como plantio, pulverizacao fina, trafego controlado e colheita com piloto automatico.',
+      '2. Maquina e calibracao: alinhar receptor, piloto automatico, largura real de implemento, offset, velocidade e operador antes de confiar no dado.',
+      '3. Telemetria util: horas produtivas, parada, consumo, rota, sobreposicao, falha, velocidade e janela climatica devem virar decisao de campo, nao apenas painel bonito.',
+      '4. Riscos: sinal ruim, calibracao frouxa, dado sem limpeza, operador mal treinado, automacao acima da capacidade da equipe e decisao sem validacao local.',
+      '5. Validacao: medir sobreposicao, falha, economia de insumo, tempo de operacao, consumo por hectare, qualidade de aplicacao e ganho logistico por talhao.',
+      '6. Regra executiva: GPS e telemetria so viram produtividade quando entram num ciclo disciplinado de calibracao, treinamento, leitura de anomalia e correcao rapida.'
+    ].join('\n')
+  }
+
+  isPrecisionHarvestLogisticsQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(colheita de precis[aã]o|colheita de precisão|ordem de talh[oõ]es|fila de descarga|armazenagem|transporte de graos|perda na colheita)\b/i.test(input)
+  }
+
+  buildPrecisionHarvestLogisticsResponse() {
+    return [
+      'Plano de colheita organizada, inteligente e de precisao com logistica integrada:',
+      '1. Ordem de talhoes: priorize por maturacao, umidade, previsao do tempo, risco de quebra, risco de acamamento, historico de produtividade e distancia ate a estrutura de armazenagem.',
+      '2. Colheita organizada: transforme essa prioridade em fila real de operacao, com janela por talhao, colheitadeira designada, transbordo, caminhao, destino e capacidade de recepcao ja reservados.',
+      '3. Colheita inteligente: use previsao do tempo, telemetria, velocidade, tempo parado, fila, mapa de produtividade e monitor de perdas para corrigir a execucao no mesmo dia e nao so depois da safra.',
+      '4. Colheita de precisao: calibre monitor de produtividade, sensor de umidade, largura de corte, velocidade, perdas de plataforma e perdas de separacao antes de usar o dado para decisao economica.',
+      '5. Armazenagem, secagem e transporte: alinhe recebimento, secagem, transporte, rota de caminhao, tempo de descarga e ocupacao dos silos para que o gargalo logistico nao destrua o ganho de campo.',
+      '6. Indicadores-chave: perda por talhao, perda por plataforma, perda por separacao, horas produtivas, tempo parado, fila de descarga, consumo por hectare, qualidade do grao e diferenca entre planejado e executado.',
+      '7. Riscos operacionais: colher fora da janela climatica, escolher talhao por conveniencia de deslocamento, confiar em monitor descalibrado, saturar secagem/armazenagem e deixar transporte sem sincronismo.',
+      '8. Validacao profissional: fechar o dia comparando previsao, ordem planejada, execucao real, perdas, fila, secagem, transporte e retorno por talhao. Colheita de precisao nao e so mapa; e governanca operacional completa.'
     ].join('\n')
   }
 
@@ -1355,12 +1462,36 @@ export class ReasoningAgent {
       return this.buildProgrammingStackResponse()
     }
 
+    if (this.isChurchFathersQuestion(task)) {
+      return this.buildChurchFathersResponse()
+    }
+
+    if (this.isStudyBibleResourcesQuestion(task)) {
+      return this.buildStudyBibleResourcesResponse()
+    }
+
+    if (this.isBiblicalGeographyQuestion(task)) {
+      return this.buildBiblicalGeographyResponse()
+    }
+
+    if (this.isProtestantPreachingQuestion(task)) {
+      return this.buildProtestantPreachingResponse()
+    }
+
     if (this.isBibleStudyMethodQuestion(task)) {
       return this.buildBibleStudyMethodResponse()
     }
 
+    if (this.isPrecisionHarvestLogisticsQuestion(task)) {
+      return this.buildPrecisionHarvestLogisticsResponse()
+    }
+
     if (this.isHarvestIntelligenceQuestion(task)) {
       return this.buildHarvestIntelligenceResponse()
+    }
+
+    if (this.isAgroGpsTelematicsQuestion(task)) {
+      return this.buildAgroGpsTelematicsResponse()
     }
 
     if (this.isFintechOperationsQuestion(task)) {
