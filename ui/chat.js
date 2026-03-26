@@ -11,8 +11,10 @@ const DEFAULT_PREFERENCES = {
   safetyLevel: "standard",
   ageGroup: "adult",
   theme: localStorage.getItem("groot-theme") || "dracula",
-  assistantProfile: "adaptive_teacher",
-  activeModules: ["developer"],
+  assistantProfile: "auto",
+  assistantProfileLocked: false,
+  activeModules: [],
+  moduleSelectionLocked: false,
   bibleStudyModules: [],
   promptPacks: [
     "chatgpt_reasoning",
@@ -562,7 +564,51 @@ function renderPlanView() {
 
 function hydratePreferences() {
   const stored = readJson(getPreferencesKey(), DEFAULT_PREFERENCES)
-  state.preferences = { ...DEFAULT_PREFERENCES, ...stored }
+  state.preferences = normalizePreferences({ ...DEFAULT_PREFERENCES, ...stored })
+}
+
+function normalizePreferences(preferences = {}) {
+  const normalized = { ...preferences }
+
+  if (!normalized.assistantProfile || normalized.assistantProfile === "adaptive_teacher") {
+    if (normalized.assistantProfileLocked !== true) {
+      normalized.assistantProfile = "auto"
+      normalized.assistantProfileLocked = false
+    }
+  }
+
+  if (normalized.assistantProfile === "auto") {
+    normalized.assistantProfileLocked = false
+  }
+
+  if (!Array.isArray(normalized.activeModules)) {
+    normalized.activeModules = []
+  }
+
+  const isLegacyDefaultDeveloperOnly =
+    normalized.moduleSelectionLocked !== true &&
+    normalized.activeModules.length === 1 &&
+    normalized.activeModules[0] === "developer"
+
+  if (isLegacyDefaultDeveloperOnly) {
+    normalized.activeModules = []
+    normalized.moduleSelectionLocked = false
+  }
+
+  return normalized
+}
+
+function labelForAssistantProfile(profileId = "auto") {
+  const labels = {
+    auto: "Auto Adaptativo",
+    adaptive_teacher: "Professor Genial",
+    senior_engineer: "Senior Engineer",
+    concise_operator: "Objetivo Premium",
+    research_mentor: "Analista Pesquisador",
+    expert_polymath: "Polimata Profissional"
+  }
+
+  return labels[profileId] || "Auto Adaptativo"
 }
 
 function applyPreferencesToUI() {
@@ -618,12 +664,9 @@ function getSelectedPromptPacksFromUI() {
 }
 
 function getSelectedModulesFromUI() {
-  const modules = elements.moduleToggles
+  return elements.moduleToggles
     .filter((toggle) => toggle.checked)
     .map((toggle) => toggle.dataset.moduleToggle)
-
-  if (modules.length > 0) return modules
-  return [...DEFAULT_PREFERENCES.activeModules]
 }
 
 function getSelectedBibleStudyModulesFromUI() {
@@ -643,12 +686,19 @@ function syncBibleStudyControls(activeModules = []) {
 
 function updateProfileHint(activeModules = []) {
   if (!elements.profileSettingsHint) return
-  const profileName = elements.assistantProfileSelect?.selectedOptions?.[0]?.textContent || "Professor Genial"
+  const selectedProfile = elements.assistantProfileSelect?.value || DEFAULT_PREFERENCES.assistantProfile
+  const profileName = labelForAssistantProfile(selectedProfile)
   const bibleModules = getSelectedBibleStudyModulesFromUI()
   const bibleHint = activeModules.includes("bible") && bibleModules.length > 0
     ? ` Foco bíblico: ${bibleModules.join(", ")}.`
     : ""
-  elements.profileSettingsHint.textContent = `Perfil ativo: ${profileName}. Módulos: ${activeModules.join(", ") || "developer"}.${bibleHint}`
+  const profileHint = selectedProfile === "auto"
+    ? `Perfil em auto: o GIOM detecta a intenção e escolhe o melhor estilo de resposta.`
+    : `Perfil travado: ${profileName}.`
+  const modulesHint = activeModules.length > 0
+    ? `Módulos fixados: ${activeModules.join(", ")}.`
+    : "Módulos em auto: o GIOM ativa conhecimento por intenção e usa developer como fallback quando nada específico for detectado."
+  elements.profileSettingsHint.textContent = `${profileHint} ${modulesHint}${bibleHint}`
   refreshCapabilityUI()
 }
 
@@ -659,6 +709,8 @@ function updatePromptPackHint(activePromptPacks = []) {
 }
 
 async function savePreferences() {
+  const selectedAssistantProfile = elements.assistantProfileSelect.value
+  const selectedModules = getSelectedModulesFromUI()
   state.preferences = {
     verbosity: elements.verbositySelect.value,
     examples: elements.examplesToggle.checked,
@@ -666,9 +718,11 @@ async function savePreferences() {
     safetyLevel: elements.safetySelect.value,
     ageGroup: elements.ageGroupSelect.value,
     theme: elements.themeSelect.value,
-    assistantProfile: elements.assistantProfileSelect.value,
+    assistantProfile: selectedAssistantProfile,
+    assistantProfileLocked: selectedAssistantProfile !== "auto",
     promptPacks: getSelectedPromptPacksFromUI(),
-    activeModules: getSelectedModulesFromUI(),
+    activeModules: selectedModules,
+    moduleSelectionLocked: selectedModules.length > 0,
     bibleStudyModules: getSelectedBibleStudyModulesFromUI()
   }
 
@@ -840,7 +894,7 @@ async function syncRemotePreferences() {
     }
 
     if (data?.preferences) {
-      state.preferences = { ...DEFAULT_PREFERENCES, ...state.preferences, ...data.preferences }
+      state.preferences = normalizePreferences({ ...DEFAULT_PREFERENCES, ...state.preferences, ...data.preferences })
       writeJson(getPreferencesKey(), state.preferences)
     }
   } catch {
@@ -2061,9 +2115,9 @@ async function renderMemoryView() {
     `Tema: ${labelForTheme(state.preferences.theme)}`,
     `Segurança: ${state.preferences.safetyLevel === "strict" ? "Restrita" : "Padrão"}`,
     `Faixa etária: ${state.preferences.ageGroup === "minor" ? "13-17" : "18+"}`,
-    `Perfil da IA: ${state.preferences.assistantProfile || "adaptive_teacher"}`,
+    `Perfil da IA: ${labelForAssistantProfile(state.preferences.assistantProfile || "auto")}`,
     `Prompt packs: ${(state.preferences.promptPacks || DEFAULT_PREFERENCES.promptPacks).join(", ")}`,
-    `Módulos: ${(state.preferences.activeModules || DEFAULT_PREFERENCES.activeModules).join(", ")}`,
+    `Módulos: ${(state.preferences.activeModules || []).join(", ") || "auto por intenção"}`,
     `Foco bíblico: ${(state.preferences.bibleStudyModules || []).join(", ") || "nenhum"}`,
     `Autenticação: ${state.supabase ? "Supabase / OAuth" : "Local"}`,
     `Mensagens salvas: ${state.chatHistory.length}`

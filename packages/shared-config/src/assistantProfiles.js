@@ -1,4 +1,5 @@
 export const DEFAULT_ASSISTANT_PROFILE = "adaptive_teacher"
+export const AUTO_ASSISTANT_PROFILE = "auto"
 
 export const ASSISTANT_PROFILES = {
   adaptive_teacher: {
@@ -72,10 +73,80 @@ export function getAssistantProfile(profileId = DEFAULT_ASSISTANT_PROFILE) {
   return ASSISTANT_PROFILES[profileId] || ASSISTANT_PROFILES[DEFAULT_ASSISTANT_PROFILE]
 }
 
+export function inferAssistantProfile({
+  task = "",
+  activeModules = [],
+  context = {},
+  userStyle = "natural"
+} = {}) {
+  const normalized = String(task || "").toLowerCase()
+  const modules = new Set(Array.isArray(activeModules) ? activeModules : [])
+
+  const wantsConcise = context?.verbosity === "short" ||
+    /\b(curt[oa]?|objetiv[oa]?|diret[oa]?|uma frase|resuma|essencial|sem enrola[cç][aã]o)\b/i.test(normalized)
+  const wantsTeaching = context?.ageGroup === "minor" || userStyle === "beginner" ||
+    /\b(iniciante|junior|leigo|didatic|didátic|passo a passo|explique simples|ensine|para criancas|para crianças)\b/i.test(normalized)
+  const wantsResearch = /\b(compare|compar|analise|análise|evidenc|fonte|consenso|interpretac|hermeneut|teologi|histori|arqueolog|metodo|método|pesquisa|revis[aã]o|academi)\b/i.test(normalized)
+  const wantsEngineering = /\b(api|node|express|jwt|redis|sql|python|java|typescript|javascript|next|fastapi|spring|deploy|rollback|refator|debug|bug|ocr|upload|worker|fila|cache|observabilidade|teste|pipeline|rag|embedding|mlops|codigo|c[oó]digo)\b/i.test(normalized)
+  const wantsStrategic = /\b(estrateg|estratég|tradeoff|cenario|cenário|roadmap|visao geral|visão geral|interdisciplin|arquitetura|plano executivo|decisao profissional|decisão profissional)\b/i.test(normalized)
+
+  if (wantsTeaching) {
+    return "adaptive_teacher"
+  }
+
+  if (wantsConcise && !wantsEngineering && !wantsResearch) {
+    return "concise_operator"
+  }
+
+  if (
+    wantsEngineering ||
+    modules.has("developer") ||
+    modules.has("cybersecurity") ||
+    modules.has("data_ai_ml")
+  ) {
+    return "senior_engineer"
+  }
+
+  if (
+    wantsResearch ||
+    modules.has("research") ||
+    modules.has("bible") ||
+    modules.has("history_archaeology") ||
+    modules.has("law_policy")
+  ) {
+    return "research_mentor"
+  }
+
+  if (
+    wantsStrategic ||
+    modules.size >= 3 ||
+    modules.has("finance") ||
+    modules.has("agribusiness") ||
+    modules.has("math_science") ||
+    modules.has("medicine_health") ||
+    modules.has("operations_logistics")
+  ) {
+    return "expert_polymath"
+  }
+
+  if (wantsConcise) {
+    return "concise_operator"
+  }
+
+  return DEFAULT_ASSISTANT_PROFILE
+}
+
 export function listAssistantProfiles() {
-  return Object.values(ASSISTANT_PROFILES).map(profile => ({
-    id: profile.id,
-    label: profile.label,
-    summary: profile.summary
-  }))
+  return [
+    {
+      id: AUTO_ASSISTANT_PROFILE,
+      label: "Auto Adaptativo",
+      summary: "O GIOM identifica a intenção da pergunta e escolhe o perfil mais adequado."
+    },
+    ...Object.values(ASSISTANT_PROFILES).map(profile => ({
+      id: profile.id,
+      label: profile.label,
+      summary: profile.summary
+    }))
+  ]
 }

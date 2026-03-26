@@ -1571,7 +1571,7 @@ app.post("/generate/document", askLimiter, askSlowDown, async (req, res) => {
     const locale = String(req.body?.locale || "pt-BR")
     const title = sanitizeDocumentTitle(req.body?.title || "", "Documento GIOM")
     const activeModules = Array.isArray(req.body?.context?.activeModules) ? req.body.context.activeModules : []
-    const assistantProfile = String(req.body?.context?.assistantProfile || "expert_polymath")
+    const assistantProfile = String(req.body?.context?.assistantProfile || "auto")
 
     if (!requestedFormat) {
       return res.status(400).json({
@@ -1676,6 +1676,7 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       enhancedContext,
       userId
     } = await buildPreparedAskPayload(req, requestId)
+    const { promptPackage } = await buildStreamingPromptPackage(finalQuestion, enhancedContext)
 
     aiGateway.logger.info(requestId, 'REQUEST_STARTED', { 
       questionLength: question.length,
@@ -1695,11 +1696,11 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
     await grootMemoryConnector.saveConversation(userId, question, responseText, {
       provider: "standard_gateway",
       requestId,
-      assistantProfile: enhancedContext.assistantProfile || null,
-      activeModules: enhancedContext.activeModules || [],
-      domainSubmodules: enhancedContext.domainSubmodules || {},
-      bibleStudyModules: enhancedContext.bibleStudyModules || [],
-      promptPacks: enhancedContext.promptPacks || [],
+      assistantProfile: promptPackage.profileId || enhancedContext.assistantProfile || null,
+      activeModules: promptPackage.activeModules || enhancedContext.activeModules || [],
+      domainSubmodules: promptPackage.domainSubmodules || enhancedContext.domainSubmodules || {},
+      bibleStudyModules: promptPackage.bibleStudyModules || enhancedContext.bibleStudyModules || [],
+      promptPacks: promptPackage.promptPacks || enhancedContext.promptPacks || [],
       uploadName: enhancedContext.uploadName || null,
       uploadType: enhancedContext.uploadType || null
     })
@@ -1719,7 +1720,12 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       requestId,
       metadata: {
         processingTime: Date.now() - startTime,
-        version: '2.0.0'
+        version: '2.0.0',
+        assistantProfile: promptPackage.profileId,
+        requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
+        activeModules: promptPackage.activeModules,
+        domainSubmodules: promptPackage.domainSubmodules || {},
+        bibleStudyModules: promptPackage.bibleStudyModules || []
       }
     })
 
@@ -1799,7 +1805,12 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
 
     writeSSE(res, "meta", {
       requestId,
-      providerMode: process.env.GROOT_AI_PROVIDER || "auto"
+      providerMode: process.env.GROOT_AI_PROVIDER || "auto",
+      assistantProfile: promptPackage.profileId,
+      requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
+      activeModules: promptPackage.activeModules,
+      domainSubmodules: promptPackage.domainSubmodules || {},
+      bibleStudyModules: promptPackage.bibleStudyModules || []
     })
 
     await streamingGateway.askStreaming(
@@ -1848,7 +1859,12 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
           response: responseText,
           metadata: {
             processingTime: Date.now() - startTime,
-            provider: payload?.provider || "streaming_gateway"
+            provider: payload?.provider || "streaming_gateway",
+            assistantProfile: promptPackage.profileId,
+            requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
+            activeModules: promptPackage.activeModules,
+            domainSubmodules: promptPackage.domainSubmodules || {},
+            bibleStudyModules: promptPackage.bibleStudyModules || []
           }
         })
         res.end()

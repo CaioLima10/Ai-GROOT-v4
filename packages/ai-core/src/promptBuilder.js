@@ -1,4 +1,9 @@
-import { DEFAULT_ASSISTANT_PROFILE, getAssistantProfile } from "../../shared-config/src/assistantProfiles.js"
+import {
+  AUTO_ASSISTANT_PROFILE,
+  DEFAULT_ASSISTANT_PROFILE,
+  getAssistantProfile,
+  inferAssistantProfile
+} from "../../shared-config/src/assistantProfiles.js"
 import {
   AI_LEARNING_RULES,
   AI_OPERATING_PRINCIPLES,
@@ -228,14 +233,24 @@ function buildKnownFactsSummary(memoryContext = {}) {
 
 export function buildAssistantPrompt({ task = "", context = {}, memoryContext = {}, ragContext = {}, userStyle = "natural" }) {
   const storedPreferences = memoryContext?.userProfile || {}
-  const profileId = context.assistantProfile || storedPreferences.assistantProfile || DEFAULT_ASSISTANT_PROFILE
-  const profile = getAssistantProfile(profileId)
-
   const requestedModules = inferDomainModules(
     task,
     context.activeModules || storedPreferences.activeModules || DEFAULT_ACTIVE_MODULES
   )
   const activeModules = getDomainModules(requestedModules)
+  const requestedProfileId = context.assistantProfile || storedPreferences.assistantProfile || AUTO_ASSISTANT_PROFILE
+  const profileId = requestedProfileId === AUTO_ASSISTANT_PROFILE
+    ? inferAssistantProfile({
+        task,
+        activeModules: activeModules.map(module => module.id),
+        context: {
+          ...storedPreferences,
+          ...context
+        },
+        userStyle
+      })
+    : requestedProfileId || DEFAULT_ASSISTANT_PROFILE
+  const profile = getAssistantProfile(profileId)
   const domainSubmodules = buildDomainSubmoduleMap(task, activeModules, context, storedPreferences)
   const requestedBibleStudyModules = activeModules.some(module => module.id === "bible")
     ? inferBibleStudyModules(
@@ -363,6 +378,7 @@ REGRAS DE SAIDA:
 - Nao pareca robotico, pedante ou artificialmente empolgado.`
 
   return {
+    requestedProfileId,
     profileId,
     profile,
     activeModules: activeModules.map(module => module.id),

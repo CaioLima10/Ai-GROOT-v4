@@ -462,7 +462,12 @@ export class ReasoningAgent {
       && /\b(junior|iniciante|explique|exemplo simples)\b/i.test(input)
   }
 
-  buildJwtTeachingResponse() {
+  buildJwtTeachingResponse(task = '') {
+    const input = String(task || '')
+    if (/\b(uma unica frase|uma única frase|bem direta|sem floreio|objetiv[oa]?|curt[oa]?)\b/i.test(input)) {
+      return 'JWT e um token assinado que a API usa para identificar quem voce e nas proximas requisicoes sem guardar sessao completa no servidor.'
+    }
+
     return [
       'JWT explicado para um desenvolvedor junior:',
       '1. Ideia simples: JWT e como um cracha assinado que a API entrega depois do login para provar quem voce e nas proximas requisicoes.',
@@ -1279,7 +1284,7 @@ export class ReasoningAgent {
     }
 
     if (this.isJwtTeachingQuestion(task)) {
-      return this.buildJwtTeachingResponse()
+      return this.buildJwtTeachingResponse(task)
     }
 
     if (this.isDebugDiagnosticQuestion(task)) {

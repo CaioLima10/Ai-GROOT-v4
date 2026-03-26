@@ -572,6 +572,78 @@ export const EVALUATION_PACKS = {
       }
     ]
   },
+  auto_routing_adaptation: {
+    id: "auto_routing_adaptation",
+    label: "Auto Routing Adaptation",
+    summary: "Mede se o GIOM identifica a intencao do usuario e adapta sozinho perfil, modulo e foco sem depender de selecao manual.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "auto_route_coding",
+        label: "Auto route coding",
+        summary: "Checa se uma pergunta tecnica aciona postura de engenharia mesmo sem perfil fixado.",
+        tags: ["conversation", "coherence", "comprehension"],
+        turns: [
+          {
+            question: "Tenho erro 500 intermitente em API Node depois de ativar Redis e JWT. Monte um plano profissional com prioridade, logs, teste, rollback e verificacao.",
+            context: {
+              assistantProfile: "auto",
+              activeModules: [],
+              promptPacks: ["chatgpt_reasoning", "github_copilot_engineering", "codex_execution"]
+            }
+          }
+        ]
+      },
+      {
+        id: "auto_route_bible",
+        label: "Auto route bible",
+        summary: "Checa se uma pergunta biblica comparativa puxa leitura academica e hermeneutica sem configuracao manual.",
+        tags: ["conversation", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Compare Romanos 3 e Tiago 2 sobre fe e obras, separando exegese, contexto historico, tradicoes protestantes e catolicas e o que ainda e interpretacao.",
+            context: {
+              assistantProfile: "auto",
+              activeModules: [],
+              promptPacks: ["theological_scholarship", "academic_rigor", "gemini_research"]
+            }
+          }
+        ]
+      },
+      {
+        id: "auto_route_concise",
+        label: "Auto route concise",
+        summary: "Checa se o GIOM reduz a densidade quando o usuario pede objetividade extrema.",
+        tags: ["conversation", "comprehension"],
+        turns: [
+          {
+            question: "Explique JWT em uma unica frase, bem direta e sem floreio.",
+            context: {
+              assistantProfile: "auto",
+              activeModules: [],
+              promptPacks: ["chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "auto_route_polymath",
+        label: "Auto route polymath",
+        summary: "Checa sintese interdisciplinar quando a pergunta mistura operacao, produto e risco.",
+        tags: ["conversation", "coherence", "comprehension"],
+        turns: [
+          {
+            question: "Integre em um plano curto os impactos de UX, custo, seguranca, documentos e arquitetura para um chat com OCR, imagem e uploads sensiveis.",
+            context: {
+              assistantProfile: "auto",
+              activeModules: [],
+              promptPacks: ["chatgpt_reasoning", "gemini_research", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
+  },
   module_developer_expert: {
     id: "module_developer_expert",
     label: "Module Developer Expert",
