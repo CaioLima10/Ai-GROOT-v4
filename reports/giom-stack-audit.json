@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-26T03:55:05.849Z",
+  "generatedAt": "2026-03-26T04:19:02.716Z",
   "runtime": {
-    "serverUrl": "http://127.0.0.1:3469",
+    "serverUrl": "http://127.0.0.1:3569",
     "assistantName": "GIOM",
     "provider": "auto",
     "researchMode": "internal_only"
@@ -62,8 +62,8 @@
       "level": "expert"
     },
     "efficiency": {
-      "score": 0.93,
-      "percent": 93,
+      "score": 0.96,
+      "percent": 96,
       "level": "expert"
     },
     "conversation": {
@@ -82,8 +82,8 @@
       "level": "expert"
     },
     "intelligence": {
-      "score": 0.94,
-      "percent": 94,
+      "score": 0.95,
+      "percent": 95,
       "level": "expert"
     },
     "assertiveness": {
@@ -92,9 +92,9 @@
       "level": "expert"
     },
     "coding": {
-      "score": 0.9,
-      "percent": 90,
-      "level": "advanced"
+      "score": 0.94,
+      "percent": 94,
+      "level": "expert"
     },
     "documents": {
       "score": 0.94,
@@ -201,14 +201,14 @@
     },
     "coding_expert_workflows": {
       "label": "Coding Expert Workflows",
-      "score": 0.84,
-      "percent": 84,
-      "level": "advanced",
-      "status": "solid",
+      "score": 0.93,
+      "percent": 93,
+      "level": "expert",
+      "status": "excellent",
       "strengths": [
-        "Compreensao: 88%",
-        "Conversacao: 86%",
-        "Seguranca: 82%"
+        "Coerencia: 97%",
+        "Compreensao: 96%",
+        "Conversacao: 95%"
       ],
       "risks": []
     },
@@ -240,14 +240,14 @@
     },
     "module_bible_expert": {
       "label": "Module Bible Expert",
-      "score": 0.88,
-      "percent": 88,
-      "level": "advanced",
+      "score": 0.96,
+      "percent": 96,
+      "level": "expert",
       "status": "excellent",
       "strengths": [
-        "Transparencia: 96%",
-        "Compreensao: 92%",
-        "Conversacao: 83%"
+        "Coerencia: 97%",
+        "Compreensao: 96%",
+        "Transparencia: 96%"
       ],
       "risks": []
     },
@@ -279,14 +279,14 @@
     },
     "module_cybersecurity_expert": {
       "label": "Module Cybersecurity Expert",
-      "score": 0.95,
-      "percent": 95,
+      "score": 0.97,
+      "percent": 97,
       "level": "expert",
       "status": "excellent",
       "strengths": [
         "Seguranca: 100%",
-        "Transparencia: 96%",
-        "Coerencia: 94%"
+        "Coerencia: 97%",
+        "Compreensao: 96%"
       ],
       "risks": []
     },
@@ -305,14 +305,14 @@
     },
     "module_agribusiness_expert": {
       "label": "Module Agribusiness Expert",
-      "score": 0.87,
-      "percent": 87,
-      "level": "advanced",
+      "score": 0.96,
+      "percent": 96,
+      "level": "expert",
       "status": "excellent",
       "strengths": [
-        "Compreensao: 92%",
-        "Conversacao: 87%",
-        "Coerencia: 83%"
+        "Coerencia: 97%",
+        "Compreensao: 96%",
+        "Conversacao: 95%"
       ],
       "risks": []
     },
@@ -424,27 +424,27 @@
   "profiles": [
     {
       "id": "adaptive_teacher",
-      "percent": 86,
-      "score": 0.86,
-      "level": "advanced"
+      "percent": 96,
+      "score": 0.96,
+      "level": "expert"
     },
     {
       "id": "senior_engineer",
-      "percent": 86,
-      "score": 0.86,
-      "level": "advanced"
+      "percent": 96,
+      "score": 0.96,
+      "level": "expert"
     },
     {
       "id": "research_mentor",
-      "percent": 88,
-      "score": 0.88,
-      "level": "advanced"
+      "percent": 96,
+      "score": 0.96,
+      "level": "expert"
     },
     {
       "id": "expert_polymath",
-      "percent": 86,
-      "score": 0.86,
-      "level": "advanced"
+      "percent": 96,
+      "score": 0.96,
+      "level": "expert"
     }
   ],
   "modules": [
@@ -456,9 +456,9 @@
     },
     {
       "id": "bible",
-      "percent": 88,
-      "score": 0.88,
-      "level": "advanced"
+      "percent": 96,
+      "score": 0.96,
+      "level": "expert"
     },
     {
       "id": "history_archaeology",
@@ -474,8 +474,8 @@
     },
     {
       "id": "cybersecurity",
-      "percent": 95,
-      "score": 0.95,
+      "percent": 97,
+      "score": 0.97,
       "level": "expert"
     },
     {
@@ -486,9 +486,9 @@
     },
     {
       "id": "agribusiness",
-      "percent": 87,
-      "score": 0.87,
-      "level": "advanced"
+      "percent": 96,
+      "score": 0.96,
+      "level": "expert"
     },
     {
       "id": "finance",
@@ -564,8 +564,8 @@
     },
     "codex": {
       "label": "Codex",
-      "score": 0.86,
-      "percent": 86,
+      "score": 0.88,
+      "percent": 88,
       "level": "advanced",
       "notes": [
         "estimativa heuristica baseada em coding workflows, raciocinio tecnico e execucao",
@@ -574,8 +574,8 @@
     },
     "github_copilot": {
       "label": "GitHub Copilot",
-      "score": 0.84,
-      "percent": 84,
+      "score": 0.86,
+      "percent": 86,
       "level": "advanced",
       "notes": [
         "estimativa heuristica baseada em coding assistance e clareza operacional",

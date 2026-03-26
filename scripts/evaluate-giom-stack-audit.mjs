@@ -96,7 +96,15 @@ function findDimension(summary, dimensionId) {
 
 function findTurnScore(payload, scenarioId) {
   const turn = (payload?.turns || []).find((entry) => entry.scenarioId === scenarioId)
-  return roundScore(turn?.evaluation?.score || 0)
+  const dimensions = Array.isArray(turn?.evaluation?.dimensions)
+    ? turn.evaluation.dimensions.filter((dimension) => dimension.applicable !== false)
+    : []
+
+  if (dimensions.length === 0) {
+    return roundScore(turn?.evaluation?.score || 0)
+  }
+
+  return average(dimensions.map((dimension) => dimension.score || 0))
 }
 
 function collectCapabilityFlags(matrix = {}) {

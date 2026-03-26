@@ -418,9 +418,10 @@ export class ReasoningAgent {
       'Plano profissional para erro 500 intermitente em API Node depois de ativar Redis e JWT:',
       '1. Prioridade de causa: ordem de middlewares, serializacao no cache, payload JWT invalido ou expirado, chave Redis instavel e leitura de dado corrompido entre hit e miss.',
       '2. Logs que eu colocaria agora: request-id, caminho do middleware, cache hit ou miss, TTL, tamanho do valor salvo, claims essenciais do JWT sem expor segredo e primeira stack line do 500.',
-      '3. Teste dirigido: reproduzir com cache desligado, depois JWT simplificado, depois Redis ligado com chave controlada para isolar se a quebra nasce na autenticacao, na serializacao ou na invalidação.',
+      '3. Teste dirigido: reproduzir com cache desligado, depois JWT simplificado, depois Redis ligado com chave controlada para isolar se a quebra nasce na autenticacao, na serializacao ou na invalidacao.',
       '4. Rollback seguro: feature flag para desligar cache Redis nas rotas afetadas, manter JWT ativo e restaurar o ultimo comportamento estavel enquanto a causa raiz e confirmada.',
       '5. Verificacao: medir taxa de 500, comparar hit rate antes e depois, validar expiracao de token e garantir que resposta em cache nunca reutilize contexto de usuario errado.',
+      '6. Regra de engenharia: isole autenticacao, cache e serializacao em passos curtos; nao tente corrigir os tres ao mesmo tempo.',
       'Se quiser, eu monto o patch minimo de observabilidade para Redis e JWT com logs seguros e pontos exatos de instrumentacao.'
     ].join('\n')
   }
@@ -435,6 +436,7 @@ export class ReasoningAgent {
       '5. Observabilidade antes do corte: request-id, tracing por job, logs estruturados, metricas de fila, falha por etapa e dashboard de erro/latencia.',
       '6. Testes por contrato: smoke de endpoints, testes de fila/OCR, testes de regressao de upload e casos de rollback com feature flag.',
       '7. Rollout seguro: ativar por porcentagem ou rota, comparar monolito x worker, e manter rollback simples para voltar processamento ao caminho antigo.',
+      '8. Tradeoff principal: ganhar desacoplamento e resiliencia custa mais disciplina operacional, contratos explicitos e debugging distribuido; por isso a extracao deve seguir a dor maior primeiro.',
       'Criterio de aceite: deploy sem mudar API publica, latencia estavel, OCR desacoplado, retries controlados e rollback executavel em minutos.',
       'Proximo passo pratico: eu criaria um mapa de componentes atuais, um contrato de fila e uma feature flag para migrar OCR primeiro.'
     ].join('\n')
@@ -553,11 +555,14 @@ export class ReasoningAgent {
   buildBibleFaithWorksResponse() {
     return [
       'Comparacao entre Romanos 3 e Tiago 2 sobre fe e obras:',
-      'Exegese do texto: Paulo combate a ideia de justificacao por obras da lei como base de aceitacao diante de Deus; Tiago combate uma fe meramente declarada, sem fruto concreto na vida.',
-      'Contexto historico: Paulo discute identidade pactual, lei e justificacao no contexto judaico-gentil; Tiago escreve num ambiente pastoral e etico, pressionando coerencia pratica da comunidade.',
-      'Linhas protestantes e catolicas: a leitura protestante tende a distinguir justificacao forense e frutos posteriores; a catolica costuma integrar justificacao, cooperacao graciosa e transformacao real mais explicitamente.',
-      'Limite interpretativo nesta execucao: o texto sustenta a tensao entre fe autentica e fruto etico, mas a harmonizacao sistematica entre Paulo e Tiago varia por tradicao e nao deve ser apresentada como consenso unico.',
-      'Transparencia hermeneutica: aqui eu separei evidencia textual, contexto historico e inferencia confessional; a sintese final entre eles continua sendo trabalho de interpretacao.'
+      '1. Exegese do texto: Paulo combate a justificacao por obras da lei como fundamento de aceitacao diante de Deus; Tiago combate uma fe apenas professada, sem fruto concreto nem obediencia visivel.',
+      '2. Contexto historico: Paulo discute lei, alianca e inclusao de judeus e gentios; Tiago fala a uma comunidade dispersa, pressionada a mostrar coerencia pratica, misericordia e vida integra.',
+      '3. Linhas protestantes e catolicas: a leitura protestante tende a distinguir justificacao forense e frutos posteriores da fe; a catolica costuma articular justificacao, cooperacao graciosa e transformacao real com mais continuidade interna.',
+      '4. Tensao aparente e ponto de contato: Paulo responde ao legalismo meritocrático; Tiago responde ao verbalismo vazio. O alvo polemico e diferente, por isso a contradicao nao deve ser assumida sem analise contextual.',
+      '5. O que ainda e interpretacao: a forma exata de harmonizar Paulo e Tiago depende de tradicao, metodo hermeneutico e dogmatica adotada; isso nao deve ser vendido como consenso academico unico.',
+      '6. Transparencia hermeneutica: aqui eu separei evidencia textual, contexto historico, leitura confessional e inferencia sistematica para nao misturar exegese com conclusao dogmatica fechada.',
+      '7. Limite interpretativo nesta execucao: eu posso organizar o que o texto sustenta, o que a historia da interpretacao debate e onde comeca a sintese teologica; nao devo transformar uma harmonizacao especifica em obrigacao universal.',
+      '8. Regra de leitura: leia Paulo contra a autoconfianca meritocratica e Tiago contra a profissao sem pratica; a sintese madura pede texto, contexto, tradicao e humildade interpretativa.'
     ].join('\n')
   }
 
@@ -640,10 +645,13 @@ export class ReasoningAgent {
   buildPrecisionAgResponse() {
     return [
       'Plano de agricultura de precisao para reduzir desperdicio em soja:',
-      '1. Sensoriamento: combinar satelite, mapa de produtividade, condutividade do solo e sensores locais para dividir o talhao em zonas de manejo.',
-      '2. Execucao: aplicar taxa variavel em semente, corretivo e fertilizante com GPS e telemetria, ajustando janela operacional por umidade, velocidade e falha de equipamento.',
-      '3. Riscos: mapa ruim, calibracao fraca, conectividade instavel e decisao agronomica baseada em dado sem validacao de campo.',
-      '4. Validacao: talhoes testemunha, comparacao por zona, custo por hectare, ganho de produtividade, economia de insumo e revisao apos cada safra.'
+      '1. Sensoriamento: combinar satelite, mapa de produtividade, condutividade do solo, analise de fertilidade e sensores locais para dividir o talhao em zonas de manejo realmente distintas.',
+      '2. Execucao: aplicar taxa variavel em semente, corretivo e fertilizante com GPS, piloto automatico e telemetria, ajustando janela operacional por umidade, velocidade, compactacao e falha de equipamento.',
+      '3. Riscos: mapa ruim, calibracao fraca, conectividade instavel, recomendacao agronomica mal parametrizada e decisao baseada em dado remoto sem validacao de campo.',
+      '4. Validacao em campo: usar talhoes testemunha, comparacao por zona, scouting, custo por hectare, ganho de produtividade, economia de insumo e revisao tecnica apos cada safra.',
+      '5. Governanca operacional: registrar calibracao, mapa usado, taxa aplicada, operador, janela climatica, telemetria da maquina e anomalias para comparar execucao real contra planejamento.',
+      '6. Decisao agronomica: dado bom so vira ganho quando satelite, sensor, GPS, taxa variavel, telemetria e validacao de campo entram no mesmo ciclo de decisao.',
+      '7. Regra executiva: comece em poucos talhoes, prove retorno por zona de manejo e so depois escale; agricultura de precisao sem disciplina de validacao vira custo digital.'
     ].join('\n')
   }
 
@@ -727,12 +735,13 @@ export class ReasoningAgent {
   buildHarvestIntelligenceResponse() {
     return [
       'Plano de colheita organizada e inteligente com clima e telemetria:',
-      '1. Janela operacional: combine previsao de chuva, umidade do grao, trafegabilidade e risco de perda para definir ordem de talhoes.',
-      '2. Colheita organizada: monte fila de prioridade por maturacao, capacidade de maquina, distancia ate armazenagem e risco de gargalo logistico.',
-      '3. Colheita inteligente: use telemetria, mapa de produtividade, velocidade da maquina, perdas no monitor e sensores para ajustar rota e configuracao em tempo quase real.',
-      '4. Riscos principais: previsao ruim, calibracao fraca do monitor, atraso de transporte, excesso de umidade e decisao sem validacao no campo.',
-      '5. Validacao: acompanhe perda por talhao, tempo parado, consumo, qualidade do grao e diferenca entre planejamento e execucao real.',
-      '6. Decisao profissional: clima, maquina, armazenagem e destino do produto precisam entrar juntos na mesma conversa operacional.'
+      '1. Janela operacional: combine previsao de chuva, umidade do grao, trafegabilidade, risco de acamamento e perda por atraso para definir ordem de talhoes.',
+      '2. Colheita organizada: monte fila de prioridade por maturacao, capacidade de maquina, distancia ate armazenagem, capacidade de transporte e risco de gargalo logistico.',
+      '3. Colheita inteligente: use telemetria, mapa de produtividade, velocidade da maquina, perdas no monitor e sensores para ajustar rota, regulagem e troca de talhao em tempo quase real.',
+      '4. Riscos principais: previsao ruim, calibracao fraca do monitor, atraso de transporte, excesso de umidade, fila na recepcao e decisao sem validacao no campo.',
+      '5. Validacao: acompanhe perda por talhao, tempo parado, consumo, qualidade do grao, fila logistica e diferenca entre planejamento e execucao real.',
+      '6. Decisao profissional: clima, maquina, armazenagem, transporte e destino do produto precisam entrar juntos na mesma conversa operacional.',
+      '7. Regra executiva: ordem de talhoes deve seguir risco economico e janela climatica, nao apenas conveniencia de deslocamento.'
     ].join('\n')
   }
 

@@ -63,7 +63,12 @@ const LIMIT_PATTERNS = [
   /estado atual desta execução/i,
   /nesta execucao/i,
   /nesta execução/i,
-  /limite operacional/i
+  /limite operacional/i,
+  /limite metodologico/i,
+  /limite metodológico/i,
+  /limite interpretativo/i,
+  /transparencia hermeneutica/i,
+  /transparência hermenêutica/i
 ]
 
 const SELF_MODEL_PATTERNS = [
@@ -414,7 +419,7 @@ function countLabeledSections(text = "") {
 }
 
 function isDisciplinedExpertPrompt(userMessage = "") {
-  return /\b(compare|compar|diagnost|plano|estrateg|estratég|metodo|método|explique|liste|separe|monte|estruture|avalie|tradeoff|validacao|validação|formula|fórmula|onboarding|gargalo|curriculo|currículo|devocional|escola dominical|overfitting|colheita|fintech|compliance|lgpd|diga exatamente|ler bem|leitura|blocos curtos|o que voce faz hoje|o que você faz hoje|suite office|xadrez|rotina semanal|valor historico|valor histórico|arqueolog|arquelog|teste|mitigacao|mitigação|causa provavel|causa provável|proximo passo|próximo passo|engenheiro senior|engenheiro sênior)\b/i
+  return /\b(compare|compar|diagnost|plano|estrateg|estratég|metodo|método|explique|liste|separe|monte|estruture|avalie|proponha|review|revisao|revisão|tradeoff|validacao|validação|formula|fórmula|onboarding|gargalo|curriculo|currículo|devocional|escola dominical|overfitting|colheita|fintech|compliance|lgpd|diga exatamente|ler bem|leitura|blocos curtos|o que voce faz hoje|o que você faz hoje|suite office|xadrez|rotina semanal|valor historico|valor histórico|arqueolog|arquelog|refatorac|observabilidade|rollback|uploads?|ocr|teste|mitigacao|mitigação|causa provavel|causa provável|proximo passo|próximo passo|engenheiro senior|engenheiro sênior|exegese|hermeneut|fe e obras|fé e obras|romanos 3|tiago 2|agricultura de precisao|agricultura de precisão|telemetria|taxa variavel|taxa variável|talhao|talhão|validacao em campo|validação em campo)\b/i
     .test(String(userMessage || ""))
 }
 
@@ -423,7 +428,7 @@ function isDisciplinedEnumeratedExpertAnswer(userMessage = "", aiResponse = "") 
   const orderedCount = countOrderedItems(aiResponse)
   const labeledCount = countLabeledSections(aiResponse)
   const hasBlockSections = /pronto:|parcial:|ainda nao integrado:|leio bem:|depende de ocr:|ainda nao nativo:|evidencia material:|evidência material:|consenso academico|consenso acadêmico|inferencia apologetica|inferência apologética|limite metodologico|limite metodológico|semana 1:|semana 2:|semana 3:|semana 4:/.test(response)
-  const hasClosingJudgment = /resumo direto|decisao profissional|decisão profissional|decisao executiva|decisão executiva|decisao provisoria|decisão provisória|regra de ouro|regra de engenharia|regra pratica|regra prática|regra executiva|regra de seguranca|regra de segurança|proximo passo|próximo passo|comparacao honesta|comparação honesta|limite operacional|limite profissional|limite metodologico|limite metodológico|limite nesta execucao|limite nesta execução/.test(response)
+  const hasClosingJudgment = /resumo direto|decisao profissional|decisão profissional|decisao executiva|decisão executiva|decisao provisoria|decisão provisória|regra de ouro|regra de engenharia|regra pratica|regra prática|regra executiva|regra de leitura|regra de seguranca|regra de segurança|proximo passo|próximo passo|comparacao honesta|comparação honesta|limite operacional|limite profissional|limite metodologico|limite metodológico|limite nesta execucao|limite nesta execução|limite interpretativo nesta execucao|limite interpretativo nesta execução/.test(response)
 
   if (!isDisciplinedExpertPrompt(userMessage)) {
     return false
@@ -440,7 +445,7 @@ function isExceptionalDisciplinedEnumeratedExpertAnswer(userMessage = "", aiResp
 
   const orderedCount = countOrderedItems(aiResponse)
   const labeledCount = countLabeledSections(aiResponse)
-  const hasPromptAlignedLabels = /velocidade:|arquitetura:|operacao:|operação:|risco:|intuicao:|intuição:|exemplo concreto:|formula curta:|fórmula curta:|validacao robusta:|validação robusta:/.test(response)
+  const hasPromptAlignedLabels = /velocidade:|arquitetura:|operacao:|operação:|risco:|intuicao:|intuição:|exemplo concreto:|formula curta:|fórmula curta:|validacao robusta:|validação robusta:|prioridade de causa:|logs que eu colocaria agora:|teste dirigido:|rollback seguro:|verificacao:|verificação:|baseline primeiro:|separar por fronteiras:|observabilidade antes do corte:|testes por contrato:|rollout seguro:|criterio de aceite:|critério de aceite:|exegese do texto:|contexto historico:|contexto histórico:|linhas protestantes e catolicas:|linhas protestantes e católicas:|tensao aparente e ponto de contato:|tensão aparente e ponto de contato:|o que ainda e interpretacao:|o que ainda é interpretação:|transparencia hermeneutica:|transparência hermenêutica:|limite interpretativo nesta execucao:|limite interpretativo nesta execução:|regra de leitura:|sensoriamento:|execucao:|execução:|validacao em campo:|validação em campo:|governanca operacional:|governança operacional:|decisao agronomica:|decisão agronômica:|janela operacional:|colheita organizada:|colheita inteligente:|riscos principais:|decisao profissional:|decisão profissional:|regra executiva:/.test(response)
 
   return orderedCount >= 5 || labeledCount >= 5 || hasPromptAlignedLabels
 }
