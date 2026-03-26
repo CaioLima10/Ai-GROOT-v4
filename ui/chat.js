@@ -1220,7 +1220,17 @@ function saveChatHistory() {
         : null,
       documentPreviewText: message.documentPreviewText && message.documentPreviewText.length < 90_000
         ? message.documentPreviewText
-        : ""
+        : "",
+      weatherSummary: message.weatherSummary && message.weatherSummary.length < 2_400
+        ? message.weatherSummary
+        : "",
+      weatherLocationLabel: message.weatherLocationLabel || "",
+      weatherProvider: message.weatherProvider || "",
+      weatherForecastDays: message.weatherForecastDays || null,
+      weatherError: message.weatherError || null,
+      assistantProfileResolved: message.assistantProfileResolved || null,
+      activeModulesResolved: Array.isArray(message.activeModulesResolved) ? message.activeModulesResolved.slice(0, 6) : [],
+      bibleStudyModulesResolved: Array.isArray(message.bibleStudyModulesResolved) ? message.bibleStudyModulesResolved.slice(0, 8) : []
     }))
   )
 }
@@ -1255,7 +1265,15 @@ function normalizeChatMessage(message = {}) {
     documentFileName: message.documentFileName || null,
     documentMimeType: message.documentMimeType || null,
     documentFormat: message.documentFormat || null,
-    documentPreviewText: message.documentPreviewText || ""
+    documentPreviewText: message.documentPreviewText || "",
+    weatherSummary: message.weatherSummary || "",
+    weatherLocationLabel: message.weatherLocationLabel || "",
+    weatherProvider: message.weatherProvider || "",
+    weatherForecastDays: message.weatherForecastDays || null,
+    weatherError: message.weatherError || null,
+    assistantProfileResolved: message.assistantProfileResolved || null,
+    activeModulesResolved: Array.isArray(message.activeModulesResolved) ? message.activeModulesResolved : [],
+    bibleStudyModulesResolved: Array.isArray(message.bibleStudyModulesResolved) ? message.bibleStudyModulesResolved : []
   }
 }
 
@@ -1273,7 +1291,15 @@ function addMessageToHistory(role, content, meta = {}) {
     documentFileName: meta.documentFileName || null,
     documentMimeType: meta.documentMimeType || null,
     documentFormat: meta.documentFormat || null,
-    documentPreviewText: meta.documentPreviewText || ""
+    documentPreviewText: meta.documentPreviewText || "",
+    weatherSummary: meta.weatherSummary || "",
+    weatherLocationLabel: meta.weatherLocationLabel || "",
+    weatherProvider: meta.weatherProvider || "",
+    weatherForecastDays: meta.weatherForecastDays || null,
+    weatherError: meta.weatherError || null,
+    assistantProfileResolved: meta.assistantProfileResolved || null,
+    activeModulesResolved: Array.isArray(meta.activeModulesResolved) ? meta.activeModulesResolved : [],
+    bibleStudyModulesResolved: Array.isArray(meta.bibleStudyModulesResolved) ? meta.bibleStudyModulesResolved : []
   })
   saveChatHistory()
 }
@@ -1399,6 +1425,69 @@ function buildMediaNode(message = {}) {
   return media
 }
 
+function buildMessageSignalsNode(message = {}) {
+  const signals = []
+
+  if (message.assistantProfileResolved) {
+    signals.push(`Perfil: ${labelForAssistantProfile(message.assistantProfileResolved)}`)
+  }
+
+  if (Array.isArray(message.activeModulesResolved) && message.activeModulesResolved.length > 0) {
+    signals.push(`Modulos: ${message.activeModulesResolved.slice(0, 3).join(", ")}`)
+  }
+
+  if (message.weatherSummary) {
+    signals.push(message.weatherError ? "Clima: fallback tecnico" : "Clima: ao vivo")
+  }
+
+  if (!signals.length) {
+    return null
+  }
+
+  const wrap = document.createElement("div")
+  wrap.className = "message-signals"
+
+  signals.forEach((item) => {
+    const chip = document.createElement("span")
+    chip.className = "message-signal"
+    chip.textContent = item
+    wrap.appendChild(chip)
+  })
+
+  return wrap
+}
+
+function buildWeatherRuntimeNode(message = {}) {
+  if (!message.weatherSummary) {
+    return null
+  }
+
+  const wrap = document.createElement("section")
+  wrap.className = `weather-runtime-card${message.weatherError ? " warning" : ""}`
+
+  const title = document.createElement("strong")
+  title.textContent = message.weatherError ? "Clima agro solicitado, mas incompleto" : "Clima agro aplicado nesta resposta"
+
+  const meta = document.createElement("div")
+  meta.className = "weather-runtime-meta"
+  meta.textContent = [
+    message.weatherLocationLabel || "Local não identificado",
+    message.weatherForecastDays ? `${message.weatherForecastDays} dias` : null,
+    message.weatherProvider || null
+  ].filter(Boolean).join(" • ")
+
+  const body = document.createElement("div")
+  body.className = "weather-runtime-copy"
+  body.innerHTML = formatMessage(message.weatherSummary)
+
+  wrap.appendChild(title)
+  if (meta.textContent) {
+    wrap.appendChild(meta)
+  }
+  wrap.appendChild(body)
+  return wrap
+}
+
 function buildMessageActions(message = {}) {
   const actions = document.createElement("div")
   actions.className = "message-actions"
@@ -1464,7 +1553,9 @@ function buildMessageNode(message) {
   meta.className = "message-meta"
   meta.textContent = `${message.role === "user" ? "Você" : "GIOM"} • ${formatTime(message.createdAt)}`
 
+  const signals = buildMessageSignalsNode(message)
   const media = buildMediaNode(message)
+  const weatherRuntimeNode = buildWeatherRuntimeNode(message)
 
   const text = document.createElement("div")
   text.className = "message-text"
@@ -1475,12 +1566,18 @@ function buildMessageNode(message) {
   }
 
   body.appendChild(meta)
+  if (signals) {
+    body.appendChild(signals)
+  }
   if (media) {
     body.appendChild(media)
   }
   const documentNode = buildDocumentNode(message)
   if (documentNode) {
     body.appendChild(documentNode)
+  }
+  if (weatherRuntimeNode) {
+    body.appendChild(weatherRuntimeNode)
   }
   body.appendChild(text)
   body.appendChild(buildMessageActions(message))
@@ -1537,7 +1634,15 @@ function replaceThinkingMessage(node, content, isError = false, metaExtras = {})
     documentFileName: metaExtras.documentFileName || null,
     documentMimeType: metaExtras.documentMimeType || null,
     documentFormat: metaExtras.documentFormat || null,
-    documentPreviewText: metaExtras.documentPreviewText || ""
+    documentPreviewText: metaExtras.documentPreviewText || "",
+    weatherSummary: metaExtras.weatherSummary || "",
+    weatherLocationLabel: metaExtras.weatherLocationLabel || "",
+    weatherProvider: metaExtras.weatherProvider || "",
+    weatherForecastDays: metaExtras.weatherForecastDays || null,
+    weatherError: metaExtras.weatherError || null,
+    assistantProfileResolved: metaExtras.assistantProfileResolved || null,
+    activeModulesResolved: Array.isArray(metaExtras.activeModulesResolved) ? metaExtras.activeModulesResolved : [],
+    bibleStudyModulesResolved: Array.isArray(metaExtras.bibleStudyModulesResolved) ? metaExtras.bibleStudyModulesResolved : []
   }))
   node.replaceWith(replacement)
   scrollChatToBottom()
@@ -1866,13 +1971,14 @@ async function sendMessage() {
     })
 
     const assistantId = crypto.randomUUID()
+    const responseMeta = extractResponseMeta(payload)
     replaceThinkingMessage(thinking, answer, false, {
       id: assistantId,
-      requestId: payload.requestId || null
+      ...responseMeta
     })
     addMessageToHistory("assistant", answer, {
       id: assistantId,
-      requestId: payload.requestId
+      ...responseMeta
     })
     await persistConversationRemote(userDisplayText, answer, payload, upload)
 
@@ -2160,6 +2266,7 @@ async function requestAssistantResponseStream(question, context, onProgress) {
   let buffer = ""
   let requestId = null
   let finalAnswer = ""
+  let streamMeta = null
 
   while (true) {
     const { done, value } = await reader.read()
@@ -2175,6 +2282,10 @@ async function requestAssistantResponseStream(question, context, onProgress) {
 
       if (parsed.event === "meta") {
         requestId = parsed.data?.requestId || requestId
+        streamMeta = {
+          ...(streamMeta || {}),
+          ...(parsed.data || {})
+        }
         continue
       }
 
@@ -2192,7 +2303,10 @@ async function requestAssistantResponseStream(question, context, onProgress) {
           payload: {
             requestId,
             response: finalAnswer,
-            metadata: parsed.data?.metadata || null
+            metadata: {
+              ...(streamMeta || {}),
+              ...(parsed.data?.metadata || {})
+            }
           }
         }
       }
@@ -2208,7 +2322,8 @@ async function requestAssistantResponseStream(question, context, onProgress) {
       answer: finalAnswer,
       payload: {
         requestId,
-        response: finalAnswer
+        response: finalAnswer,
+        metadata: streamMeta || null
       }
     }
   }
@@ -2881,6 +2996,23 @@ function extractAnswer(payload) {
     payload?.reply ||
     payload?.message ||
     ""
+}
+
+function extractResponseMeta(payload = {}) {
+  const metadata = payload?.metadata || {}
+  const weather = metadata.weatherUsed || payload?.weatherUsed || null
+
+  return {
+    requestId: payload?.requestId || metadata.requestId || null,
+    assistantProfileResolved: metadata.assistantProfile || null,
+    activeModulesResolved: Array.isArray(metadata.activeModules) ? metadata.activeModules : [],
+    bibleStudyModulesResolved: Array.isArray(metadata.bibleStudyModules) ? metadata.bibleStudyModules : [],
+    weatherSummary: weather?.summary || "",
+    weatherLocationLabel: weather?.locationLabel || "",
+    weatherProvider: weather?.provider || "",
+    weatherForecastDays: weather?.forecastDays || null,
+    weatherError: weather?.error || null
+  }
 }
 
 function getUserDisplayName() {

@@ -795,6 +795,9 @@ export class ReasoningAgent {
       'Consenso academico:',
       '- E seguro tratar patriarcas, exodo, conquista, monarquia, reinos divididos, exilio, retorno persa e dominio romano como grandes eixos pedagogicos de leitura.',
       '- Tambem e seguro usar Israel ao norte, Juda ao sul e Galileia, Samaria e Judeia como chaves regionais centrais.',
+      'Atlas e cronologia responsavel:',
+      '- O uso mais seguro e cruzar texto biblico, cronologia pedagogica, atlas historico e historiografia do antigo Oriente Proximo.',
+      '- Quando a pergunta exigir data fina, rota precisa ou fronteira detalhada, o correto e falar em aproximacao e reconstrucao historica, nao em certeza absoluta.',
       'Reconstrucao historica e inferencia cartografica:',
       '- Datas exatas, fronteiras minuciosas, nomenclaturas de periodo e reconstrucoes de rota podem variar entre atlas, historiadores e escolas de interpretacao.',
       '- Por isso, mapa pedagogico nao deve ser tratado como precisao absoluta de fronteira.',
@@ -819,6 +822,44 @@ export class ReasoningAgent {
       '4. Cuidado necessario: nenhum pregador vira norma final; a avaliacao madura compara o sermao com o texto biblico, o contexto historico e a fidelidade pastoral.',
       '5. Esboco seguro de sermo protestante: contexto, ideia central, movimentos do texto, conexao com o evangelho, aplicacoes legitimas e chamada pastoral sem manipular emocao.',
       '6. Regra de ouro: sermoes fortes nascem de exegese honesta, teologia clara e aplicacao pastoral fiel, nao apenas de retorica.'
+    ].join('\n')
+  }
+
+  isProtestantConfessionalQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(confessional|confessionalidade|linhas protestantes|reformada|luterana|presbiteriana|batista|wesleyana|metodista|pentecostal)\b/i.test(input)
+      && /\b(tradicao|tradição|doutrina|teologia|confissao|confissão|catecismo|pregacao|pregação)\b/i.test(input)
+  }
+
+  buildProtestantConfessionalResponse() {
+    return [
+      'Quadro protestante de linhas confessionais:',
+      '1. Luterana: forte enfase em justificacao, catequese, liturgia e leitura centrada em lei e evangelho.',
+      '2. Reformada e presbiteriana: forte enfase em aliancas, soberania divina, confessionalidade e exegese doutrinariamente integrada.',
+      '3. Batista: foco em igreja local, profissao de fe, batismo de crentes e grande diversidade interna entre linhas mais confessionais e mais revivalistas.',
+      '4. Wesleyana e metodista: destaque para santidade, graca preveniente, discipulado e vida pratica.',
+      '5. Pentecostal: forte leitura da atuacao do Espirito, experiencia comunitaria, oracao e missao, sempre com necessidade de submeter experiencia ao texto.',
+      'Como comparar com maturidade:',
+      '1. Diferencie legado historico, documentos confessionais, pratica pastoral e leitura biblica corrente.',
+      '2. Nao trate uma tradicao como bloco monolitico; ha sublinhas, revisoes e contextos nacionais diferentes.',
+      '3. Regra protestante segura: tradicao ajuda a organizar leitura, mas a autoridade final continua no texto biblico bem interpretado.'
+    ].join('\n')
+  }
+
+  isExpositoryTeachingQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(esboco expositivo|esboço expositivo|escola dominical|plano de aula biblico|plano de aula bíblico|roteiro de aula biblica|roteiro de aula bíblica|sermao expositivo|sermão expositivo)\b/i.test(input)
+  }
+
+  buildExpositoryTeachingResponse() {
+    return [
+      'Modelo seguro de ensino biblico expositivo:',
+      '1. Texto base e ideia central: defina passagem, tema dominante e a grande ideia do texto em uma frase curta.',
+      '2. Observacao e contexto: situar autor, genero, contexto historico-literario e termos-chave antes de aplicar.',
+      '3. Estrutura expositiva: dividir o texto em movimentos reais do proprio texto, nao em topicos artificiais.',
+      '4. Aplicacao pastoral: mostrar implicacoes legitimas para fe, culto, vida comunitaria e obediencia sem confundir emocao com exegese.',
+      '5. Escola dominical: adaptar linguagem, objetivo, atividade, revisao e pergunta final conforme faixa etaria e maturidade biblica.',
+      '6. Regra de ouro: a aplicacao deve nascer do texto explicado; se a conclusao nao se sustenta no texto, ela nao deve controlar a aula ou o sermao.'
     ].join('\n')
   }
 
@@ -924,6 +965,25 @@ export class ReasoningAgent {
       '1. Validar regulagem, perdas, qualidade do grao, aderencia ao plano e gargalo dominante antes de repetir a mesma estrategia no dia seguinte.',
       'Decisao profissional:',
       'Colheita de precisao nao e so mapa; e governanca operacional completa entre clima, monitor de perdas, armazenagem, secagem, transporte e fila de descarga. Se quiser, eu transformo isso em tabela operacional por talhao ou planilha de despacho.'
+    ].join('\n')
+  }
+
+  isAgroDispatchBottleneckQuestion(task = '') {
+    const input = String(task || '')
+    const mentionsDispatch = /\b(fila de descarga|descarga|secagem|armazenagem|despacho|carregamento|transporte|gargalo logistico|gargalo logístico)\b/i.test(input)
+    const mentionsHarvest = /\b(colheita|talhao|talhão|janela climatica|janela climática|soja|graos|grãos)\b/i.test(input)
+    return mentionsDispatch && mentionsHarvest
+  }
+
+  buildAgroDispatchBottleneckResponse(context = {}) {
+    return [
+      'Plano para gargalos de descarga, secagem e despacho na colheita:',
+      ...this.buildWeatherOperationalLines(context),
+      '1. Separar gargalo de campo e gargalo de base: talhao pronto nao significa descarga pronta.',
+      '2. Criar sequencia operacional por talhao com hora estimada de corte, transbordo, chegada, secagem e descarga.',
+      '3. Se o clima apertar, priorizar talhao por risco de perda e compatibilidade com capacidade real da base, nao so por proximidade.',
+      '4. Monitorar fila, tempo parado, umidade de entrada, capacidade de secagem, tempo de ciclo de caminhao e atraso por janela climatica.',
+      '5. Regra executiva: quando descarga e secagem viram gargalo, a ordem de colheita precisa ser recalculada no mesmo turno para proteger produtividade e qualidade.'
     ].join('\n')
   }
 
@@ -1544,12 +1604,24 @@ export class ReasoningAgent {
       return this.buildBibleStudyMethodResponse()
     }
 
+    if (this.isExpositoryTeachingQuestion(task)) {
+      return this.buildExpositoryTeachingResponse()
+    }
+
     if (this.isBiblicalGeographyQuestion(task)) {
       return this.buildBiblicalGeographyResponse(context)
     }
 
+    if (this.isProtestantConfessionalQuestion(task)) {
+      return this.buildProtestantConfessionalResponse()
+    }
+
     if (this.isProtestantPreachingQuestion(task)) {
       return this.buildProtestantPreachingResponse()
+    }
+
+    if (this.isAgroDispatchBottleneckQuestion(task)) {
+      return this.buildAgroDispatchBottleneckResponse(context)
     }
 
     if (this.isPrecisionHarvestLogisticsQuestion(task)) {

@@ -800,6 +800,28 @@ code {
   margin-bottom: 10px;
 }
 
+.message-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.message-signal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .message-text {
   color: var(--text);
   word-break: break-word;
@@ -938,6 +960,38 @@ code {
   border-radius: 16px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.weather-runtime-card {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--card));
+}
+
+.weather-runtime-card.warning {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+}
+
+.weather-runtime-card strong {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+}
+
+.weather-runtime-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weather-runtime-copy {
+  color: var(--text);
+}
+
+.weather-runtime-copy p + p {
+  margin-top: 10px;
 }
 
 .message-actions {

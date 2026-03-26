@@ -165,6 +165,28 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "protestant_confessional_lines",
+    label: "Linhas Confessionais Protestantes",
+    summary: "Famílias confessionais, ênfases doutrinárias, legado histórico e limites de cada tradição protestante.",
+    categories: ["church_history", "theology", "bible"],
+    keywords: ["confessional", "confessionalidade", "linhas protestantes", "reformada", "luterana", "batista", "pentecostal", "wesleyana", "presbiteriana"],
+    instructions: [
+      "Apresente familias confessionais por eixo historico, enfases centrais, recursos pedagogicos e riscos de caricatura.",
+      "Diferencie identidade confessional, leitura pastoral e autoridade final do texto biblico."
+    ]
+  },
+  {
+    id: "expository_outlines_teaching",
+    label: "Esbocos Expositivos & Ensino",
+    summary: "Esboços de sermão, roteiro de aula, ideia central do texto e transição responsável de exegese para ensino.",
+    categories: ["preaching", "pastoral_theology", "bible"],
+    keywords: ["esboco expositivo", "esboço expositivo", "roteiro de aula biblica", "roteiro de aula bíblica", "ideia central do texto", "escola dominical", "plano de aula biblico", "plano de aula bíblico"],
+    instructions: [
+      "Estruture ideia central, movimentos do texto, aplicacoes legitimas e limites da inferencia homiletica.",
+      "Quando o pedido for aula ou sermao, diferencie exegese, estrutura didatica e chamada pastoral."
+    ]
+  },
+  {
     id: "angelology_demonology",
     label: "Angeologia & Demonologia",
     summary: "Seres espirituais, categorias teológicas, tradição cristã e limites do texto bíblico.",

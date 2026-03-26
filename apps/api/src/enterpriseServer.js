@@ -1090,6 +1090,21 @@ function buildWeatherSnapshot(payload = {}, weatherLocation = {}) {
   }
 }
 
+function buildWeatherClientMetadata(agroWeather = null) {
+  if (!agroWeather?.summary) {
+    return null
+  }
+
+  return {
+    provider: agroWeather.provider || "open-meteo",
+    locationLabel: agroWeather.locationLabel || null,
+    forecastDays: agroWeather.forecastDays || null,
+    fetchedAt: agroWeather.fetchedAt || null,
+    summary: agroWeather.summary,
+    error: agroWeather.error || null
+  }
+}
+
 async function buildRuntimeConversationContext(question = "", context = {}, extras = {}) {
   const capabilityMatrix = buildRuntimeCapabilityMatrix()
   const researchCapabilities = getResearchCapabilities(context?.researchCapabilities || {})
@@ -1948,7 +1963,8 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
         requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
         activeModules: promptPackage.activeModules,
         domainSubmodules: promptPackage.domainSubmodules || {},
-        bibleStudyModules: promptPackage.bibleStudyModules || []
+        bibleStudyModules: promptPackage.bibleStudyModules || [],
+        weatherUsed: buildWeatherClientMetadata(enhancedContext.agroWeather)
       }
     })
 
@@ -2033,7 +2049,8 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
       requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
       activeModules: promptPackage.activeModules,
       domainSubmodules: promptPackage.domainSubmodules || {},
-      bibleStudyModules: promptPackage.bibleStudyModules || []
+      bibleStudyModules: promptPackage.bibleStudyModules || [],
+      weatherUsed: buildWeatherClientMetadata(enhancedContext.agroWeather)
     })
 
     await streamingGateway.askStreaming(
@@ -2087,7 +2104,8 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
             requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
             activeModules: promptPackage.activeModules,
             domainSubmodules: promptPackage.domainSubmodules || {},
-            bibleStudyModules: promptPackage.bibleStudyModules || []
+            bibleStudyModules: promptPackage.bibleStudyModules || [],
+            weatherUsed: buildWeatherClientMetadata(enhancedContext.agroWeather)
           }
         })
         res.end()

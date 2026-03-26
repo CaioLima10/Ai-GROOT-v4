@@ -940,6 +940,56 @@ export const EVALUATION_PACKS = {
       }
     ]
   },
+  bible_confessional_lines_expert: {
+    id: "bible_confessional_lines_expert",
+    label: "Bible Confessional Lines Expert",
+    summary: "Mede comparacao madura entre linhas protestantes, confessionalidade e autoridade do texto biblico.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "bible_confessional_lines_scenario",
+        label: "Protestant confessional lines",
+        summary: "Checa familias confessionais, enfases doutrinarias, utilidade pastoral e limite da tradicao.",
+        tags: ["comprehension", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Compare linhas protestantes como luterana, reformada, batista, wesleyana e pentecostal, explicando enfases, limites e como manter a autoridade do texto biblico acima da tradicao.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["protestant_confessional_lines", "systematic_theology", "church_history"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  bible_expository_teaching_expert: {
+    id: "bible_expository_teaching_expert",
+    label: "Bible Expository Teaching Expert",
+    summary: "Mede esboco expositivo, escola dominical e transicao segura de exegese para ensino.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "bible_expository_teaching_scenario",
+        label: "Expository teaching and Sunday school",
+        summary: "Checa ideia central, estrutura do texto, aplicacao legitima e adaptacao didatica.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Monte um esboco expositivo e um roteiro de escola dominical em Joao 15, diferenciando ideia central, movimentos do texto, aplicacao pastoral e atividade de ensino.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["expository_outlines_teaching", "homiletics_preaching", "sunday_school_curriculum"],
+              promptPacks: ["theological_scholarship", "academic_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
   module_agribusiness_expert: {
     id: "module_agribusiness_expert",
     label: "Module Agribusiness Expert",
@@ -1234,6 +1284,65 @@ export const EVALUATION_PACKS = {
         turns: [
           {
             question: "Com clima ao vivo, monte um plano operacional de colheita para soja unindo janela climatica, ordem de talhoes, secagem e fila de descarga.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "research"],
+              promptPacks: ["agro_field_intelligence", "gemini_research", "chatgpt_reasoning"],
+              researchCapabilities: {
+                weatherForecast: true
+              },
+              weatherLocation: {
+                enabled: true,
+                label: "Sorriso - MT",
+                latitude: -12.5425,
+                longitude: -55.7211,
+                days: 3,
+                timezone: "auto"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  agribusiness_gps_telematics_expert: {
+    id: "agribusiness_gps_telematics_expert",
+    label: "Agribusiness GPS Telematics Expert",
+    summary: "Mede GPS agricola, RTK, piloto automatico, telemetria e validacao por talhao.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "agro_gps_telematics_scenario",
+        label: "GPS RTK telematics operations",
+        summary: "Checa calibracao, operacao de campo, indicadores e risco de dado ruim.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estruture um plano tecnico de GPS agricola, RTK, piloto automatico e telemetria para fazenda de graos, separando calibracao, indicadores, riscos e validacao por talhao.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "research", "math_science"],
+              promptPacks: ["agro_field_intelligence", "scientific_rigor", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  agribusiness_dispatch_bottlenecks_expert: {
+    id: "agribusiness_dispatch_bottlenecks_expert",
+    label: "Agribusiness Dispatch Bottlenecks Expert",
+    summary: "Mede descarga, secagem, armazenagem, fila e recalculo operacional durante a colheita.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "agro_dispatch_bottlenecks_scenario",
+        label: "Dispatch bottlenecks and drying",
+        summary: "Checa gargalo logistico real entre colheita, secagem e fila de descarga.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Temos colheita de soja com fila de descarga, secagem no limite e caminhao atrasando. Monte um plano operacional unindo ordem de talhoes, despacho, secagem e recalculo do dia.",
             context: {
               assistantProfile: "expert_polymath",
               activeModules: ["agribusiness", "research"],
