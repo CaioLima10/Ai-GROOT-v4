@@ -18,6 +18,7 @@ export function buildCapabilityMatrix(options = {}) {
     imageGenerationEnabled = false,
     imageGenerationProvider = "disabled",
     liveWebEnabled = false,
+    weatherForecastEnabled = false,
     browserPdfExport = true,
     serverPdfGeneration = false,
     structuredDocsNative = false,
@@ -56,6 +57,7 @@ export function buildCapabilityMatrix(options = {}) {
         label: "Research",
         items: [
           buildItem("live_web", "Live web search", liveWebEnabled ? "ready" : "planned", liveWebEnabled ? "Live web connectors are active in this runtime." : "Google, Bing and Yahoo live search are not integrated in this runtime yet."),
+          buildItem("weather_forecast", "Live weather and forecast", weatherForecastEnabled ? "ready" : "planned", weatherForecastEnabled ? "Operational weather lookups and forecast queries are active in this runtime." : "Live forecast data is not integrated in this runtime yet."),
           buildItem("source_honesty", "Source honesty", "ready", "GIOM should describe the difference between local knowledge, RAG and live web access honestly.")
         ]
       },

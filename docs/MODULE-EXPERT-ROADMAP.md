@@ -30,6 +30,7 @@ Este documento organiza as frentes para levar cada modulo do GIOM a um nivel mai
   - separar texto, contexto, tradicao, escola teologica e aplicacao pastoral
   - aumentar rigor em exegese, historia da igreja, arqueologia e divergencias confessionais
   - cobrir pais da igreja, biblias de estudo, geografia biblica, mapas e tradicoes protestantes de pregacao
+  - reforcar atlas biblico, cronologia por periodo, reinos e leitura comparada entre dado textual e reconstrucao historica
 
 ### Dev & Bugs
 - Subareas principais:
@@ -115,6 +116,7 @@ Este documento organiza as frentes para levar cada modulo do GIOM a um nivel mai
 - Direcao academica:
   - combinar dado de campo, operacao, risco e validacao local
   - unir GPS, RTK, piloto automatico, clima, armazenagem, transporte e validacao por talhao
+  - evoluir de clima curado para clima ao vivo sempre que a execucao tiver integracao meteorologica ativa
 
 ### Financeiro
 - Subareas principais:

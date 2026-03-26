@@ -19,6 +19,7 @@ export function getResearchCapabilities(overrides = {}) {
     scholar: resolveFlag(overrides.scholar, resolveFlag(process.env.RESEARCH_SCHOLAR_ENABLED, false)),
     news: resolveFlag(overrides.news, resolveFlag(process.env.RESEARCH_NEWS_ENABLED, false)),
     codeSearch: resolveFlag(overrides.codeSearch, resolveFlag(process.env.RESEARCH_CODE_ENABLED, false)),
+    weatherForecast: resolveFlag(overrides.weatherForecast, resolveFlag(process.env.RESEARCH_WEATHER_ENABLED, false)),
     documentation: true,
     rag: true,
     memory: true
@@ -31,6 +32,7 @@ export function getResearchCapabilities(overrides = {}) {
   if (merged.scholar) liveSources.push("Google Scholar")
   if (merged.news) liveSources.push("News")
   if (merged.codeSearch) liveSources.push("Code Search")
+  if (merged.weatherForecast) liveSources.push("Weather")
   if (merged.browserAutomation) liveSources.push("Browser")
 
   return {
@@ -55,6 +57,12 @@ export function describeResearchCapabilities(capabilities = {}) {
   } else {
     lines.push("Pesquisa web ao vivo nao confirmada nesta execucao.")
     lines.push("Se o usuario pedir fatos atuais, deixe a limitacao explicita e nao invente que navegou.")
+  }
+
+  if (resolved.weatherForecast) {
+    lines.push("Dados de clima e previsao operacional podem ser usados quando a integracao meteorologica estiver ativa nesta execucao.")
+  } else {
+    lines.push("Clima ao vivo nao esta confirmado nesta execucao; planos agro devem admitir quando falta dado meteorologico real.")
   }
 
   return {

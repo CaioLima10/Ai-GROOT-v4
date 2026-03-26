@@ -317,6 +317,18 @@ function getUploadCapabilities() {
 }
 
 function buildRuntimeCapabilityMatrix() {
+  const runtimeResearchCapabilities = getResearchCapabilities()
+  const liveWebEnabled = Boolean(
+    runtimeResearchCapabilities.liveWeb ||
+    runtimeResearchCapabilities.google ||
+    runtimeResearchCapabilities.bing ||
+    runtimeResearchCapabilities.yahoo ||
+    runtimeResearchCapabilities.scholar ||
+    runtimeResearchCapabilities.news ||
+    runtimeResearchCapabilities.codeSearch ||
+    runtimeResearchCapabilities.browserAutomation
+  )
+
   return buildCapabilityMatrix({
     uploadAccept: SUPPORTED_UPLOAD_ACCEPT,
     ocrEnabled: uploadOcrEnabled,
@@ -328,7 +340,8 @@ function buildRuntimeCapabilityMatrix() {
     imageControlsEnabled: true,
     visualImageUnderstanding: false,
     imageEditingEnabled: false,
-    liveWebEnabled: false,
+    liveWebEnabled,
+    weatherForecastEnabled: Boolean(runtimeResearchCapabilities.weatherForecast),
     browserPdfExport: true,
     serverPdfGeneration: true,
     structuredDocsNative: true,
@@ -1085,6 +1098,17 @@ app.use(express.static(WEB_PUBLIC_DIR))
 app.get("/config", async (req, res) => {
   const knowledgeStats = await grootAdvancedRAG.getAdvancedStats()
   const capabilityMatrix = buildRuntimeCapabilityMatrix()
+  const runtimeResearchCapabilities = getResearchCapabilities()
+  const liveWebEnabled = Boolean(
+    runtimeResearchCapabilities.liveWeb ||
+    runtimeResearchCapabilities.google ||
+    runtimeResearchCapabilities.bing ||
+    runtimeResearchCapabilities.yahoo ||
+    runtimeResearchCapabilities.scholar ||
+    runtimeResearchCapabilities.news ||
+    runtimeResearchCapabilities.codeSearch ||
+    runtimeResearchCapabilities.browserAutomation
+  )
 
   res.json({
     service: AI_SERVICE_SLUG,
@@ -1104,7 +1128,8 @@ app.get("/config", async (req, res) => {
       imageOcr: uploadOcrEnabled,
       imageGeneration: isImageGenerationEnabled(),
       documentGeneration: true,
-      serverPdfGeneration: true
+      serverPdfGeneration: true,
+      weatherForecast: Boolean(runtimeResearchCapabilities.weatherForecast)
     },
     ai: {
       providerMode: process.env.GROOT_AI_PROVIDER || "auto",
@@ -1132,7 +1157,7 @@ app.get("/config", async (req, res) => {
         formats: documentGenerationFormats
       }
     },
-    research: getResearchCapabilities(),
+    research: runtimeResearchCapabilities,
     privacy: {
       sensitiveDataRedaction: true,
       sensitiveLearningBlocked: true,
@@ -1172,7 +1197,8 @@ app.get("/config", async (req, res) => {
       imageControlsEnabled: true,
       visualImageUnderstanding: false,
       imageEditingEnabled: false,
-      liveWebEnabled: false,
+      liveWebEnabled,
+      weatherForecastEnabled: Boolean(runtimeResearchCapabilities.weatherForecast),
       browserPdfExport: true,
       privacyRedaction: true,
       sensitiveLearningBlocked: true,
@@ -1191,6 +1217,73 @@ app.get("/config", async (req, res) => {
 
 app.get("/capabilities", (_req, res) => {
   res.json(buildRuntimeCapabilityMatrix())
+})
+
+app.get("/research/weather", async (req, res) => {
+  const runtimeResearchCapabilities = getResearchCapabilities()
+  if (!runtimeResearchCapabilities.weatherForecast) {
+    return res.status(503).json({
+      error: "Consulta de clima ao vivo nao habilitada nesta execucao.",
+      code: "WEATHER_FORECAST_DISABLED"
+    })
+  }
+
+  const latitude = Number(req.query.latitude ?? req.query.lat)
+  const longitude = Number(req.query.longitude ?? req.query.lon)
+  const timezone = String(req.query.timezone || "auto")
+  const forecastDays = Math.max(1, Math.min(Number(req.query.days || 3) || 3, 7))
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return res.status(400).json({
+      error: "Informe latitude e longitude validas para consultar a previsao.",
+      code: "WEATHER_COORDINATES_REQUIRED"
+    })
+  }
+
+  try {
+    const url = new URL(process.env.WEATHER_API_BASE_URL || "https://api.open-meteo.com/v1/forecast")
+    url.searchParams.set("latitude", String(latitude))
+    url.searchParams.set("longitude", String(longitude))
+    url.searchParams.set("timezone", timezone)
+    url.searchParams.set("forecast_days", String(forecastDays))
+    url.searchParams.set("current", "temperature_2m,precipitation,weather_code,wind_speed_10m")
+    url.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m")
+    url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset")
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": `${AI_ENTERPRISE_NAME}/weather`
+      }
+    })
+
+    if (!response.ok) {
+      const details = await response.text().catch(() => "")
+      return res.status(502).json({
+        error: "Falha ao consultar o provedor de clima.",
+        code: "WEATHER_PROVIDER_FAILED",
+        details: process.env.NODE_ENV === "development" ? details.slice(0, 400) : undefined
+      })
+    }
+
+    const payload = await response.json()
+    return res.json({
+      success: true,
+      provider: "open-meteo",
+      coordinates: {
+        latitude,
+        longitude
+      },
+      forecastDays,
+      timezone,
+      data: payload
+    })
+  } catch (error) {
+    return res.status(500).json({
+      error: "Falha ao obter previsao do tempo.",
+      code: "WEATHER_LOOKUP_FAILED",
+      details: process.env.NODE_ENV === "development" ? error.message : undefined
+    })
+  }
 })
 
 app.get("/knowledge/status", async (_req, res) => {

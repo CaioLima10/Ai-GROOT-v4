@@ -767,20 +767,38 @@ export class ReasoningAgent {
 
   isBiblicalGeographyQuestion(task = '') {
     const input = String(task || '')
-    return /\b(mapa biblico|mapa biblico|geografia biblica|reinos biblicos|reino do norte|reino do sul|judeia|galileia|samaria|assiria|babilonia|persia|israel e juda|israel e jud[aá])\b/i.test(input)
+    return /\b(mapa biblico|mapa mental|periodos biblicos|periodos bíblicos|geografia biblica|reinos biblicos|reino do norte|reino do sul|judeia|galileia|samaria|assiria|babilonia|persia|israel e juda|israel e jud[aá])\b/i.test(input)
   }
 
   buildBiblicalGeographyResponse() {
     return [
-      'Mapa mental de geografia biblica, reinos e periodos:',
+      'Mapa mental dos periodos biblicos e reinos, de patriarcas ao Novo Testamento:',
+      'Periodos biblicos:',
       '1. Patriarcas e exodo: a narrativa comeca entre Mesopotamia, Canaa, Egito e deserto; isso organiza chamado de Abraao, peregrinacao, escravidao, libertacao e entrada na terra.',
-      '2. Monarquia unida: Saul, Davi e Salomao formam um reino unificado com Jerusalem como centro politico e cultual antes da divisao.',
-      '3. Israel e Juda: depois de Salomao, o reino se divide; Israel fica ao norte com capital em Samaria, e Juda ao sul com Jerusalem. Essa divisao e essencial para ler profetas, alianças e crise politica.',
-      '4. Assiria, Babilonia e Persia: a Assiria domina e derruba o reino do norte; a Babilonia derruba Juda e leva ao exilio; a Persia permite retorno parcial, reorganizacao da cidade e reconstrucao do templo no periodo do segundo templo.',
-      '5. Regioes do Novo Testamento: Galileia marca grande parte do ministerio de Jesus, Samaria ajuda a ler tensoes etnicas e religiosas, e Judeia concentra Jerusalem, templo, lideranca judaica e eventos da paixao.',
-      '6. Linha cronologica curta: patriarcas, exodo, conquista, juizes, monarquia unida, reinos divididos, exilio, retorno persa, periodo intertestamentario e dominio romano no Novo Testamento.',
-      '7. Mapa de reinos e circulacao: Decapolis, Asia Menor, Macedonia, Acaia e Roma ampliam o quadro geografico para a expansao apostolica e a logica missionaria do cristianismo nascente.',
-      '8. Transparencia metodologica: aqui eu separei dado textual, reconstrucao historica e sintese pedagogica. Datas exatas, fronteiras e alguns nomes de periodo podem variar entre atlas e historiadores; por isso o mapa serve para iluminar o texto e nao para vender certeza alem da evidencia.'
+      '2. Conquista, juizes e monarquia unida: a leitura passa por Canaã, consolidacao tribal e depois Saul, Davi e Salomao com Jerusalem como centro politico e cultual.',
+      '3. Reinos divididos, exilio e retorno: a crise passa por Israel e Juda, queda do norte, queda de Jerusalem, exilio e retorno persa com segundo templo.',
+      '4. Periodo intertestamentario e Novo Testamento: o quadro vai do dominio persa ao helenistico e romano, chegando a Galileia, Samaria, Judeia e depois ao mundo apostolico.',
+      'Israel e Juda:',
+      '1. Israel e o reino do norte, associado a Samaria na memoria historica posterior; Juda e o reino do sul, centrado em Jerusalem.',
+      '2. Essa divisao ajuda a ler profetas, alianças, reforma cultual, crise politica e a diferenca entre queda do norte e queda de Jerusalem.',
+      'Assiria, Babilonia e Persia:',
+      '1. A Assiria domina e derruba o reino do norte.',
+      '2. A Babilonia derruba Juda, destrói Jerusalem e leva ao exilio.',
+      '3. A Persia permite retorno parcial, reorganizacao da cidade e reconstrucao do templo no periodo do segundo templo.',
+      'Galileia, Samaria e Judeia:',
+      '1. Galileia marca grande parte do ministerio publico de Jesus.',
+      '2. Samaria ajuda a ler tensoes etnicas, religiosas e sociais.',
+      '3. Judeia concentra Jerusalem, templo, lideranca judaica e eventos finais da paixao.',
+      'Consenso academico:',
+      '- E seguro tratar patriarcas, exodo, conquista, monarquia, reinos divididos, exilio, retorno persa e dominio romano como grandes eixos pedagogicos de leitura.',
+      '- Tambem e seguro usar Israel ao norte, Juda ao sul e Galileia, Samaria e Judeia como chaves regionais centrais.',
+      'Reconstrucao historica e inferencia cartografica:',
+      '- Datas exatas, fronteiras minuciosas, nomenclaturas de periodo e reconstrucoes de rota podem variar entre atlas, historiadores e escolas de interpretacao.',
+      '- Por isso, mapa pedagogico nao deve ser tratado como precisao absoluta de fronteira.',
+      'Limite metodologico nesta execucao:',
+      '- Aqui eu estou organizando dado textual, consenso academico basico e sintese historico-cartografica; para detalhes finos de data, fronteira e arqueologia, o ideal e cruzar atlas biblico, historiografia especializada e comentarios tecnicos.',
+      'Regra de leitura:',
+      'Leia o mapa biblico como ferramenta para localizar o texto na historia da redencao, nos reinos e nas regioes, nao como substituto da exegese. Se quiser, eu transformo isso agora em linha do tempo, tabela de periodos e reinos ou quadro para escola dominical.'
     ].join('\n')
   }
 
@@ -809,14 +827,26 @@ export class ReasoningAgent {
 
   buildHarvestIntelligenceResponse() {
     return [
-      'Plano de colheita organizada e inteligente com clima e telemetria:',
-      '1. Janela operacional: combine previsao de chuva, umidade do grao, trafegabilidade, risco de acamamento e perda por atraso para definir ordem de talhoes.',
-      '2. Colheita organizada: monte fila de prioridade por maturacao, capacidade de maquina, distancia ate armazenagem, capacidade de transporte e risco de gargalo logistico.',
-      '3. Colheita inteligente: use telemetria, mapa de produtividade, velocidade da maquina, perdas no monitor e sensores para ajustar rota, regulagem e troca de talhao em tempo quase real.',
-      '4. Riscos principais: previsao ruim, calibracao fraca do monitor, atraso de transporte, excesso de umidade, fila na recepcao e decisao sem validacao no campo.',
-      '5. Validacao: acompanhe perda por talhao, tempo parado, consumo, qualidade do grao, fila logistica e diferenca entre planejamento e execucao real.',
-      '6. Decisao profissional: clima, maquina, armazenagem, transporte e destino do produto precisam entrar juntos na mesma conversa operacional.',
-      '7. Regra executiva: ordem de talhoes deve seguir risco economico e janela climatica, nao apenas conveniencia de deslocamento.'
+      'Plano profissional de colheita organizada e inteligente para soja:',
+      'Janela operacional:',
+      '1. Combine previsao do tempo, chuva prevista, umidade do grao, trafegabilidade, risco de acamamento e capacidade de secagem antes de liberar a entrada em cada talhao.',
+      '2. Se o clima estiver instavel, o talhao nao deve ser escolhido por conveniencia de rota, e sim por risco tecnico e economico.',
+      'Ordem de talhoes:',
+      '1. Priorize por maturacao, risco de perda, historico do mapa de produtividade, distancia ate a base e impacto economico de atrasar a colheita.',
+      '2. A ordem precisa virar sequencia operacional real, nao apenas lista teorica no escritorio.',
+      'Colheita organizada:',
+      '1. Amarre colheitadeira, transbordo, caminhao, descarga e recepcao para a ordem de talhoes nao quebrar por gargalo logistico.',
+      '2. Defina janela por talhao, equipe responsavel, destino do grao e plano de contingencia se a fila apertar.',
+      'Colheita inteligente:',
+      '1. Use mapa de produtividade para diferenciar talhoes mais sensiveis, talhoes mais carregados e areas que pedem ajuste de velocidade ou regulagem.',
+      '2. Use telemetria para acompanhar velocidade, horas produtivas, tempo parado, deslocamento, consumo, perdas e troca de talhao, corrigindo a operacao no mesmo dia.',
+      'Riscos principais:',
+      '1. Previsao ruim, monitor descalibrado, operador sem rotina de ajuste, atraso de transporte, secagem saturada e decisao baseada em conveniencia em vez de risco operacional.',
+      'Validacao em campo:',
+      '1. Compare planejamento versus execucao real, perda por talhao, qualidade do grao, tempo parado, fila, aderencia a ordem planejada e desvio da janela climatica.',
+      '2. Feche o dia com revisao curta: o que foi planejado, o que saiu da rota, qual gargalo apareceu e qual ajuste entra no proximo turno.',
+      'Decisao profissional:',
+      'Colheita organizada e inteligente junta previsao do tempo, mapa de produtividade, telemetria, ordem de talhoes e disciplina operacional. Se quiser, eu converto isso em checklist de campo, quadro de mando ou planilha de execucao.'
     ].join('\n')
   }
 
@@ -840,20 +870,35 @@ export class ReasoningAgent {
 
   isPrecisionHarvestLogisticsQuestion(task = '') {
     const input = String(task || '')
-    return /\b(colheita de precis[aã]o|colheita de precisão|ordem de talh[oõ]es|fila de descarga|armazenagem|transporte de graos|perda na colheita)\b/i.test(input)
+    const mentionsHarvest = /\b(colheita de precis[aã]o|colheita de precisão|monitor de perdas|perda na colheita|ordem de talh[oõ]es)\b/i.test(input)
+    const mentionsLogistics = /\b(fila de descarga|armazenagem|secagem|transporte|transporte de graos|silo|recepcao)\b/i.test(input)
+    return mentionsHarvest && mentionsLogistics
   }
 
   buildPrecisionHarvestLogisticsResponse() {
     return [
-      'Plano de colheita organizada, inteligente e de precisao com logistica integrada:',
-      '1. Ordem de talhoes: priorize por maturacao, umidade, previsao do tempo, risco de quebra, risco de acamamento, historico de produtividade e distancia ate a estrutura de armazenagem.',
-      '2. Colheita organizada: transforme essa prioridade em fila real de operacao, com janela por talhao, colheitadeira designada, transbordo, caminhao, destino e capacidade de recepcao ja reservados.',
-      '3. Colheita inteligente: use previsao do tempo, telemetria, velocidade, tempo parado, fila, mapa de produtividade e monitor de perdas para corrigir a execucao no mesmo dia e nao so depois da safra.',
-      '4. Colheita de precisao: calibre monitor de produtividade, sensor de umidade, largura de corte, velocidade, perdas de plataforma e perdas de separacao antes de usar o dado para decisao economica.',
-      '5. Armazenagem, secagem e transporte: alinhe recebimento, secagem, transporte, rota de caminhao, tempo de descarga e ocupacao dos silos para que o gargalo logistico nao destrua o ganho de campo.',
-      '6. Indicadores-chave: perda por talhao, perda por plataforma, perda por separacao, horas produtivas, tempo parado, fila de descarga, consumo por hectare, qualidade do grao e diferenca entre planejado e executado.',
-      '7. Riscos operacionais: colher fora da janela climatica, escolher talhao por conveniencia de deslocamento, confiar em monitor descalibrado, saturar secagem/armazenagem e deixar transporte sem sincronismo.',
-      '8. Validacao profissional: fechar o dia comparando previsao, ordem planejada, execucao real, perdas, fila, secagem, transporte e retorno por talhao. Colheita de precisao nao e so mapa; e governanca operacional completa.'
+      'Plano de colheita de precisao com logistica integrada para soja:',
+      'Janela operacional:',
+      '1. Priorize talhoes por maturacao, umidade, previsao do tempo, risco de quebra, risco de acamamento, historico de produtividade e distancia ate a estrutura de armazenagem.',
+      '2. A janela climatica precisa conversar com a capacidade real de secagem, recepcao e transporte.',
+      'Colheita organizada:',
+      '1. Transforme a prioridade em fila real de operacao, com janela por talhao, colheitadeira designada, transbordo, caminhao, destino e capacidade de recepcao ja reservados.',
+      '2. Se a descarga travar, a ordem de talhoes precisa ser recalculada no mesmo dia para nao empurrar perda para o campo.',
+      'Colheita inteligente:',
+      '1. Use previsao do tempo, telemetria, velocidade, tempo parado, fila, mapa de produtividade e monitor de perdas para corrigir a execucao no mesmo dia e nao so depois da safra.',
+      '2. O mapa vira decisao quando encontra fila de descarga, secagem, rota de caminhao e perda real por talhao.',
+      'Colheita de precisao:',
+      '1. Calibre monitor de produtividade, sensor de umidade, largura de corte, velocidade, perdas de plataforma e perdas de separacao antes de usar o dado para decisao economica.',
+      'Armazenagem, secagem e transporte:',
+      '1. Alinhe recebimento, secagem, transporte, rota de caminhao, tempo de descarga e ocupacao dos silos para que o gargalo logistico nao destrua o ganho de campo.',
+      '2. Fila de descarga, secador saturado ou caminhao fora de sincronismo precisam entrar como risco operacional central, nao como detalhe.',
+      'Governanca operacional:',
+      '1. Indicadores-chave: perda por talhao, perda por plataforma, perda por separacao, horas produtivas, tempo parado, fila de descarga, consumo por hectare, qualidade do grao e diferenca entre planejado e executado.',
+      '2. Fechamento diario: comparar previsao, ordem planejada, execucao real, perdas, fila, secagem, transporte e retorno por talhao.',
+      'Validacao em campo:',
+      '1. Validar regulagem, perdas, qualidade do grao, aderencia ao plano e gargalo dominante antes de repetir a mesma estrategia no dia seguinte.',
+      'Decisao profissional:',
+      'Colheita de precisao nao e so mapa; e governanca operacional completa entre clima, monitor de perdas, armazenagem, secagem, transporte e fila de descarga. Se quiser, eu transformo isso em tabela operacional por talhao ou planilha de despacho.'
     ].join('\n')
   }
 
