@@ -6,13 +6,20 @@ import {
   AI_SAFETY_BOUNDARIES
 } from "../../shared-config/src/aiConstitution.js"
 import { getBibleStudyModules, inferBibleStudyModules } from "../../shared-config/src/bibleStudyModules.js"
+import { getModuleEnhancementPlan } from "../../shared-config/src/moduleEnhancements.js"
 import {
   DEFAULT_PROMPT_PACKS,
   describePromptPacks,
   getPromptPacks
 } from "../../shared-config/src/promptPacks.js"
 import { describeResearchCapabilities } from "../../shared-config/src/researchCapabilities.js"
-import { DEFAULT_ACTIVE_MODULES, getDomainModules, inferDomainModules } from "../../shared-config/src/domainModules.js"
+import {
+  DEFAULT_ACTIVE_MODULES,
+  getDomainModules,
+  getDomainSubmodules,
+  inferDomainModules,
+  inferDomainSubmodules
+} from "../../shared-config/src/domainModules.js"
 
 function resolveAudience(task = "", context = {}, userStyle = "natural") {
   const text = String(task || "").toLowerCase()
@@ -118,6 +125,67 @@ function buildDomainExcellenceGuidance(activeModules = []) {
   return notes
 }
 
+function buildDomainSubmoduleMap(task = "", activeModules = [], context = {}, storedPreferences = {}) {
+  const explicitSelections = {
+    ...(storedPreferences.domainSubmodules || {}),
+    ...(context.domainSubmodules || {})
+  }
+  const inferredSelections = inferDomainSubmodules(
+    task,
+    activeModules.map(module => module.id),
+    explicitSelections
+  )
+  const mergedSelections = {
+    ...explicitSelections,
+    ...inferredSelections
+  }
+
+  return activeModules.reduce((accumulator, module) => {
+    if (module.id === "bible" || !Array.isArray(module.submodules) || module.submodules.length === 0) {
+      return accumulator
+    }
+
+    const selected = getDomainSubmodules(module.id, mergedSelections[module.id] || [])
+    if (selected.length > 0) {
+      accumulator[module.id] = selected
+    }
+
+    return accumulator
+  }, {})
+}
+
+function buildDomainSubmoduleLines(activeModules = [], activeSubmodules = {}) {
+  const lines = activeModules.flatMap(module => {
+    const selectedSubmodules = activeSubmodules[module.id] || []
+    if (!selectedSubmodules.length) {
+      return []
+    }
+
+    return [
+      `- ${module.label}:`,
+      ...selectedSubmodules.map(submodule => `  - ${submodule.label}: ${submodule.instructions.join(" ")}`)
+    ]
+  })
+
+  return lines.join("\n")
+}
+
+function buildModuleEnhancementLines(activeModules = []) {
+  const lines = activeModules.flatMap(module => {
+    const plan = getModuleEnhancementPlan(module.id)
+    if (!plan) {
+      return []
+    }
+
+    return [
+      `- ${module.label}: direcao academica ${plan.academicDirection}.`,
+      ...plan.scholarlyPrompts.map(prompt => `  - ${prompt}`)
+    ]
+  })
+
+  return lines.join("\n")
+}
+
 function buildLearningSummary(memoryContext = {}) {
   const userProfile = memoryContext?.userProfile || {}
   const topics = Array.isArray(userProfile.topics) ? userProfile.topics : []
@@ -168,6 +236,7 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
     context.activeModules || storedPreferences.activeModules || DEFAULT_ACTIVE_MODULES
   )
   const activeModules = getDomainModules(requestedModules)
+  const domainSubmodules = buildDomainSubmoduleMap(task, activeModules, context, storedPreferences)
   const requestedBibleStudyModules = activeModules.some(module => module.id === "bible")
     ? inferBibleStudyModules(
         task,
@@ -212,11 +281,19 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
         .map(module => `- ${module.label}: ${module.instructions.join(" ")}`)
         .join("\n")
     : "- Geral: responda com equilibrio entre clareza, profundidade e objetividade."
+  const domainSubmoduleLines = buildDomainSubmoduleLines(activeModules, domainSubmodules)
+  const moduleEnhancementLines = buildModuleEnhancementLines(activeModules)
 
   const bibleModuleLines = bibleStudyModules.length > 0
     ? `\nSUBMODULOS BIBLICOS:\n${bibleStudyModules
         .map(module => `- ${module.label}: ${module.instructions.join(" ")}`)
         .join("\n")}`
+    : ""
+  const domainSubmoduleSection = domainSubmoduleLines
+    ? `\nSUBAREAS ATIVAS DOS MODULOS:\n${domainSubmoduleLines}`
+    : ""
+  const moduleEnhancementSection = moduleEnhancementLines
+    ? `\nMODO EXPERT POR MODULO:\n${moduleEnhancementLines}`
     : ""
 
   const domainExcellence = buildDomainExcellenceGuidance(activeModules)
@@ -252,6 +329,8 @@ ${preferenceNotes.map(item => `- ${item}`).join("\n")}
 ESPECIALIZACOES ATIVAS:
 ${moduleLines}
 ${bibleModuleLines}
+${domainSubmoduleSection}
+${moduleEnhancementSection}
 
 PROMPT PACKS PROFISSIONAIS:
 - ${promptPackSummary.summary}
@@ -287,6 +366,12 @@ REGRAS DE SAIDA:
     profileId,
     profile,
     activeModules: activeModules.map(module => module.id),
+    domainSubmodules: Object.fromEntries(
+      Object.entries(domainSubmodules).map(([moduleId, submodules]) => [
+        moduleId,
+        submodules.map(submodule => submodule.id)
+      ])
+    ),
     bibleStudyModules: bibleStudyModules.map(module => module.id),
     promptPacks: promptPacks.map(promptPack => promptPack.id),
     audience,

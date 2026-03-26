@@ -50,6 +50,61 @@ export const PROMPT_PACKS = {
       "Diferencie observacao, inferencia, fonte, lacuna e recomendacao.",
       "Se a busca ao vivo nao estiver disponivel, diga isso claramente e trabalhe com memoria e RAG."
     ]
+  },
+  academic_rigor: {
+    id: "academic_rigor",
+    label: "Academic Rigor",
+    summary: "Disciplina academica, diferenca entre evidencia, inferencia, consenso e limite metodologico.",
+    source: "inspirado em pesquisa academica e leitura critica de fontes",
+    instructions: [
+      "Diferencie evidencia, inferencia, consenso, controversia e lacuna.",
+      "Nao trate intuicao elegante como prova suficiente.",
+      "Quando houver disputa de escola, explicite o ponto de divergencia e o que o texto ou dado realmente sustenta."
+    ]
+  },
+  theological_scholarship: {
+    id: "theological_scholarship",
+    label: "Theological Scholarship",
+    summary: "Exegese, historia da interpretacao, teologia biblica, sistematica e prudencia pastoral.",
+    source: "inspirado em estudo teologico academico e ministerial responsavel",
+    instructions: [
+      "Separe exegese, contexto historico, teologia biblica, sistematica e aplicacao pastoral.",
+      "Quando houver divergencia confessional, apresente as linhas principais sem caricatura.",
+      "Seja reverente, claro e metodologicamente honesto."
+    ]
+  },
+  scientific_rigor: {
+    id: "scientific_rigor",
+    label: "Scientific Rigor",
+    summary: "Metodo cientifico, verificacao, metrica, unidade, validade interna e externa.",
+    source: "inspirado em comunicacao cientifica e avaliacao experimental",
+    instructions: [
+      "Explique hipotese, metodo, medida, erro, validade e limite do modelo.",
+      "Se houver formula ou metrica, diga o que ela mede e o que nao mede.",
+      "Prefira conclusao provisoria bem justificada a excesso de certeza."
+    ]
+  },
+  defensive_security_ops: {
+    id: "defensive_security_ops",
+    label: "Defensive Security Ops",
+    summary: "Postura profissional de defesa, hardening, resposta a incidente e protecao de dados.",
+    source: "inspirado em AppSec, SecOps e operacao defensiva moderna",
+    instructions: [
+      "Atue sempre do lado defensivo, legal e etico.",
+      "Estruture em ameaca, superficie de ataque, mitigacao, monitoramento, resposta e recuperacao.",
+      "Nao descreva caminho ofensivo, bypass ou abuso operacional."
+    ]
+  },
+  enterprise_architecture: {
+    id: "enterprise_architecture",
+    label: "Enterprise Architecture",
+    summary: "Arquitetura, fronteiras de sistema, operacao, rollout, rollback e tradeoff de plataforma.",
+    source: "inspirado em engenharia de sistemas e arquitetura de produto em escala",
+    instructions: [
+      "Diferencie remendo local, mudanca estrutural e impacto de plataforma.",
+      "Explique tradeoffs de custo, confiabilidade, velocidade e governanca.",
+      "Sempre que fizer sentido, una arquitetura, observabilidade, teste e rollout."
+    ]
   }
 }
 

@@ -24,6 +24,8 @@ import {
   listDomainModules,
   listEvaluationDimensions,
   listEvaluationPacks,
+  listModuleEnhancementPlans,
+  listPlannedModules,
   listPromptPacks,
   resolveCompatModel
 } from "../../../packages/shared-config/src/index.js"
@@ -1111,6 +1113,8 @@ app.get("/config", async (req, res) => {
       embeddings: grootEmbeddings.getStatus(),
       assistantProfiles: listAssistantProfiles(),
       domainModules: listDomainModules(),
+      moduleEnhancements: listModuleEnhancementPlans(),
+      plannedModules: listPlannedModules(),
       bibleStudyModules: listBibleStudyModules(),
       compatModels: listCompatModels(),
       promptPacks: listPromptPacks(),
@@ -1693,6 +1697,7 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
       requestId,
       assistantProfile: enhancedContext.assistantProfile || null,
       activeModules: enhancedContext.activeModules || [],
+      domainSubmodules: enhancedContext.domainSubmodules || {},
       bibleStudyModules: enhancedContext.bibleStudyModules || [],
       promptPacks: enhancedContext.promptPacks || [],
       uploadName: enhancedContext.uploadName || null,
@@ -1823,6 +1828,7 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
           requestId,
           assistantProfile: promptPackage.profileId,
           activeModules: promptPackage.activeModules,
+          domainSubmodules: promptPackage.domainSubmodules || {},
           bibleStudyModules: promptPackage.bibleStudyModules,
           promptPacks: promptPackage.promptPacks,
           streaming: true

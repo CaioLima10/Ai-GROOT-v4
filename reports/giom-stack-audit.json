@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-26T02:13:28.839Z",
+  "generatedAt": "2026-03-26T02:33:48.986Z",
   "runtime": {
-    "serverUrl": "http://127.0.0.1:3645",
+    "serverUrl": "http://127.0.0.1:3585",
     "assistantName": "GIOM",
     "provider": "auto",
     "researchMode": "internal_only"
@@ -62,9 +62,9 @@
       "level": "expert"
     },
     "efficiency": {
-      "score": 0.83,
-      "percent": 83,
-      "level": "medium"
+      "score": 0.86,
+      "percent": 86,
+      "level": "advanced"
     },
     "conversation": {
       "score": 0.98,
@@ -82,8 +82,8 @@
       "level": "advanced"
     },
     "intelligence": {
-      "score": 0.82,
-      "percent": 82,
+      "score": 0.83,
+      "percent": 83,
       "level": "medium"
     },
     "assertiveness": {
@@ -92,8 +92,8 @@
       "level": "advanced"
     },
     "coding": {
-      "score": 0.72,
-      "percent": 72,
+      "score": 0.77,
+      "percent": 77,
       "level": "medium"
     },
     "documents": {
@@ -207,16 +207,16 @@
     },
     "coding_expert_workflows": {
       "label": "Coding Expert Workflows",
-      "score": 0.69,
-      "percent": 69,
-      "level": "basic",
-      "status": "mixed",
+      "score": 0.78,
+      "percent": 78,
+      "level": "medium",
+      "status": "solid",
       "strengths": [
-        "Seguranca: 82%"
+        "Seguranca: 82%",
+        "Compreensao: 81%",
+        "Conversacao: 80%"
       ],
-      "risks": [
-        "Coerencia: 52%"
-      ]
+      "risks": []
     },
     "profile_delivery_audit": {
       "label": "Profile Delivery Audit",
@@ -226,7 +226,7 @@
       "status": "solid",
       "strengths": [
         "Transparencia: 96%",
-        "Compreensao: 80%"
+        "Compreensao: 82%"
       ],
       "risks": []
     },
@@ -351,8 +351,8 @@
   "profiles": [
     {
       "id": "adaptive_teacher",
-      "percent": 75,
-      "score": 0.75,
+      "percent": 76,
+      "score": 0.76,
       "level": "medium"
     },
     {
@@ -433,8 +433,8 @@
   "externalParity": {
     "chatgpt": {
       "label": "ChatGPT",
-      "score": 0.69,
-      "percent": 69,
+      "score": 0.7,
+      "percent": 70,
       "level": "basic",
       "notes": [
         "estimativa heuristica baseada em raciocinio, conversa, docs, imagem e honestidade operacional",
@@ -455,8 +455,8 @@
     },
     "codex": {
       "label": "Codex",
-      "score": 0.72,
-      "percent": 72,
+      "score": 0.73,
+      "percent": 73,
       "level": "medium",
       "notes": [
         "estimativa heuristica baseada em coding workflows, raciocinio tecnico e execucao",
@@ -465,9 +465,9 @@
     },
     "github_copilot": {
       "label": "GitHub Copilot",
-      "score": 0.7,
-      "percent": 70,
-      "level": "basic",
+      "score": 0.72,
+      "percent": 72,
+      "level": "medium",
       "notes": [
         "estimativa heuristica baseada em coding assistance e clareza operacional",
         "GIOM ainda nao substitui o ecossistema de IDE completions, PR review e agentes integrados do Copilot"

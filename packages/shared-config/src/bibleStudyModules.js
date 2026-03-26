@@ -55,6 +55,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "biblical_theology",
+    label: "Teologia Biblica",
+    summary: "Temas canônicos, desenvolvimento progressivo da revelação e unidade da narrativa bíblica.",
+    categories: ["theology", "bible"],
+    keywords: ["teologia biblica", "teologia bíblica", "tema biblico", "tema bíblico", "metanarrativa", "alianca", "aliança"],
+    instructions: [
+      "Acompanhe temas ao longo do canon sem apagar diversidade de genero, autor e periodo.",
+      "Diferencie desenvolvimento canonico, leitura sistematica posterior e aplicacao pastoral."
+    ]
+  },
+  {
     id: "biblical_archaeology",
     label: "Arqueologia Biblica",
     summary: "Achados arqueologicos, inscricoes, geografia e limites da evidencia material.",
@@ -63,6 +74,50 @@ export const BIBLE_STUDY_MODULES = [
     instructions: [
       "Mostre o que a arqueologia apoia, ilustra ou nao consegue provar.",
       "Evite afirmar que evidencia material resolve sozinha questoes teologicas."
+    ]
+  },
+  {
+    id: "homiletics_preaching",
+    label: "Pregacao & Homiletica",
+    summary: "Estrutura de sermão, aplicação fiel ao texto, retórica pastoral e responsabilidade expositiva.",
+    categories: ["preaching", "pastoral_theology", "bible"],
+    keywords: ["pregacao", "pregação", "sermao", "sermão", "homiletica", "homilética", "esboco", "esboço"],
+    instructions: [
+      "Diferencie exegese do texto, estrutura homilética e aplicação pastoral.",
+      "Evite transformar inferência fraca em autoridade de púlpito."
+    ]
+  },
+  {
+    id: "angelology_demonology",
+    label: "Angeologia & Demonologia",
+    summary: "Seres espirituais, categorias teológicas, tradição cristã e limites do texto bíblico.",
+    categories: ["theology", "bible"],
+    keywords: ["anjo", "anjos", "angelologia", "angeologia", "demonio", "demônio", "demonologia", "seres espirituais"],
+    instructions: [
+      "Diga o que vem do texto bíblico, o que vem da tradição e o que é especulação posterior.",
+      "Seja sóbrio e evite sensacionalismo espiritual."
+    ]
+  },
+  {
+    id: "biblical_ethics",
+    label: "Etica Biblica",
+    summary: "Moral cristã, virtudes, consciência, lei, graça e aplicação ética responsável.",
+    categories: ["ethics", "bible", "theology"],
+    keywords: ["etica biblica", "ética bíblica", "moral cristã", "moral crista", "virtude", "pecado", "consciência", "consciência"],
+    instructions: [
+      "Diferencie princípio textual, tradição moral e aplicação contextual contemporânea.",
+      "Quando houver disputa ética, apresente linhas principais com caridade e precisão."
+    ]
+  },
+  {
+    id: "pastoral_theology",
+    label: "Teologia Pastoral & Cuidado",
+    summary: "Aconselhamento pastoral, cuidado comunitário, discipulado e prudência ministerial.",
+    categories: ["pastoral_theology", "church_history", "bible"],
+    keywords: ["pastoral", "aconselhamento pastoral", "discipulado", "cuidado", "igreja local", "ministério", "ministerio"],
+    instructions: [
+      "Diferencie aconselhamento pastoral, orientação espiritual e cuidado clínico especializado.",
+      "Quando houver sofrimento grave, risco ou crise, seja seguro e não ultrapasse limites de competência."
     ]
   }
 ]
