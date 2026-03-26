@@ -287,12 +287,7 @@ export class ReasoningAgent {
   }
 
   isCapabilityQuestion(task = '') {
-    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que você consegue|o que voce realmente tem|o que você realmente tem|quais sao seus limites|quais são seus limites|como voce funciona|como você funciona|capacidades|ferramentas|docx|xlsx|pdf|svg|ocr|anexo|arquivo|arquivos)\b/i
-      .test(String(task || ''))
-  }
-
-  isCapabilityQuestion(task = '') {
-    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que vocÇ¦ consegue|o que voce realmente tem|o que vocÇ¦ realmente tem|quais sao seus limites|quais sÇœo seus limites|como voce funciona|como vocÇ¦ funciona|capacidades|ferramentas|docx|xlsx|pptx|pdf|svg|ocr|anexo|arquivo|arquivos|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao)\b/i
+    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que voce realmente tem|quais sao seus limites|como voce funciona|capacidades|ferramentas|docx|xlsx|pptx|pdf|svg|ocr|anexo|arquivo|arquivos|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao|imagem|image|img|firefly|midjourney|gemini|gpt)\b/i
       .test(String(task || ''))
   }
 
@@ -390,7 +385,10 @@ export class ReasoningAgent {
     const docxItem = fileItems.find((item) => item.id === 'docx_read')
     const xlsxItem = fileItems.find((item) => item.id === 'xlsx_read')
     const pptxItem = fileItems.find((item) => item.id === 'pptx_read')
+    const visualImageItem = fileItems.find((item) => item.id === 'image_visual_understanding')
     const imageGenerationItem = generationItems.find((item) => item.id === 'image_generation')
+    const imageControlsItem = generationItems.find((item) => item.id === 'image_controls')
+    const imageEditingItem = generationItems.find((item) => item.id === 'image_editing')
     const browserPdfItem = generationItems.find((item) => item.id === 'browser_pdf_export')
     const serverPdfItem = generationItems.find((item) => item.id === 'server_pdf_generation')
     const structuredDocsItem = generationItems.find((item) => item.id === 'structured_docs')
@@ -400,31 +398,54 @@ export class ReasoningAgent {
       || /\b(docx|xlsx|pdf|svg|ocr|arquivo|arquivos|anexo|anexos)\b/i.test(normalizedTask)
 
     const wantsDocumentGeneration = /\b(pptx|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao)\b/i.test(normalizedTask)
+    const wantsImageGeneration = /\b(imagem|image|img|ocr|editar imagem|edicao de imagem|inpaint|firefly|midjourney|negative prompt|ratio|aspect ratio|seed)\b/i.test(normalizedTask)
+    const wantsOfficeDirectDelivery = /\b(docx|xlsx|pptx)\b/i.test(normalizedTask)
+      && /\b(entrega|entregar|forma nativa|diretamente|planilha|apresentacao|apresentação)\b/i.test(normalizedTask)
+    const wantsSpecificImageControls = /\b(--style|--ratio|--negative|--seed|negative prompt|ratio|aspect ratio|seed)\b/i.test(normalizedTask)
     const docxReady = !docxItem || docxItem.status === 'ready'
     const xlsxReady = !xlsxItem || xlsxItem.status === 'ready'
     const pptxReady = !pptxItem || pptxItem.status === 'ready'
     const browserPdfReady = !browserPdfItem || browserPdfItem.status === 'ready'
     const serverPdfReady = !serverPdfItem || serverPdfItem.status === 'ready'
     const structuredDocsReady = !structuredDocsItem || structuredDocsItem.status === 'ready'
+    const imageGenerationReady = !imageGenerationItem || imageGenerationItem.status === 'ready'
+    const imageControlsReady = !imageControlsItem || imageControlsItem.status === 'ready'
     const lines = ['Sou o GIOM, um assistente de IA no estado operacional atual desta execucao.']
 
     if (wantsDocumentGeneration) {
-      const readyItems = [
-        serverPdfReady ? 'PDF: geracao nativa no servidor.' : null,
-        structuredDocsReady ? 'DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON: geracao nativa de arquivo.' : null,
-        browserPdfReady ? 'Exportacao de conversa em PDF pelo navegador.' : null
-      ].filter(Boolean)
+      const readyItems = wantsOfficeDirectDelivery
+        ? [
+            'DOCX: geracao nativa de arquivo.',
+            'XLSX: geracao nativa de planilha.',
+            'PPTX: geracao nativa de apresentacao.'
+          ].filter(Boolean)
+        : [
+            serverPdfReady ? 'PDF: geracao nativa no servidor.' : null,
+            structuredDocsReady ? 'DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON: geracao nativa de arquivo.' : null,
+            browserPdfReady ? 'Exportacao de conversa em PDF pelo navegador.' : null
+          ].filter(Boolean)
 
-      const partialItems = [
-        'A qualidade do conteudo interno do arquivo ainda depende do prompt, do contexto e do modelo ativo.',
-        'Office aqui significa geracao basica de arquivos e leitura inicial, nao edicao completa tipo desktop.'
-      ].filter(Boolean)
+      const partialItems = wantsOfficeDirectDelivery
+        ? [
+            'O conteudo interno desses arquivos ainda depende do prompt, do contexto e do modelo ativo.',
+            'Office aqui significa geracao basica de arquivo e leitura inicial, nao edicao desktop completa.'
+          ].filter(Boolean)
+        : [
+            'A qualidade do conteudo interno do arquivo ainda depende do prompt, do contexto e do modelo ativo.',
+            'Office aqui significa geracao basica de arquivos e leitura inicial, nao edicao completa tipo desktop.'
+          ].filter(Boolean)
 
-      const plannedItems = [
-        'Suite Office completa com macros, formulas complexas, comentarios, trilhas de revisao e automacao total.',
-        'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
-        'Automacao de escritorio fora do stack atual.'
-      ].filter(Boolean)
+      const plannedItems = wantsOfficeDirectDelivery
+        ? [
+            'Macros, formulas complexas, comentarios, trilhas de revisao e automacao total de escritorio.',
+            'Pesquisa web ao vivo com Google, Bing ou Yahoo para preencher o conteudo com referencias atuais.',
+            'Automacao de escritorio fora do stack atual.'
+          ].filter(Boolean)
+        : [
+            'Suite Office completa com macros, formulas complexas, comentarios, trilhas de revisao e automacao total.',
+            'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
+            'Automacao de escritorio fora do stack atual.'
+          ].filter(Boolean)
 
       return [
         'Sou o GIOM, no estado atual desta execucao.',
@@ -439,7 +460,66 @@ export class ReasoningAgent {
         'Ainda nao integrado:',
         ...plannedItems.map((item) => `- ${item}`),
         '',
-        'Resumo direto: eu gero arquivos nativos agora, mas isso ainda nao equivale a uma suite Office completa.',
+        wantsOfficeDirectDelivery
+          ? 'Resumo direto: eu entrego DOCX, XLSX e PPTX nativos hoje, mas isso ainda nao equivale a uma suite Office completa.'
+          : 'Resumo direto: eu gero arquivos nativos agora, mas isso ainda nao equivale a uma suite Office completa.',
+        privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'
+          ? 'Privacidade operacional: dados sensiveis sao redigidos antes de persistencia e nao entram em aprendizado duradouro.'
+          : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
+      ].join('\n')
+    }
+
+    if (wantsImageGeneration) {
+      const readyItems = wantsSpecificImageControls
+        ? [
+            imageGenerationReady ? 'Prompt principal: ativo nesta execucao.' : null,
+            imageControlsReady ? '--style: preset visual entra no prompt de geracao.' : null,
+            imageControlsReady ? '--ratio: define a proporcao alvo da imagem.' : null,
+            imageControlsReady ? '--negative: restringe defeitos visuais e ruido indesejado.' : null,
+            imageControlsReady ? '--seed: controla reproducibilidade basica quando o provider respeita a seed.' : null
+          ].filter(Boolean)
+        : [
+            imageGenerationReady ? 'Geracao de imagem: ativa nesta execucao.' : null,
+            imageControlsReady ? 'Controles diretos: preset visual, negative prompt, proporcao, dimensoes e seed.' : null,
+            ocrItem?.status === 'ready' ? 'OCR de imagem: extracao de texto ativa.' : null
+          ].filter(Boolean)
+
+      const partialItems = wantsSpecificImageControls
+        ? [
+            'A qualidade estetica final ainda depende do provider, do prompt e do modelo ativo.',
+            'Esses controles ajudam bastante, mas nao substituem um editor visual multimodal completo.'
+          ].filter(Boolean)
+        : [
+            visualImageItem?.status === 'ready'
+              ? 'Entendimento visual geral: ativo.'
+              : 'Entendimento visual geral: ainda nao vai alem de OCR e leitura textual da imagem.',
+            'A qualidade estetica ainda depende do provider, do prompt e do modelo ativo, nao de um editor visual completo.'
+          ].filter(Boolean)
+
+      const plannedItems = [
+        imageEditingItem?.status === 'ready'
+          ? null
+          : 'Edicao por imagem de referencia, inpainting, variacoes locais e iteracao visual multi-turn.',
+        capabilities.mode === 'live' ? null : 'Pesquisa web ao vivo com Google, Bing ou Yahoo para referencias atuais.',
+        'Workflows visuais no nivel de GPT, Gemini, Firefly ou Midjourney para refinamento criativo assistido.'
+      ].filter(Boolean)
+
+      return [
+        'Sou o GIOM, no estado atual desta execucao.',
+        'Limite operacional: eu gero imagem por prompt com controles uteis, mas isso ainda nao equivale a edicao visual multimodal de ponta.',
+        '',
+        'Pronto:',
+        ...readyItems.map((item) => `- ${item}`),
+        '',
+        'Parcial:',
+        ...partialItems.map((item) => `- ${item}`),
+        '',
+        'Ainda nao integrado:',
+        ...plannedItems.map((item) => `- ${item}`),
+        '',
+        wantsSpecificImageControls
+          ? 'Comparacao honesta: eu consigo aplicar style, ratio, negative e seed hoje, mas GPT, Gemini e Firefly ainda estao acima em edicao visual, refinamento criativo e fluxo multimodal.'
+          : 'Comparacao honesta: hoje eu sou forte em gerar imagem simples dentro do meu stack; GPT, Gemini, Firefly e Midjourney ainda estao acima em edicao visual, refinamento criativo e workflows multimodais.',
         privacyItem?.status === 'ready' && learningPrivacyItem?.status === 'ready'
           ? 'Privacidade operacional: dados sensiveis sao redigidos antes de persistencia e nao entram em aprendizado duradouro.'
           : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
@@ -479,12 +559,19 @@ export class ReasoningAgent {
           : 'Imagem/OCR: depende de configuracao da runtime.',
         imageGenerationItem?.status === 'ready'
           ? 'Geracao de imagem: ativa nesta execucao.'
-          : 'Geracao de imagem: depende de provider configurado.'
+          : 'Geracao de imagem: depende de provider configurado.',
+        imageControlsItem?.status === 'ready'
+          ? 'Imagem: controles de preset visual, negative prompt, proporcao, dimensoes e seed.'
+          : 'Imagem: controles finos ainda sao limitados nesta runtime.',
+        visualImageItem?.status === 'ready'
+          ? 'Imagem: entendimento visual alem de OCR esta ativo.'
+          : 'Imagem: entendimento visual geral ainda nao vai alem de OCR.'
       ].filter(Boolean)
 
       const plannedItems = [
         capabilities.mode === 'live' ? null : 'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
         serverPdfItem?.status === 'planned' ? 'Geracao server-side de PDF como arquivo nativo.' : null,
+        imageEditingItem?.status === 'ready' ? null : 'Edicao de imagem por referencia, inpainting e variacoes locais.',
         'Cobertura completa de Office alem de DOCX/XLSX/PPTX basicos.'
       ].filter(Boolean)
 
@@ -503,14 +590,14 @@ export class ReasoningAgent {
           ? 'Privacidade operacional: dados sensiveis sao redigidos antes de persistencia e nao entram em aprendizado duradouro.'
           : 'Privacidade operacional: trate dados sensiveis com cautela e confirme a politica ativa desta runtime.'
       )
-      lines.push('Resumo direto: eu sou forte em memoria, RAG, leitura de arquivos estruturados e modulos especialistas; web ao vivo e geracao binaria nativa ainda dependem de integracao.')
+      lines.push('Resumo direto: eu sou forte em memoria, RAG, leitura e geracao nativa de documentos, alem dos modulos especialistas; web ao vivo e edicao visual avancada ainda dependem de integracao.')
     } else {
       lines.push(
         `Arquivos e leitura hoje: texto e codigo prontos, PDF pronto, SVG como texto pronto, DOCX ${docxItem?.status === 'ready' ? 'pronto' : 'ainda nao ativo'}, XLSX ${xlsxItem?.status === 'ready' ? 'pronto' : 'ainda nao ativo'}, PPTX ${pptxItem?.status === 'ready' ? 'pronto' : 'ainda nao ativo'}, e imagem ${ocrItem?.status === 'ready' ? 'com OCR ativo' : 'com OCR parcial ou dependente de configuracao'}.`
       )
       lines.push(
         imageGenerationItem?.status === 'ready'
-          ? 'Geracao de imagem esta ativa nesta execucao.'
+          ? 'Geracao de imagem esta ativa nesta execucao, com preset visual, negative prompt, proporcao, dimensoes e seed.'
           : 'Geracao de imagem existe, mas depende de provider configurado nesta execucao.'
       )
       lines.push(

@@ -1308,7 +1308,8 @@ async function sendMessage() {
   if (!rawText && !file) return
   if (state.isSending) return
 
-  const imageMode = isImageCommand(rawText)
+  const imageCommand = parseImageCommand(rawText)
+  const imageMode = Boolean(imageCommand)
   const documentCommand = parseDocumentCommand(rawText)
   const documentMode = Boolean(documentCommand)
   const userDisplayText = buildUserDisplayText(rawText, file)
@@ -1319,7 +1320,7 @@ async function sendMessage() {
   scrollChatToBottom()
 
   const question = imageMode
-    ? extractImagePrompt(rawText)
+    ? imageCommand.prompt
     : documentMode
       ? documentCommand.prompt
     : (rawText || `Analise o arquivo "${file.name}" e resuma o que é importante.`)
@@ -1365,8 +1366,14 @@ async function sendMessage() {
     }
 
     if (imageMode) {
-      const generated = await requestImageGeneration(question, requestContext)
-      const caption = `Imagem gerada para: ${question}`
+      const generated = await requestImageGeneration(question, requestContext, imageCommand)
+      const appliedControls = generated.payload?.controls || {}
+      const caption = [
+        `Imagem gerada para: ${question}`,
+        appliedControls.stylePreset ? `Preset visual: ${appliedControls.stylePreset}.` : null,
+        appliedControls.aspectRatio ? `Proporcao: ${appliedControls.aspectRatio}.` : null,
+        appliedControls.width && appliedControls.height ? `Tamanho alvo: ${appliedControls.width}x${appliedControls.height}.` : null
+      ].filter(Boolean).join("\n\n")
       replaceThinkingMessage(thinking, caption, false, {
         imageDataUrl: generated.imageDataUrl
       })
@@ -1438,11 +1445,86 @@ async function sendMessage() {
 }
 
 function isImageCommand(text = "") {
-  return /^\/(?:image|img)\s+/i.test(String(text || "").trim())
+  return Boolean(parseImageCommand(text))
 }
 
 function extractImagePrompt(text = "") {
-  return String(text || "").trim().replace(/^\/(?:image|img)\s+/i, "").trim()
+  return parseImageCommand(text)?.prompt || ""
+}
+
+function readCommandOption(input = "", flag = "") {
+  const patterns = [
+    new RegExp(`(?:^|\\s)--${flag}\\s+\"([^\"]+)\"`, "i"),
+    new RegExp(`(?:^|\\s)--${flag}\\s+'([^']+)'`, "i"),
+    new RegExp(`(?:^|\\s)--${flag}\\s+([^\\s]+)`, "i")
+  ]
+
+  for (const pattern of patterns) {
+    const match = String(input || "").match(pattern)
+    if (match?.[1]) {
+      return match[1].trim()
+    }
+  }
+
+  return ""
+}
+
+function stripCommandOption(input = "", flag = "") {
+  return String(input || "")
+    .replace(new RegExp(`(?:^|\\s)--${flag}\\s+\"[^\"]+\"`, "ig"), " ")
+    .replace(new RegExp(`(?:^|\\s)--${flag}\\s+'[^']+'`, "ig"), " ")
+    .replace(new RegExp(`(?:^|\\s)--${flag}\\s+[^\\s]+`, "ig"), " ")
+}
+
+function parseImageSizeOption(value = "") {
+  const match = String(value || "").trim().match(/^(\d{2,4})x(\d{2,4})$/i)
+  if (!match) return {}
+
+  return {
+    width: Number(match[1]),
+    height: Number(match[2])
+  }
+}
+
+function parseImageCommand(text = "") {
+  const raw = String(text || "").trim()
+  if (!/^\/(?:image|img)\s+/i.test(raw)) {
+    return null
+  }
+
+  let body = raw.replace(/^\/(?:image|img)\s+/i, "").trim()
+  const stylePreset = readCommandOption(body, "style")
+  body = stripCommandOption(body, "style")
+
+  const negativePrompt = readCommandOption(body, "negative")
+  body = stripCommandOption(body, "negative")
+
+  const aspectRatio = readCommandOption(body, "ratio")
+  body = stripCommandOption(body, "ratio")
+
+  const sizeToken = readCommandOption(body, "size")
+  body = stripCommandOption(body, "size")
+
+  const seedToken = readCommandOption(body, "seed")
+  body = stripCommandOption(body, "seed")
+
+  const prompt = body.replace(/\s+/g, " ").trim()
+  if (!prompt) {
+    return null
+  }
+
+  const size = parseImageSizeOption(sizeToken)
+  const seed = seedToken ? Number.parseInt(seedToken, 10) : null
+
+  return {
+    prompt,
+    stylePreset: stylePreset || "",
+    negativePrompt: negativePrompt || "",
+    aspectRatio: aspectRatio || "",
+    width: Number.isFinite(size.width) ? size.width : null,
+    height: Number.isFinite(size.height) ? size.height : null,
+    seed: Number.isFinite(seed) ? seed : null
+  }
 }
 
 function parseDocumentCommand(text = "") {
@@ -1466,12 +1548,13 @@ function parseDocumentCommand(text = "") {
   return null
 }
 
-async function requestImageGeneration(prompt, context = {}) {
+async function requestImageGeneration(prompt, context = {}, imageCommand = {}) {
   const profileName = elements.assistantProfileSelect?.selectedOptions?.[0]?.textContent || "GIOM"
   const style = [
     `Visual language inspired by ${context.uiTheme || "dracula"} interface design`,
     `Assistant profile: ${profileName}`,
-    `Focus areas: ${(context.activeModules || []).join(", ") || "general"}`
+    `Focus areas: ${(context.activeModules || []).join(", ") || "general"}`,
+    imageCommand.stylePreset ? `Requested preset: ${imageCommand.stylePreset}` : ""
   ].join(". ")
 
   const response = await apiRequest("/generate/image", {
@@ -1482,6 +1565,12 @@ async function requestImageGeneration(prompt, context = {}) {
     body: JSON.stringify({
       prompt,
       style,
+      stylePreset: imageCommand.stylePreset || "",
+      negativePrompt: imageCommand.negativePrompt || "",
+      aspectRatio: imageCommand.aspectRatio || "",
+      width: imageCommand.width || null,
+      height: imageCommand.height || null,
+      seed: imageCommand.seed ?? null,
       locale: context.locale || navigator.language
     })
   })

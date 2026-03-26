@@ -138,6 +138,29 @@ const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
 const uploadPdfTextLimit = Number(process.env.UPLOAD_PDF_TEXT_LIMIT || uploadTextLimit)
 const uploadOfficeTextLimit = Number(process.env.UPLOAD_OFFICE_TEXT_LIMIT || uploadTextLimit)
 const imageGenerationModel = process.env.HUGGINGFACE_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
+const imageGenerationMinDimension = Number(process.env.IMAGE_MIN_DIMENSION || 512)
+const imageGenerationMaxDimension = Number(process.env.IMAGE_MAX_DIMENSION || 1536)
+const imageGenerationDefaultSteps = Number(process.env.IMAGE_INFERENCE_STEPS_DEFAULT || 28)
+const imageGenerationMaxSteps = Number(process.env.IMAGE_INFERENCE_STEPS_MAX || 50)
+const imageGenerationDefaultGuidance = Number(process.env.IMAGE_GUIDANCE_SCALE_DEFAULT || 4)
+const IMAGE_STYLE_PRESETS = Object.freeze({
+  editorial: "Editorial product render, polished lighting, premium composition, crisp details, commercial design quality.",
+  cinematic: "Cinematic lighting, atmospheric depth, dramatic framing, realistic materials, premium post-production look.",
+  ui: "Product design showcase, modern interface composition, readable panels, premium SaaS art direction.",
+  dracula: "Dark dracula-inspired palette, neon accents, elegant contrast, clean futuristic composition.",
+  illustration: "High-end illustration, stylized but readable, balanced colors, refined shapes, professional finish.",
+  logo: "Minimal brand concept, vector-friendly silhouette, clean negative space, strong contrast, presentation-ready.",
+  diagram: "Structured infographic composition, clear hierarchy, presentation-friendly layout, minimal clutter."
+})
+const IMAGE_RATIO_DIMENSIONS = Object.freeze({
+  "1:1": { width: 1024, height: 1024 },
+  "16:9": { width: 1344, height: 768 },
+  "9:16": { width: 768, height: 1344 },
+  "4:3": { width: 1152, height: 864 },
+  "3:4": { width: 864, height: 1152 },
+  "3:2": { width: 1216, height: 832 },
+  "2:3": { width: 832, height: 1216 }
+})
 const documentGenerationFormats = listDocumentFormats()
 const documentGenerationFormatIds = documentGenerationFormats.map((entry) => entry.format)
 const SUPPORTED_UPLOAD_ACCEPT = [
@@ -187,6 +210,73 @@ function isImageGenerationEnabled() {
   return Boolean(getImageGenerationToken())
 }
 
+function clampImageNumber(value, min, max, fallback) {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.min(max, Math.max(min, numeric))
+}
+
+function normalizeImageDimension(value, fallback) {
+  const clamped = clampImageNumber(value, imageGenerationMinDimension, imageGenerationMaxDimension, fallback)
+  return Math.round(clamped / 64) * 64
+}
+
+function normalizeImageStylePreset(value = "") {
+  const normalized = String(value || "").trim().toLowerCase()
+  return Object.prototype.hasOwnProperty.call(IMAGE_STYLE_PRESETS, normalized) ? normalized : ""
+}
+
+function normalizeImageAspectRatio(value = "") {
+  const normalized = String(value || "").trim()
+  return Object.prototype.hasOwnProperty.call(IMAGE_RATIO_DIMENSIONS, normalized) ? normalized : ""
+}
+
+function normalizeImageSeed(value) {
+  if (value == null || value === "") return null
+  const numeric = Math.trunc(Number(value))
+  return Number.isFinite(numeric) ? Math.max(0, numeric) : null
+}
+
+function resolveImageDimensions({ width, height, aspectRatio } = {}) {
+  const normalizedRatio = normalizeImageAspectRatio(aspectRatio) || "1:1"
+  const preset = IMAGE_RATIO_DIMENSIONS[normalizedRatio] || IMAGE_RATIO_DIMENSIONS["1:1"]
+
+  return {
+    aspectRatio: normalizedRatio,
+    width: normalizeImageDimension(width, preset.width),
+    height: normalizeImageDimension(height, preset.height)
+  }
+}
+
+function buildImageStylePresetPrompt(stylePreset = "") {
+  return IMAGE_STYLE_PRESETS[stylePreset] || ""
+}
+
+function parseImageGenerationRequest(body = {}) {
+  const stylePreset = normalizeImageStylePreset(body?.stylePreset)
+  const negativePrompt = String(body?.negativePrompt || "").trim().slice(0, 400)
+  const guidanceScale = clampImageNumber(body?.guidanceScale, 1, 20, imageGenerationDefaultGuidance)
+  const numInferenceSteps = Math.trunc(
+    clampImageNumber(body?.numInferenceSteps, 12, imageGenerationMaxSteps, imageGenerationDefaultSteps)
+  )
+  const seed = normalizeImageSeed(body?.seed)
+  const dimensions = resolveImageDimensions({
+    width: body?.width,
+    height: body?.height,
+    aspectRatio: body?.aspectRatio
+  })
+
+  return {
+    style: String(body?.style || "").trim(),
+    stylePreset,
+    negativePrompt,
+    guidanceScale,
+    numInferenceSteps,
+    seed,
+    ...dimensions
+  }
+}
+
 function getUploadCapabilities() {
   return {
     accept: SUPPORTED_UPLOAD_ACCEPT,
@@ -228,6 +318,9 @@ function buildRuntimeCapabilityMatrix() {
     pptxEnabled: true,
     imageGenerationEnabled: isImageGenerationEnabled(),
     imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
+    imageControlsEnabled: true,
+    visualImageUnderstanding: false,
+    imageEditingEnabled: false,
     liveWebEnabled: false,
     browserPdfExport: true,
     serverPdfGeneration: true,
@@ -530,12 +623,25 @@ async function generateImageWithProvider(prompt, options = {}) {
 
   const { HfInference } = await import("@huggingface/inference")
   const client = new HfInference(token)
+  const parameters = {
+    negative_prompt: options.negativePrompt || "blurry, deformed, low quality, watermark, unreadable text",
+    width: options.width,
+    height: options.height,
+    guidance_scale: options.guidanceScale,
+    num_inference_steps: options.numInferenceSteps,
+    seed: options.seed
+  }
+
+  Object.keys(parameters).forEach((key) => {
+    if (parameters[key] == null || parameters[key] === "") {
+      delete parameters[key]
+    }
+  })
+
   const image = await client.textToImage({
     model: imageGenerationModel,
     inputs: prompt,
-    parameters: {
-      negative_prompt: options.negativePrompt || "blurry, deformed, low quality, watermark, unreadable text"
-    }
+    parameters
   })
 
   const mimeType = image?.type || "image/png"
@@ -544,7 +650,18 @@ async function generateImageWithProvider(prompt, options = {}) {
   return {
     mimeType,
     base64: buffer.toString("base64"),
-    model: imageGenerationModel
+    model: imageGenerationModel,
+    provider: "huggingface",
+    controls: {
+      stylePreset: options.stylePreset || null,
+      aspectRatio: options.aspectRatio || null,
+      width: options.width || null,
+      height: options.height || null,
+      negativePrompt: options.negativePrompt || null,
+      guidanceScale: options.guidanceScale || null,
+      numInferenceSteps: options.numInferenceSteps || null,
+      seed: options.seed ?? null
+    }
   }
 }
 
@@ -886,7 +1003,11 @@ app.get("/config", async (req, res) => {
       imageGeneration: {
         enabled: isImageGenerationEnabled(),
         provider: isImageGenerationEnabled() ? "huggingface" : "disabled",
-        model: imageGenerationModel
+        model: imageGenerationModel,
+        stylePresets: Object.keys(IMAGE_STYLE_PRESETS),
+        aspectRatios: Object.keys(IMAGE_RATIO_DIMENSIONS),
+        minDimension: imageGenerationMinDimension,
+        maxDimension: imageGenerationMaxDimension
       },
       documentGeneration: {
         enabled: true,
@@ -930,6 +1051,9 @@ app.get("/config", async (req, res) => {
       pptxEnabled: true,
       imageGenerationEnabled: isImageGenerationEnabled(),
       imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
+      imageControlsEnabled: true,
+      visualImageUnderstanding: false,
+      imageEditingEnabled: false,
       liveWebEnabled: false,
       browserPdfExport: true,
       privacyRedaction: true,
@@ -1264,9 +1388,10 @@ app.post("/upload", async (req, res) => {
 
 app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
   try {
+    const requestId = `img_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
     const prompt = String(req.body?.prompt || "").trim()
-    const style = String(req.body?.style || "").trim()
     const locale = String(req.body?.locale || "pt-BR")
+    const imageRequest = parseImageGenerationRequest(req.body)
 
     if (!prompt) {
       return res.status(400).json({ error: "Prompt de imagem vazio", code: "EMPTY_IMAGE_PROMPT" })
@@ -1281,15 +1406,33 @@ app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
       })
     }
 
-    const fullPrompt = [prompt, style ? `Style guidance: ${style}` : ""]
+    const fullPrompt = [
+      prompt,
+      imageRequest.style ? `Style guidance: ${imageRequest.style}` : "",
+      imageRequest.stylePreset ? `Style preset: ${imageRequest.stylePreset}` : "",
+      buildImageStylePresetPrompt(imageRequest.stylePreset),
+      imageRequest.aspectRatio ? `Requested aspect ratio: ${imageRequest.aspectRatio}` : "",
+      imageRequest.width && imageRequest.height ? `Target size: ${imageRequest.width}x${imageRequest.height}` : ""
+    ]
       .filter(Boolean)
       .join("\n")
 
-    const image = await generateImageWithProvider(fullPrompt)
+    const image = await generateImageWithProvider(fullPrompt, imageRequest)
 
     res.json({
       success: true,
-      image
+      requestId,
+      image,
+      controls: image.controls || {
+        stylePreset: imageRequest.stylePreset || null,
+        aspectRatio: imageRequest.aspectRatio,
+        width: imageRequest.width,
+        height: imageRequest.height,
+        negativePrompt: imageRequest.negativePrompt || null,
+        guidanceScale: imageRequest.guidanceScale,
+        numInferenceSteps: imageRequest.numInferenceSteps,
+        seed: imageRequest.seed ?? null
+      }
     })
   } catch (error) {
     res.status(error.statusCode || 500).json({

@@ -24,7 +24,10 @@ export function buildCapabilityMatrix(options = {}) {
     documentGenerationFormats = [],
     privacyRedaction = true,
     sensitiveLearningBlocked = true,
-    temporaryUploads = true
+    temporaryUploads = true,
+    imageControlsEnabled = false,
+    visualImageUnderstanding = false,
+    imageEditingEnabled = false
   } = options
 
   const nativeFormats = Array.isArray(documentGenerationFormats)
@@ -33,6 +36,7 @@ export function buildCapabilityMatrix(options = {}) {
   const nativeFormatsSummary = nativeFormats.length > 0
     ? nativeFormats.join(", ")
     : "TXT, MD, HTML and JSON"
+  const imageControlSurfaceReady = imageGenerationEnabled && imageControlsEnabled
 
   return {
     status: "runtime_capability_matrix",
@@ -66,6 +70,7 @@ export function buildCapabilityMatrix(options = {}) {
           buildItem("xlsx_read", "XLSX reading", xlsxEnabled ? "ready" : "planned", xlsxEnabled ? "XLSX worksheet extraction is active on the server." : "XLSX parsing is not active in this runtime yet."),
           buildItem("pptx_read", "PPTX reading", pptxEnabled ? "ready" : "planned", pptxEnabled ? "PPTX slide-text extraction is active on the server." : "PPTX parsing is not active in this runtime yet."),
           buildItem("image_ocr", "Image OCR", ocrEnabled ? "ready" : "partial", ocrEnabled ? "Image text extraction via OCR is enabled." : "Image upload is accepted, but OCR depends on UPLOAD_OCR_ENABLED=true."),
+          buildItem("image_visual_understanding", "Image understanding", visualImageUnderstanding ? "ready" : (ocrEnabled ? "partial" : "planned"), visualImageUnderstanding ? "This runtime can reason about visual scenes beyond OCR text extraction." : (ocrEnabled ? "This runtime can extract text from images, but not full visual scene understanding." : "Visual image understanding is not active in this runtime yet.")),
           buildItem("office_binary_docs", "Office binary coverage", docxEnabled && xlsxEnabled && pptxEnabled ? "ready" : (docxEnabled || xlsxEnabled || pptxEnabled ? "partial" : "planned"), docxEnabled && xlsxEnabled && pptxEnabled ? "DOCX, XLSX and PPTX basic extraction are available in this runtime." : (docxEnabled || xlsxEnabled || pptxEnabled ? "Part of the Office binary family is available, but coverage is not complete yet." : "Office binary formats are not parsed natively yet.")),
           buildItem("binary_forensics", "Arbitrary binary inspection", "planned", "Generic binary reverse inspection is not a built-in capability yet.")
         ]
@@ -75,6 +80,8 @@ export function buildCapabilityMatrix(options = {}) {
         label: "Generation and export",
         items: [
           buildItem("image_generation", "Image generation", imageGenerationEnabled ? "ready" : "partial", imageGenerationEnabled ? `Image generation is active via ${imageGenerationProvider}.` : "Image generation requires a configured provider token such as Hugging Face."),
+          buildItem("image_controls", "Image prompt controls", imageControlSurfaceReady ? "ready" : (imageGenerationEnabled ? "partial" : "planned"), imageControlSurfaceReady ? "GIOM can control style preset, negative prompt, aspect ratio, dimensions and seed for image generation." : (imageGenerationEnabled ? "Image generation is active, but advanced prompt controls are not fully exposed in this runtime." : "Advanced image controls depend on image generation being active first.")),
+          buildItem("image_editing", "Image editing and variations", imageEditingEnabled ? "ready" : "planned", imageEditingEnabled ? "Reference-image editing, inpainting or multi-turn image editing are active." : "Reference-image editing, inpainting and multi-turn image variations are not integrated in this runtime yet."),
           buildItem("browser_pdf_export", "Browser PDF export", browserPdfExport ? "ready" : "planned", browserPdfExport ? "The web UI can export the current chat through the browser print/export flow." : "Browser-side PDF export is not active."),
           buildItem("server_pdf_generation", "Server PDF generation", serverPdfGeneration ? "ready" : "planned", serverPdfGeneration ? "Server-side PDF file generation is active in this runtime." : "Server-side PDF file generation is not implemented yet."),
           buildItem("structured_docs", "Structured document output", structuredDocsNative ? "ready" : "partial", structuredDocsNative ? `GIOM can generate native files in ${nativeFormatsSummary}.` : "GIOM can draft markdown, HTML, JSON and text documents in chat, but not every binary document type as a native file yet.")
