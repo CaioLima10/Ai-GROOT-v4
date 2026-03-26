@@ -33,6 +33,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "biblical_periods",
+    label: "Periodos Biblicos",
+    summary: "Patriarcas, exodo, juizes, monarquia, exilio, segundo templo e periodos do Novo Testamento.",
+    categories: ["biblical_history", "bible"],
+    keywords: ["periodos biblicos", "períodos bíblicos", "patriarcas", "juizes", "juízes", "exilio", "exílio", "segundo templo"],
+    instructions: [
+      "Organize a explicacao por periodo, contexto politico, livros relacionados e transicoes principais.",
+      "Mostre como mudancas de alianca, reino, exilio e dominio imperial afetam a leitura do texto."
+    ]
+  },
+  {
     id: "church_history",
     label: "Igreja Primitiva & Historia da Igreja",
     summary: "Pais da igreja, concilios, heresias, expansao do cristianismo e igreja primitiva.",
@@ -55,6 +66,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "study_methods_hermeneutics",
+    label: "Tecnicas de Estudo & Hermeneutica",
+    summary: "Observacao, interpretacao, aplicacao, contexto, genero literario e metodos de estudo biblico.",
+    categories: ["bible", "theology"],
+    keywords: ["tecnica de estudo", "técnica de estudo", "hermeneutica", "hermenêutica", "indutivo", "observacao", "interpretação"],
+    instructions: [
+      "Ensine metodos praticos de estudo biblico sem simplificar demais o contexto literario e historico.",
+      "Explique como genero, contexto e unidade canonica afetam a interpretacao."
+    ]
+  },
+  {
     id: "biblical_theology",
     label: "Teologia Biblica",
     summary: "Temas canônicos, desenvolvimento progressivo da revelação e unidade da narrativa bíblica.",
@@ -63,6 +85,17 @@ export const BIBLE_STUDY_MODULES = [
     instructions: [
       "Acompanhe temas ao longo do canon sem apagar diversidade de genero, autor e periodo.",
       "Diferencie desenvolvimento canonico, leitura sistematica posterior e aplicacao pastoral."
+    ]
+  },
+  {
+    id: "devotional_practice",
+    label: "Devocional & Discipulado",
+    summary: "Leitura devocional, meditacao, oracao, aplicacao pessoal e rotina de crescimento espiritual.",
+    categories: ["bible", "pastoral_theology"],
+    keywords: ["devocional", "discipulado", "meditacao biblica", "meditação bíblica", "oracao", "oração", "aplicacao pessoal"],
+    instructions: [
+      "Mantenha fidelidade ao texto antes da aplicacao emocional.",
+      "Una devocional, discipulado, oracao e obediencia pratica sem transformar impressao pessoal em doutrina."
     ]
   },
   {
@@ -99,6 +132,17 @@ export const BIBLE_STUDY_MODULES = [
     ]
   },
   {
+    id: "prophecy_eschatology",
+    label: "Profecia & Escatologia",
+    summary: "Profetas, linguagem apocaliptica, cumprimento, escolas escatologicas e prudencia interpretativa.",
+    categories: ["theology", "bible"],
+    keywords: ["profecia", "escatologia", "apocalipse", "milenio", "milênio", "arrebatamento", "profetas"],
+    instructions: [
+      "Diferencie genero profetico, cumprimento historico, leitura simbolica e escola escatologica.",
+      "Evite dogmatismo onde o texto e a tradicao cristã divergem significativamente."
+    ]
+  },
+  {
     id: "biblical_ethics",
     label: "Etica Biblica",
     summary: "Moral cristã, virtudes, consciência, lei, graça e aplicação ética responsável.",
@@ -107,6 +151,17 @@ export const BIBLE_STUDY_MODULES = [
     instructions: [
       "Diferencie princípio textual, tradição moral e aplicação contextual contemporânea.",
       "Quando houver disputa ética, apresente linhas principais com caridade e precisão."
+    ]
+  },
+  {
+    id: "sunday_school_curriculum",
+    label: "Escola Dominical & Curriculo",
+    summary: "Aulas, sequencias didaticas, faixas etarias, objetivos, dinamicas e ensino biblico comunitario.",
+    categories: ["bible", "pastoral_theology"],
+    keywords: ["escola dominical", "curriculo biblico", "currículo bíblico", "aula biblica", "aula bíblica", "lição", "licao"],
+    instructions: [
+      "Estruture por objetivo, texto base, publico, dinamica, aplicacao e revisao.",
+      "Adapte profundidade, linguagem e metodo para criancas, jovens, novos convertidos ou adultos."
     ]
   },
   {

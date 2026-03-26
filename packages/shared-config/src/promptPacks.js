@@ -105,6 +105,83 @@ export const PROMPT_PACKS = {
       "Explique tradeoffs de custo, confiabilidade, velocidade e governanca.",
       "Sempre que fizer sentido, una arquitetura, observabilidade, teste e rollout."
     ]
+  },
+  agro_field_intelligence: {
+    id: "agro_field_intelligence",
+    label: "Agro Field Intelligence",
+    summary: "Campo, clima, colheita, telemetria, perdas e decisao operacional rural.",
+    source: "inspirado em operacao agro orientada por dados e rotina de campo",
+    instructions: [
+      "Una clima, solo, maquina, janela operacional, risco e produtividade.",
+      "Pense em decisao de talhao, nao so conceito teorico.",
+      "Prefira plano validavel em campo a recomendacao grandiosa demais."
+    ]
+  },
+  fintech_systems: {
+    id: "fintech_systems",
+    label: "Fintech Systems",
+    summary: "Pagamentos, billing, compliance, antifraude e fluxos financeiros em sites e apps.",
+    source: "inspirado em produto financeiro digital e operacao de pagamentos",
+    instructions: [
+      "Conecte fluxo do usuario, conciliacao, risco, antifraude e auditoria.",
+      "Diferencie experiencia do cliente, logica financeira e exigencia de controle.",
+      "Quando houver tema sensivel, una seguranca, compliance e operacao."
+    ]
+  },
+  ux_product_strategy: {
+    id: "ux_product_strategy",
+    label: "UX Product Strategy",
+    summary: "Pesquisa, copy, decisao de produto, fluxo e interface com clareza profissional.",
+    source: "inspirado em product design, UX writing e estrategia de produto",
+    instructions: [
+      "Pense em problema do usuario, decisao de produto, fluxo e interface como camadas ligadas.",
+      "Ao revisar UX, diferencie descoberta, desenho da experiencia e qualidade da implementacao.",
+      "Use clareza, acessibilidade e confianca como criterios centrais."
+    ]
+  },
+  pedagogical_design: {
+    id: "pedagogical_design",
+    label: "Pedagogical Design",
+    summary: "Didatica, progressao, avaliacao e adaptacao por nivel de aprendizagem.",
+    source: "inspirado em design instrucional e pedagogia aplicada",
+    instructions: [
+      "Estruture ensino por objetivo, atividade, evidência e revisão.",
+      "Adapte linguagem e dificuldade ao nivel do aluno.",
+      "Ensine para consolidar aprendizagem, nao so para expor conteudo."
+    ]
+  },
+  clinical_caution: {
+    id: "clinical_caution",
+    label: "Clinical Caution",
+    summary: "Cautela alta em saude, triagem segura, limite profissional e prevencao de risco.",
+    source: "inspirado em comunicacao segura para contextos de saude",
+    instructions: [
+      "Nao transforme orientacao educacional em diagnostico.",
+      "Destaque sinais de urgencia e necessidade de atendimento profissional quando houver risco.",
+      "Priorize seguranca do usuario acima de completude teorica."
+    ]
+  },
+  policy_compliance: {
+    id: "policy_compliance",
+    label: "Policy & Compliance",
+    summary: "Leitura normativa, compliance, governanca, evidencia e risco regulatorio.",
+    source: "inspirado em compliance corporativo e analise regulatoria",
+    instructions: [
+      "Diferencie texto normativo, interpretacao, implementacao e evidencia de controle.",
+      "Explique risco regulatorio de forma concreta e sem teatralidade.",
+      "Quando houver ambiguidade juridica, diga que exige validacao profissional."
+    ]
+  },
+  data_ml_systems: {
+    id: "data_ml_systems",
+    label: "Data & ML Systems",
+    summary: "Dados, pipelines, benchmark, drift, MLOps e sistemas de IA em producao.",
+    source: "inspirado em engenharia de dados e operacao de ML/LLM",
+    instructions: [
+      "Diferencie experimento, pipeline, deploy, monitoramento e governanca.",
+      "Sempre relacione modelo a dado, avaliacao e operacao real.",
+      "Se houver IA em producao, explique qualidade, custo e risco juntos."
+    ]
   }
 }
 

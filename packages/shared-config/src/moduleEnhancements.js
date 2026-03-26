@@ -9,6 +9,8 @@ export const MODULE_ENHANCEMENT_PLANS = {
     recommendedPromptPacks: ["github_copilot_engineering", "codex_execution", "enterprise_architecture"],
     focusAreas: [
       "backend_systems",
+      "language_specialists",
+      "framework_ecosystems",
       "data_platforms",
       "cloud_devops",
       "testing_quality",
@@ -95,6 +97,7 @@ export const MODULE_ENHANCEMENT_PLANS = {
       "chess_training",
       "logic_puzzles",
       "rpg_systems",
+      "music_theory_practice",
       "game_design_balance"
     ],
     scholarlyPrompts: [
@@ -114,7 +117,8 @@ export const MODULE_ENHANCEMENT_PLANS = {
       "physics_engineering",
       "chemistry_materials",
       "biology_life_science",
-      "ai_ml_math"
+      "ai_ml_math",
+      "computational_science"
     ],
     scholarlyPrompts: [
       "Explique definição, intuição, formalização, verificação e hipótese usada.",
@@ -126,12 +130,16 @@ export const MODULE_ENHANCEMENT_PLANS = {
     id: "agribusiness",
     label: DOMAIN_MODULES.agribusiness.label,
     academicDirection: "agro orientado a campo com integração entre agronomia, telemetria e gestão",
-    recommendedPromptPacks: ["gemini_research", "scientific_rigor", "academic_rigor"],
+    recommendedPromptPacks: ["gemini_research", "scientific_rigor", "academic_rigor", "agro_field_intelligence"],
     focusAreas: [
       "soil_fertility",
       "crop_health_protection",
       "precision_agriculture",
       "irrigation_water",
+      "weather_forecasting",
+      "harvest_operations",
+      "smart_harvest_systems",
+      "agro_gpts_automation",
       "agro_business_management"
     ],
     scholarlyPrompts: [
@@ -144,12 +152,15 @@ export const MODULE_ENHANCEMENT_PLANS = {
     id: "finance",
     label: DOMAIN_MODULES.finance.label,
     academicDirection: "finanças com leitura executiva, risco e decisão sob incerteza",
-    recommendedPromptPacks: ["chatgpt_reasoning", "gemini_research", "academic_rigor"],
+    recommendedPromptPacks: ["chatgpt_reasoning", "gemini_research", "academic_rigor", "fintech_systems"],
     focusAreas: [
       "personal_finance",
       "corporate_finance",
       "accounting_controls",
       "valuation_investment",
+      "payments_fintech_apps",
+      "billing_revenue_ops",
+      "banking_controls_compliance",
       "macro_risk"
     ],
     scholarlyPrompts: [
@@ -157,39 +168,141 @@ export const MODULE_ENHANCEMENT_PLANS = {
       "Diferencie conceito, hipótese financeira e recomendação profissional individual.",
       "Quando o tema depender de dado atual, diga isso claramente."
     ]
+  },
+  product_design_ux: {
+    id: "product_design_ux",
+    label: DOMAIN_MODULES.product_design_ux.label,
+    academicDirection: "produto e design com rigor de pesquisa, decisão, copy e interface",
+    recommendedPromptPacks: ["chatgpt_reasoning", "ux_product_strategy", "academic_rigor"],
+    focusAreas: [
+      "ux_research",
+      "ui_design_systems",
+      "ux_writing_content",
+      "product_strategy"
+    ],
+    scholarlyPrompts: [
+      "Diferencie problema de entendimento, problema de fluxo e problema de estratégia de produto.",
+      "Relacione pesquisa, hipótese, interface, métrica e impacto no negócio.",
+      "Quando revisar uma experiência, una clareza, acessibilidade, confiança e implementação."
+    ]
+  },
+  data_ai_ml: {
+    id: "data_ai_ml",
+    label: DOMAIN_MODULES.data_ai_ml.label,
+    academicDirection: "engenharia de dados e IA com benchmark, operação e governança",
+    recommendedPromptPacks: ["codex_execution", "data_ml_systems", "scientific_rigor", "academic_rigor"],
+    focusAreas: [
+      "data_engineering",
+      "analytics_bi",
+      "mlops_evaluation",
+      "llm_prompt_systems"
+    ],
+    scholarlyPrompts: [
+      "Diferencie qualidade do dado, qualidade do modelo e qualidade da operação em produção.",
+      "Sempre conecte benchmark, custo, latência, drift e rollback.",
+      "Não trate automação analítica ou de IA como confiável sem avaliação e monitoramento."
+    ]
+  },
+  education_pedagogy: {
+    id: "education_pedagogy",
+    label: DOMAIN_MODULES.education_pedagogy.label,
+    academicDirection: "pedagogia aplicada com progressão, adaptação e avaliação formativa",
+    recommendedPromptPacks: ["chatgpt_reasoning", "pedagogical_design", "academic_rigor"],
+    focusAreas: [
+      "lesson_planning",
+      "assessment_feedback",
+      "adaptive_teaching",
+      "curriculum_learning_path"
+    ],
+    scholarlyPrompts: [
+      "Planeje ensino por objetivo, atividade, evidência e revisão.",
+      "Adapte conteúdo por nível sem abandonar o conceito central.",
+      "Use avaliação para orientar o próximo passo de aprendizagem."
+    ]
+  },
+  operations_logistics: {
+    id: "operations_logistics",
+    label: DOMAIN_MODULES.operations_logistics.label,
+    academicDirection: "operações com foco em fluxo, gargalo, confiabilidade e cadeia logística",
+    recommendedPromptPacks: ["enterprise_architecture", "academic_rigor"],
+    focusAreas: [
+      "process_mapping",
+      "warehouse_distribution",
+      "planning_procurement",
+      "service_reliability_ops"
+    ],
+    scholarlyPrompts: [
+      "Mapeie entrada, espera, restrição, SLA e recuperação operacional.",
+      "Diferencie capacidade teórica, capacidade real e gargalo dominante.",
+      "Explique custo, lead time, qualidade e resiliência como variáveis juntas."
+    ]
+  },
+  medicine_health: {
+    id: "medicine_health",
+    label: DOMAIN_MODULES.medicine_health.label,
+    academicDirection: "educacao em saude com cautela clinica, prevencao e triagem segura",
+    recommendedPromptPacks: ["chatgpt_reasoning", "scientific_rigor", "clinical_caution"],
+    focusAreas: [
+      "health_education",
+      "exam_literacy",
+      "clinical_safety_triage",
+      "public_health_prevention"
+    ],
+    scholarlyPrompts: [
+      "Explique conceito de saúde com clareza, limite e necessidade de validação clínica.",
+      "Nunca trate urgência como tema teórico.",
+      "Diferencie educação em saúde, leitura orientativa e decisão médica."
+    ]
+  },
+  law_policy: {
+    id: "law_policy",
+    label: DOMAIN_MODULES.law_policy.label,
+    academicDirection: "leitura regulatoria e juridica com compliance, privacidade e impacto publico",
+    recommendedPromptPacks: ["chatgpt_reasoning", "academic_rigor", "policy_compliance"],
+    focusAreas: [
+      "legal_reading_structure",
+      "compliance_governance",
+      "privacy_regulation",
+      "public_policy_analysis"
+    ],
+    scholarlyPrompts: [
+      "Diferencie texto normativo, interpretação, impacto prático e ponto de ambiguidade.",
+      "Explique compliance como combinação de regra, processo, evidência e governança.",
+      "Quando houver risco regulatório, diga o que exige validação profissional."
+    ]
   }
 }
 
 export const PLANNED_MODULES = [
   {
-    id: "medicine_health",
-    label: "Saude & Medicina",
-    summary: "Leitura de exames, fundamentos biomédicos, segurança do paciente e educação em saúde com forte cautela."
+    id: "media_communication",
+    label: "Midia & Comunicacao",
+    summary: "Storytelling, estratégia editorial, roteiro, posicionamento e comunicação institucional."
   },
   {
-    id: "law_policy",
-    label: "Direito & Politicas Publicas",
-    summary: "Leitura normativa, estrutura legal comparada, regulação, compliance e políticas públicas."
+    id: "manufacturing_industry",
+    label: "Industria & Manufatura",
+    summary: "Processos industriais, qualidade, manutenção, produção e melhoria contínua."
   },
   {
-    id: "product_design_ux",
-    label: "Produto, UX & Design",
-    summary: "Pesquisa de produto, UX writing, design systems, fluxos, acessibilidade e decisão de produto."
+    id: "psychology_support",
+    label: "Psicologia & Apoio Humano",
+    summary: "Psicoeducação, regulação emocional e comunicação de apoio com fortes limites de segurança."
   },
   {
-    id: "data_ai_ml",
-    label: "Dados, IA & MLOps",
-    summary: "Modelagem de dados, pipelines, experimentação, inferência, avaliação, MLOps e governança."
+    id: "real_estate_construction",
+    label: "Imoveis & Construcao",
+    summary: "Projetos, obras, orçamento, cronograma, segurança e decisão imobiliária."
   },
   {
-    id: "education_pedagogy",
-    label: "Educacao & Pedagogia",
-    summary: "Didática, currículo, avaliação, progressão de aprendizagem e adaptação por nível."
+    id: "language_translation",
+    label: "Idiomas & Traducao",
+    summary: "Tradução, adaptação cultural, ensino de idiomas e comunicação multilíngue."
   },
   {
-    id: "operations_logistics",
-    label: "Operacoes & Logistica",
-    summary: "Processos, SLA, cadeia logística, gargalos, confiabilidade e otimização operacional."
+    id: "sports_performance",
+    label: "Esportes & Performance",
+    summary: "Treino, periodização, análise de desempenho e educação esportiva."
   }
 ]
 

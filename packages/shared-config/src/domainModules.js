@@ -31,6 +31,32 @@ const MODULE_SUBMODULES = {
       ]
     },
     {
+      id: "language_specialists",
+      label: "Linguagens de Programacao",
+      summary: "JavaScript, TypeScript, Python, Java, C#, Go, Rust, PHP e padroes por linguagem.",
+      keywords: [
+        "javascript", "typescript", "python", "java", "c#", "dotnet", "go", "golang", "rust", "php",
+        "node", "linguagem", "padrão de linguagem", "padrao de linguagem"
+      ],
+      instructions: [
+        "Explique idiomatismo, ecossistema, erro comum e tradeoff proprio de cada linguagem.",
+        "Diferencie sintaxe, arquitetura, tooling, runtime e custo de manutencao."
+      ]
+    },
+    {
+      id: "framework_ecosystems",
+      label: "Frameworks & Ecossistemas",
+      summary: "Next.js, React, Express, NestJS, Spring, Django, FastAPI, Laravel e stacks modernas.",
+      keywords: [
+        "next.js", "nextjs", "react", "express", "nestjs", "nest", "spring", "spring boot",
+        "django", "fastapi", "laravel", "vue", "angular"
+      ],
+      instructions: [
+        "Trate framework como combinacao de convencao, produtividade, risco de lock-in e operacao.",
+        "Ao comparar stacks, separe experiencia de dev, performance, arquitetura e deploy."
+      ]
+    },
+    {
       id: "data_platforms",
       label: "Dados, SQL & Storage",
       summary: "Bancos, índices, cache, vetores, schema, consistência e performance de leitura/escrita.",
@@ -269,6 +295,16 @@ const MODULE_SUBMODULES = {
       ]
     },
     {
+      id: "music_theory_practice",
+      label: "Musica, Teoria & Treino",
+      summary: "Teoria musical, ritmo, harmonia, estudo prático e música aplicada ao aprendizado.",
+      keywords: ["musica", "música", "harmonia", "ritmo", "teoria musical", "treino musical", "cifra"],
+      instructions: [
+        "Ensine com progressão prática, escuta, teoria e exercício, não só com definição abstrata.",
+        "Conecte conceito musical a treino diário e percepção auditiva."
+      ]
+    },
+    {
       id: "game_design_balance",
       label: "Design & Balanceamento",
       summary: "Loops de jogo, risco/recompensa, progressão e clareza de decisão.",
@@ -339,6 +375,16 @@ const MODULE_SUBMODULES = {
         "Diferencie intuição, formulação matemática e validação empírica.",
         "Explique o que é hipótese de modelo e o que é fato observado."
       ]
+    },
+    {
+      id: "computational_science",
+      label: "Modelagem Computacional",
+      summary: "Simulação, experimentos computacionais, análise numérica e validação de modelos.",
+      keywords: ["simulacao", "simulação", "modelo computacional", "analise numerica", "análise numérica", "metodo numerico", "método numérico"],
+      instructions: [
+        "Explique hipótese do modelo, discretização, estabilidade e validação contra dados ou casos-limite.",
+        "Diferencie aproximação computacional de comportamento físico real."
+      ]
     }
   ],
   agribusiness: [
@@ -380,6 +426,46 @@ const MODULE_SUBMODULES = {
       instructions: [
         "Explique relação entre clima, solo, cultura e operação.",
         "Quando houver risco hídrico, destaque monitoramento e contingência."
+      ]
+    },
+    {
+      id: "weather_forecasting",
+      label: "Previsao de Tempo & Clima",
+      summary: "Chuva, janela operacional, risco climático, microclima e decisão agrícola baseada em tempo.",
+      keywords: ["previsao do tempo", "previsão do tempo", "chuva", "clima", "janela operacional", "geada", "tempo agricola"],
+      instructions: [
+        "Conecte previsão, operação de campo, risco de perda e plano de contingência.",
+        "Diferencie dado meteorológico, interpretação agronômica e decisão operacional."
+      ]
+    },
+    {
+      id: "harvest_operations",
+      label: "Colheita Organizada",
+      summary: "Planejamento de colheita, logística, capacidade de máquina, perdas e janelas operacionais.",
+      keywords: ["colheita", "colheitadeira", "janela de colheita", "perda na colheita", "armazenagem", "escoamento"],
+      instructions: [
+        "Estruture em maturação, ordem de talhões, capacidade operacional, logística e risco de perda.",
+        "Ao recomendar colheita, pense em máquina, clima, armazenagem e destino do produto."
+      ]
+    },
+    {
+      id: "smart_harvest_systems",
+      label: "Colheita Inteligente",
+      summary: "Telemetria, sensores, mapas de produtividade, automação e otimização da colheita.",
+      keywords: ["colheita inteligente", "mapa de produtividade", "telemetria da colheita", "sensores na colheita", "piloto automatico"],
+      instructions: [
+        "Una sensores, dados de máquina, telemetria e decisão de rota ou velocidade.",
+        "Explique ganho operacional, qualidade do dado e necessidade de calibração."
+      ]
+    },
+    {
+      id: "agro_gpts_automation",
+      label: "Agro GPTs & Automacao",
+      summary: "Copilotos agro, dashboards, apps rurais, automação de relatórios e apoio inteligente ao campo.",
+      keywords: ["gpt agro", "gpts agro", "app rural", "dashboard agro", "automacao agro", "relatorio de fazenda"],
+      instructions: [
+        "Pense em copilotos operacionais que integrem dados, rotina de campo e decisão do gestor.",
+        "Diferencie automação útil, automação arriscada e validação humana necessária."
       ]
     },
     {
@@ -435,6 +521,36 @@ const MODULE_SUBMODULES = {
       ]
     },
     {
+      id: "payments_fintech_apps",
+      label: "Pagamentos, Sites & Apps Financeiros",
+      summary: "PIX, cartão, boleto, checkout, conciliação, antifraude e fluxos financeiros em produtos digitais.",
+      keywords: ["pix", "boleto", "cartao", "cartão", "checkout", "gateway", "fintech", "app financeiro", "site financeiro"],
+      instructions: [
+        "Una fluxo do usuário, conciliação, risco, antifraude e compliance operacional.",
+        "Ao falar de produto financeiro digital, pense em jornada, taxa, liquidação e suporte."
+      ]
+    },
+    {
+      id: "billing_revenue_ops",
+      label: "Billing, Receita & Assinaturas",
+      summary: "Cobrança recorrente, faturas, MRR, inadimplência, pricing e operações de receita.",
+      keywords: ["billing", "assinatura", "mrr", "receita recorrente", "fatura", "inadimplencia", "inadimplência", "pricing"],
+      instructions: [
+        "Explique como cobrança, preço, retenção e caixa se conectam.",
+        "Diferencie regra de negócio, operação de receita e impacto financeiro."
+      ]
+    },
+    {
+      id: "banking_controls_compliance",
+      label: "Controles Bancarios & Compliance",
+      summary: "KYC, trilha de auditoria, reconciliação, risco operacional e controles de produto financeiro.",
+      keywords: ["kyc", "compliance financeiro", "controle bancario", "controle bancário", "auditoria financeira", "reconciliacao", "reconciliação"],
+      instructions: [
+        "Pense em governança, trilha de auditoria, segregação de função e risco regulatório.",
+        "Não trate operação financeira digital como mera interface; cubra controle e evidência."
+      ]
+    },
+    {
       id: "macro_risk",
       label: "Macro, Mercado & Risco",
       summary: "Inflação, juros, câmbio, risco sistêmico e exposição operacional.",
@@ -442,6 +558,258 @@ const MODULE_SUBMODULES = {
       instructions: [
         "Explique relação entre variável macro e impacto prático.",
         "Diga quando a leitura depende de dado atual e não de conhecimento estático."
+      ]
+    }
+  ],
+  product_design_ux: [
+    {
+      id: "ux_research",
+      label: "UX Research",
+      summary: "Entrevistas, jobs to be done, mapa de dor, fluxo do usuário e síntese de insight.",
+      keywords: ["ux research", "pesquisa com usuario", "jobs to be done", "entrevista com usuario", "dor do usuario", "fluxo do usuario"],
+      instructions: [
+        "Trate insight de produto como evidência observada, hipótese e impacto na jornada.",
+        "Diferencie opinião do time, dado de uso e achado de pesquisa."
+      ]
+    },
+    {
+      id: "ui_design_systems",
+      label: "UI & Design Systems",
+      summary: "Hierarquia visual, componentes, estados, responsividade, acessibilidade e consistência.",
+      keywords: ["design system", "componente", "ui", "layout", "responsivo", "acessibilidade", "interface"],
+      instructions: [
+        "Pense em clareza visual, reuso, tokens, estados vazios e manutenção em escala.",
+        "Conecte estética, performance, semântica e implementação."
+      ]
+    },
+    {
+      id: "ux_writing_content",
+      label: "UX Writing & Conteudo",
+      summary: "Microcopy, onboarding, mensagens de erro, instruções e clareza de interface.",
+      keywords: ["ux writing", "microcopy", "mensagem de erro", "onboarding", "copy de produto", "texto de interface"],
+      instructions: [
+        "Escreva para reduzir fricção, ambiguidade e ansiedade do usuário.",
+        "Ao revisar texto, una clareza, tom, confiança e contexto da ação."
+      ]
+    },
+    {
+      id: "product_strategy",
+      label: "Produto & Estrategia",
+      summary: "Priorização, hipóteses, roadmap, métricas, retenção e decisão de produto.",
+      keywords: ["roadmap", "priorizacao", "priorização", "retencao", "retenção", "metrica de produto", "estrategia de produto"],
+      instructions: [
+        "Responda como PM com rigor de pesquisa, entrega e impacto.",
+        "Diferencie hipótese de produto, experimento, métrica e decisão executiva."
+      ]
+    }
+  ],
+  data_ai_ml: [
+    {
+      id: "data_engineering",
+      label: "Data Engineering",
+      summary: "Pipelines, modelagem, ETL/ELT, qualidade, orquestração e consumo analítico.",
+      keywords: ["etl", "elt", "pipeline de dados", "warehouse", "lake", "dbt", "airflow", "qualidade de dados"],
+      instructions: [
+        "Explique origem, transformação, contrato de dado, monitoramento e custo operacional.",
+        "Diferencie conveniência de curto prazo e dívida estrutural de dado."
+      ]
+    },
+    {
+      id: "analytics_bi",
+      label: "Analytics & BI",
+      summary: "Métricas, dashboards, segmentação, experimentos e decisão orientada por dados.",
+      keywords: ["bi", "dashboard", "metrica", "métrica", "segmentacao", "segmentação", "analytics"],
+      instructions: [
+        "Pergunte o que a métrica realmente apoia como decisão.",
+        "Diferencie visibilidade, diagnóstico e inferência causal."
+      ]
+    },
+    {
+      id: "mlops_evaluation",
+      label: "MLOps & Avaliacao",
+      summary: "Treino, deploy, drift, monitoramento, benchmark, custo e confiabilidade.",
+      keywords: ["mlops", "drift", "treino", "deploy de modelo", "benchmark de modelo", "monitoramento de modelo"],
+      instructions: [
+        "Una pipeline, benchmark, custo, latência, rollback e operação contínua.",
+        "Não trate notebook validado como sistema pronto de produção."
+      ]
+    },
+    {
+      id: "llm_prompt_systems",
+      label: "LLMs, Prompts & Agentes",
+      summary: "RAG, prompts, memória, ferramentas, avaliação e comportamento de agentes.",
+      keywords: ["llm", "prompt", "agente", "rag", "memoria de ia", "memória de ia", "ferramenta de ia"],
+      instructions: [
+        "Diferencie qualidade do modelo, qualidade do prompt e qualidade da orquestração.",
+        "Sempre conecte comportamento do agente a avaliação e risco operacional."
+      ]
+    }
+  ],
+  education_pedagogy: [
+    {
+      id: "lesson_planning",
+      label: "Planejamento de Aula",
+      summary: "Objetivos, sequência didática, tempo, material, prática e fechamento.",
+      keywords: ["planejamento de aula", "sequencia didatica", "sequência didática", "objetivo de aula", "plano de aula"],
+      instructions: [
+        "Estruture por objetivo, pré-requisito, atividade, evidência de aprendizagem e revisão.",
+        "Adapte profundidade ao perfil do aluno."
+      ]
+    },
+    {
+      id: "assessment_feedback",
+      label: "Avaliacao & Feedback",
+      summary: "Critérios, rubrica, diagnóstico, feedback formativo e recuperação de aprendizagem.",
+      keywords: ["avaliacao", "avaliação", "rubrica", "feedback formativo", "diagnostico pedagogico", "recuperacao de aprendizagem"],
+      instructions: [
+        "Diferencie medir conteúdo, medir processo e medir aplicação.",
+        "Feedback deve orientar o próximo passo, não só julgar."
+      ]
+    },
+    {
+      id: "adaptive_teaching",
+      label: "Ensino Adaptativo",
+      summary: "Diferenciação por nível, ritmo, idade, base prévia e suporte individual.",
+      keywords: ["ensino adaptativo", "diferenciacao", "diferenciação", "faixa etaria", "ritmo de aprendizagem", "nivel do aluno"],
+      instructions: [
+        "Explique como adaptar linguagem, exercício e profundidade sem perder o objetivo central.",
+        "Pense em progressão pedagógica e segurança emocional do aluno."
+      ]
+    },
+    {
+      id: "curriculum_learning_path",
+      label: "Curriculo & Trilha",
+      summary: "Sequência de conteúdos, progressão, competências e formação de longo prazo.",
+      keywords: ["curriculo", "currículo", "trilha de aprendizagem", "competencia", "competência", "progressao curricular"],
+      instructions: [
+        "Trate currículo como arquitetura de aprendizagem, não só lista de tópicos.",
+        "Conecte conteúdo, sequência, avaliação e retenção."
+      ]
+    }
+  ],
+  operations_logistics: [
+    {
+      id: "process_mapping",
+      label: "Processos & Mapeamento",
+      summary: "Fluxos, gargalos, SLA, handoffs, padrão operacional e melhoria contínua.",
+      keywords: ["processo", "fluxo operacional", "gargalo", "sla", "handoff", "padrao operacional", "padrão operacional"],
+      instructions: [
+        "Mapeie entrada, transformação, espera, risco e critério de saída.",
+        "Diferencie problema de processo, capacidade e governança."
+      ]
+    },
+    {
+      id: "warehouse_distribution",
+      label: "Armazem & Distribuicao",
+      summary: "Estoque, armazenagem, picking, transporte, distribuição e custo logístico.",
+      keywords: ["estoque", "armazem", "armazém", "picking", "distribuicao", "distribuição", "transporte", "frete"],
+      instructions: [
+        "Conecte lead time, custo, nível de serviço e risco operacional.",
+        "Ao propor melhoria, explique impacto na operação real."
+      ]
+    },
+    {
+      id: "planning_procurement",
+      label: "Planejamento & Suprimentos",
+      summary: "Demanda, reposição, compras, capacidade, previsibilidade e resiliência operacional.",
+      keywords: ["suprimentos", "compras", "reposicao", "reposição", "planejamento de demanda", "capacidade operacional"],
+      instructions: [
+        "Diferencie demanda prevista, demanda real, estoque de segurança e risco de ruptura.",
+        "Explique tradeoff entre custo, disponibilidade e confiabilidade."
+      ]
+    },
+    {
+      id: "service_reliability_ops",
+      label: "Confiabilidade Operacional",
+      summary: "SLA, incidentes, continuidade, contingência e recuperação de operação.",
+      keywords: ["confiabilidade operacional", "continuidade", "contingencia", "contingência", "incidente operacional", "recuperacao operacional"],
+      instructions: [
+        "Organize em prevenção, detecção, resposta, contingência e retomada.",
+        "Pense em operação viva, não só processo ideal no papel."
+      ]
+    }
+  ],
+  medicine_health: [
+    {
+      id: "health_education",
+      label: "Educacao em Saude",
+      summary: "Explicação de conceitos de saúde, prevenção, hábitos e entendimento básico seguro.",
+      keywords: ["saude", "saúde", "sintoma", "prevencao", "prevenção", "habito saudavel", "hábitos saudáveis"],
+      instructions: [
+        "Explique com clareza, cautela e sem transformar informação em diagnóstico.",
+        "Sempre diga quando é necessário procurar atendimento profissional."
+      ]
+    },
+    {
+      id: "exam_literacy",
+      label: "Leitura de Exames",
+      summary: "Entendimento educacional de exames laboratoriais e de imagem sem diagnóstico definitivo.",
+      keywords: ["exame", "hemograma", "laudo", "ressonancia", "ressonância", "ultrassom", "resultado de exame"],
+      instructions: [
+        "Trate leitura de exame como orientação educacional, não como parecer clínico final.",
+        "Destaque limite, contexto clínico e necessidade de validação médica."
+      ]
+    },
+    {
+      id: "clinical_safety_triage",
+      label: "Sinais de Alerta & Triagem",
+      summary: "Reconhecimento de urgência, sinais de risco e encaminhamento seguro.",
+      keywords: ["urgencia", "urgência", "emergencia", "emergência", "sinal de alerta", "triagem", "dor forte"],
+      instructions: [
+        "Se houver risco grave, priorize orientação de procura imediata de serviço de saúde.",
+        "Não ofereça plano caseiro onde houver possibilidade de emergência."
+      ]
+    },
+    {
+      id: "public_health_prevention",
+      label: "Saude Publica & Prevencao",
+      summary: "Vacinação, prevenção, educação populacional e saúde coletiva.",
+      keywords: ["vacinacao", "vacinação", "saude publica", "saúde pública", "prevencao", "prevenção", "epidemiologia"],
+      instructions: [
+        "Explique prevenção e comunicação de risco com responsabilidade.",
+        "Diferencie medida individual, comunitária e institucional."
+      ]
+    }
+  ],
+  law_policy: [
+    {
+      id: "legal_reading_structure",
+      label: "Leitura Juridica",
+      summary: "Leitura de leis, contratos, cláusulas, estrutura normativa e interpretação básica.",
+      keywords: ["lei", "contrato", "clausula", "cláusula", "norma", "regulacao", "regulação", "juridico"],
+      instructions: [
+        "Explique texto legal, efeito prático, ambiguidade e limite de interpretação.",
+        "Não substitua advogado; apresente leitura educacional e pontos para validação profissional."
+      ]
+    },
+    {
+      id: "compliance_governance",
+      label: "Compliance & Governanca",
+      summary: "Políticas internas, controles, auditoria, risco regulatório e governança.",
+      keywords: ["compliance", "governanca", "governança", "politica interna", "auditoria", "risco regulatorio", "risco regulatório"],
+      instructions: [
+        "Pense em trilha de decisão, documentação, controle e evidência.",
+        "Diferencie regra jurídica, política interna e prática operacional."
+      ]
+    },
+    {
+      id: "privacy_regulation",
+      label: "Privacidade & Regulacao",
+      summary: "LGPD, bases legais, consentimento, retenção, dados sensíveis e obrigação organizacional.",
+      keywords: ["lgpd", "dados sensiveis", "dados sensíveis", "base legal", "consentimento", "privacidade", "regulacao de dados"],
+      instructions: [
+        "Explique obrigação, risco, retenção, minimização e governança de dados.",
+        "Diferencie obrigação legal, recomendação técnica e política de produto."
+      ]
+    },
+    {
+      id: "public_policy_analysis",
+      label: "Politicas Publicas",
+      summary: "Análise de políticas, desenho regulatório, impacto social e implementação institucional.",
+      keywords: ["politica publica", "política pública", "regulacao", "regulação", "implementacao", "implementação institucional"],
+      instructions: [
+        "Estruture em objetivo, mecanismo, incentivos, impacto e risco de implementação.",
+        "Diferencie texto formal de política, execução real e avaliação de resultado."
       ]
     }
   ]
@@ -557,24 +925,98 @@ export const DOMAIN_MODULES = {
   agribusiness: {
     id: "agribusiness",
     label: "Agronegocio",
-    summary: "Solo, satelite, GPS, plantio, colheita, agricultura de precisao e diagnostico operacional.",
-    keywords: ["agro", "agronegocio", "solo", "plantio", "colheita", "gps", "satelite", "fazenda"],
+    summary: "Solo, satelite, GPS, plantio, clima, colheita organizada, automacao agro e diagnostico operacional.",
+    keywords: ["agro", "agronegocio", "solo", "plantio", "colheita", "gps", "satelite", "fazenda", "clima", "previsao do tempo"],
     submodules: MODULE_SUBMODULES.agribusiness,
     instructions: [
       "Foque em diagnostico pratico, observacao de campo, monitoramento, produtividade e risco operacional.",
-      "Quando houver recomendacao sensivel de manejo, diga que validacao local com agronomo e essencial."
+      "Quando houver recomendacao sensivel de manejo, diga que validacao local com agronomo e essencial.",
+      "Una clima, operacao, tecnologia, logistica de colheita e decisao economica sempre que fizer sentido."
     ]
   },
   finance: {
     id: "finance",
     label: "Financeiro",
-    summary: "Financas pessoais, corporativas, operacoes, risco e contexto global/local.",
-    keywords: ["financeiro", "financas", "investimento", "caixa", "orcamento", "contabilidade", "mercado"],
+    summary: "Financas pessoais, corporativas, operacoes de apps e sites, pagamentos, receita e risco.",
+    keywords: ["financeiro", "financas", "investimento", "caixa", "orcamento", "contabilidade", "mercado", "pix", "boleto", "checkout"],
     submodules: MODULE_SUBMODULES.finance,
     instructions: [
       "Explique conceitos, risco, cenarios e impacto pratico.",
       "Nao trate como recomendacao regulatoria individual; destaque incerteza e necessidade de validacao profissional quando aplicavel.",
-      "Seja forte em estrutura de decisao, caixa, risco, governanca, cenarios e leitura de indicadores."
+      "Seja forte em estrutura de decisao, caixa, risco, governanca, cenarios e leitura de indicadores.",
+      "Quando o contexto for produto digital, una jornada, pagamentos, billing, antifraude e controle."
+    ]
+  },
+  product_design_ux: {
+    id: "product_design_ux",
+    label: "Produto, UX & Design",
+    summary: "Pesquisa de produto, UX, UI, design systems, copy, estrategia e acessibilidade.",
+    keywords: ["produto", "ux", "ui", "design system", "onboarding", "pesquisa com usuario", "microcopy", "funnel"],
+    submodules: MODULE_SUBMODULES.product_design_ux,
+    instructions: [
+      "Pense como combinacao de product manager, product designer e pesquisador de UX.",
+      "Una pesquisa, fluxo, copy, acessibilidade, implementacao e impacto de negocio.",
+      "Ao criticar uma tela ou fluxo, separe problema de entendimento, problema de decisao e problema de execucao."
+    ]
+  },
+  data_ai_ml: {
+    id: "data_ai_ml",
+    label: "Dados, IA & MLOps",
+    summary: "Dados, analytics, pipelines, LLMs, avaliacao, MLOps e governanca de IA.",
+    keywords: ["dados", "data", "bi", "analytics", "machine learning", "mlops", "llm", "prompt", "rag", "modelo"],
+    submodules: MODULE_SUBMODULES.data_ai_ml,
+    instructions: [
+      "Pense em qualidade de dado, qualidade de pipeline, qualidade de modelo e operacao em producao como camadas distintas.",
+      "Sempre conecte experimento, benchmark, deploy, monitoramento e risco de negocio.",
+      "Diferencie insight analitico, inferencia estatistica e decisao automatizada."
+    ]
+  },
+  education_pedagogy: {
+    id: "education_pedagogy",
+    label: "Educacao & Pedagogia",
+    summary: "Plano de aula, didatica, curriculo, avaliacao, ensino adaptativo e progressao de aprendizagem.",
+    keywords: ["educacao", "pedagogia", "aula", "curriculo", "currículo", "aluno", "ensino", "aprendizagem"],
+    submodules: MODULE_SUBMODULES.education_pedagogy,
+    instructions: [
+      "Ensine com progressao, clareza, adaptacao por nivel e evidencia de aprendizagem.",
+      "Ao montar plano educacional, una objetivo, atividade, avaliacao, revisao e acompanhamento.",
+      "Pense em seguranca emocional, ritmo do aluno e transferencia do conhecimento."
+    ]
+  },
+  operations_logistics: {
+    id: "operations_logistics",
+    label: "Operacoes & Logistica",
+    summary: "Processos, SLAs, cadeia logistica, estoque, confiabilidade e melhoria operacional.",
+    keywords: ["operacoes", "operações", "logistica", "logística", "estoque", "sla", "processo", "suprimentos"],
+    submodules: MODULE_SUBMODULES.operations_logistics,
+    instructions: [
+      "Responda como operador estrategico com foco em fluxo, gargalo, SLA, contingencia e confiabilidade.",
+      "Ao propor mudanca, explique impacto em custo, lead time, qualidade e risco.",
+      "Diferencie plano ideal, capacidade real e restricao da operacao."
+    ]
+  },
+  medicine_health: {
+    id: "medicine_health",
+    label: "Saude & Medicina",
+    summary: "Educacao em saude, leitura orientativa de exames, prevencao e triagem segura.",
+    keywords: ["saude", "saúde", "medicina", "exame", "sintoma", "prevencao", "prevenção", "laudo"],
+    submodules: MODULE_SUBMODULES.medicine_health,
+    instructions: [
+      "Atue com cautela alta, linguagem clara e limite profissional explicito.",
+      "Nao forneca diagnostico definitivo nem substitua atendimento medico.",
+      "Quando houver sinal de urgencia, priorize orientacao segura de procura imediata de ajuda profissional."
+    ]
+  },
+  law_policy: {
+    id: "law_policy",
+    label: "Direito & Politicas Publicas",
+    summary: "Leitura normativa, compliance, privacidade, estrutura regulatoria e analise de politicas publicas.",
+    keywords: ["direito", "lei", "contrato", "compliance", "lgpd", "politica publica", "regulacao", "regulação"],
+    submodules: MODULE_SUBMODULES.law_policy,
+    instructions: [
+      "Explique textos normativos com rigor, mas sem se apresentar como substituto de advogado.",
+      "Diferencie leitura educacional, risco regulatorio, ponto de ambiguidade e necessidade de validacao profissional.",
+      "Quando o tema tocar dados sensiveis, compliance ou politica publica, una regra, impacto e implementacao."
     ]
   }
 }
