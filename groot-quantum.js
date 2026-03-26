@@ -13,15 +13,21 @@ export async function askGroot(prompt, context = {}) {
 
     // Processar com inteligência quântica
     const result = await grootBrain.run(prompt, {}, context)
+    const responseText = [
+      typeof result?.response === 'string' ? result.response.trim() : '',
+      typeof result?.reasoning === 'string' ? result.reasoning.trim() : '',
+      typeof result?.recommendation === 'string' ? result.recommendation.trim() : '',
+      typeof result?.combination?.finalRecommendation === 'string' ? result.combination.finalRecommendation.trim() : ''
+    ].find(Boolean) || ''
 
-    if (result.success) {
+    if (result.success && responseText) {
       console.log(`✅ Resposta quântica gerada (confiança: ${(result.confidence * 100).toFixed(0)}%)`)
-      console.log('🔍 RESPOSTA REAL:', result.response?.substring(0, 100))
+      console.log('🔍 RESPOSTA REAL:', responseText.substring(0, 100))
 
       // Retornar no formato esperado pelo servidor
       return {
         success: true,
-        response: result.response, // RESPOSTA REAL DO LLM
+        response: responseText,
         timestamp: new Date().toISOString(),
         version: '9.0.0',
         interactionId: `giom_${Date.now()}`,

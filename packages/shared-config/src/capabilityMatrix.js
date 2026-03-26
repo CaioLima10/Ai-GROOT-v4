@@ -66,6 +66,7 @@ export function buildCapabilityMatrix(options = {}) {
           buildItem("text_code_files", "Text and code files", "ready", "Plain text, markdown, JSON, code and config-like files can be ingested as text.", { accept: uploadAccept }),
           buildItem("pdf_read", "PDF reading", "ready", "PDF text extraction is active on the server."),
           buildItem("svg_read", "SVG reading", "ready", "SVG can be treated as readable text when uploaded with file extension."),
+          buildItem("zip_archives", "ZIP archive reading", "ready", "ZIP files can be inspected and text-like entries can be extracted from the archive."),
           buildItem("docx_read", "DOCX reading", docxEnabled ? "ready" : "planned", docxEnabled ? "DOCX text extraction is active on the server." : "DOCX parsing is not active in this runtime yet."),
           buildItem("xlsx_read", "XLSX reading", xlsxEnabled ? "ready" : "planned", xlsxEnabled ? "XLSX worksheet extraction is active on the server." : "XLSX parsing is not active in this runtime yet."),
           buildItem("pptx_read", "PPTX reading", pptxEnabled ? "ready" : "planned", pptxEnabled ? "PPTX slide-text extraction is active on the server." : "PPTX parsing is not active in this runtime yet."),

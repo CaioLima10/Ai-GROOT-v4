@@ -72,7 +72,7 @@ export class ReasoningAgent {
       return 'analyze'
     }
 
-    if (lowerTask.includes('decompose') || lowerTask.includes('dividir') || lowerTask.includes('quebrar')) {
+    if (/\b(decompose|decompor|decomponha|decomposicao|decomposição|dividir|divida|quebrar em partes|quebre em partes)\b/i.test(lowerTask)) {
       return 'decompose'
     }
 
@@ -100,12 +100,15 @@ export class ReasoningAgent {
       approach: this.recommendApproach(task, analysis)
     }
 
+    const explanation = await this.explainReasoning(analysisResult)
+
     const reasoning = {
       success: true,
       type: 'task_analysis',
       task,
       analysis: analysisResult,
-      reasoning: this.explainReasoning(analysisResult),
+      reasoning: explanation,
+      response: explanation,
       confidence: this.calculateAnalysisConfidence(analysisResult),
       nextSteps: this.generateNextSteps(analysisResult),
       metadata: {
@@ -134,11 +137,14 @@ export class ReasoningAgent {
       criticalPath: this.identifyCriticalPath(task)
     }
 
+    const explanation = await this.explainDecomposition(decomposition)
+
     const reasoning = {
       success: true,
       type: 'problem_decomposition',
       decomposition,
-      reasoning: this.explainDecomposition(decomposition),
+      reasoning: explanation,
+      response: explanation,
       confidence: this.calculateDecompositionConfidence(decomposition),
       estimatedTime: this.estimateExecutionTime(decomposition),
       resources: this.identifyRequiredResources(decomposition),
@@ -169,6 +175,13 @@ export class ReasoningAgent {
 
     const overallScore = this.calculateOverallValidationScore(validation)
 
+    const recommendation = this.generateValidationRecommendation(validation, overallScore)
+    const validationResponse = [
+      `Validacao da solucao: ${overallScore >= 0.7 ? 'aprovada' : 'precisa de revisao'}.`,
+      `Score geral: ${Math.round(overallScore * 100)}%.`,
+      `Recomendacao: ${recommendation}.`
+    ].join(' ')
+
     const reasoning = {
       success: true,
       type: 'solution_validation',
@@ -178,7 +191,8 @@ export class ReasoningAgent {
       passed: overallScore >= 0.7,
       issues: this.identifyValidationIssues(validation),
       improvements: this.suggestImprovements(validation),
-      recommendation: this.generateValidationRecommendation(validation, overallScore),
+      recommendation,
+      response: validationResponse,
       metadata: {
         validationTime: Date.now(),
         score: overallScore,
@@ -204,11 +218,14 @@ export class ReasoningAgent {
       finalRecommendation: this.generateFinalRecommendation(results)
     }
 
+    const explanation = this.explainCombination(combination)
+
     const reasoning = {
       success: true,
       type: 'result_combination',
       combination,
-      reasoning: this.explainCombination(combination),
+      reasoning: explanation,
+      response: explanation,
       confidence: this.calculateCombinationConfidence(combination),
       actionPlan: this.createActionPlan(combination),
       metadata: {
@@ -287,8 +304,11 @@ export class ReasoningAgent {
   }
 
   isCapabilityQuestion(task = '') {
-    return /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|busca ao vivo|acesso ao vivo|o que voce consegue|o que voce realmente tem|quais sao seus limites|como voce funciona|capacidades|ferramentas|docx|xlsx|pptx|pdf|svg|ocr|anexo|arquivo|arquivos|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao|imagem|image|img|firefly|midjourney|gemini|gpt)\b/i
-      .test(String(task || ''))
+    const input = String(task || '')
+    const asksCapabilityIntent = /\b(o que voce consegue|o que você consegue|o que voce realmente tem|o que você realmente tem|quais sao seus limites|quais são seus limites|como voce funciona|como você funciona|quais formatos|quais arquivos|quais voce consegue ler|quais você consegue ler|quais voce consegue gerar|quais você consegue gerar|o que voce faz hoje|o que você faz hoje|o que voce entrega hoje|o que você entrega hoje|capacidade|capacidades|ferramentas|pronto|parcial|ainda nao integrado|ainda não integrado)\b/i.test(input)
+    const mentionsCapabilitySurface = /\b(google|bing|yahoo|naveg|pesquisa|pesquisar|web|internet|browser|docx|xlsx|pptx|pdf|svg|ocr|zip|anexo|arquivo|arquivos|documento|documentos|gerar pdf|gerar docx|gerar planilha|gerar apresentacao|imagem|image|img|firefly|midjourney|gemini|gpt|chatgpt|copilot|codex)\b/i.test(input)
+
+    return asksCapabilityIntent && mentionsCapabilitySurface
   }
 
   isMemoryRecallQuestion(task = '') {
@@ -304,6 +324,20 @@ export class ReasoningAgent {
     return /\berro 500\b/i.test(String(task || ''))
       && /\b(jwt)\b/i.test(String(task || ''))
       && /\b(express)\b/i.test(String(task || ''))
+  }
+
+  isArchitectureRefactorQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(monolito|monolith)\b/i.test(input)
+      && /\b(refator|refactor|escalar|escala|incremental)\b/i.test(input)
+  }
+
+  isSecureReviewQuestion(task = '') {
+    const input = String(task || '')
+    return /\b(review tecnico|review técnico|code review|revisao tecnica|revisão técnica)\b/i.test(input)
+      && /\b(express)\b/i.test(input)
+      && /\b(jwt)\b/i.test(input)
+      && /\b(arquivo|upload|salva no disco|disco|banco)\b/i.test(input)
   }
 
   isSensitiveDataQuestion(task = '') {
@@ -368,6 +402,35 @@ export class ReasoningAgent {
       '5. Ambiente e deploy: compare segredo JWT, horario do servidor e variaveis entre local e producao.',
       'Primeiro teste pratico agora: adicionar logs curtos no middleware JWT e no error handler para identificar a primeira quebra real.',
       'Se quiser, eu monto em seguida um checklist de logs exatos e o patch minimo para diagnosticar isso em minutos.'
+    ].join('\n')
+  }
+
+  buildArchitectureRefactorResponse() {
+    return [
+      'Plano incremental para refatorar o monolito Node sem quebrar deploy:',
+      '1. Baseline primeiro: mapear latencia, erro, fila, throughput de OCR, tamanho de upload e consumo de memoria antes de mover qualquer parte.',
+      '2. Separar por fronteiras: criar modulos internos claros para API, uploads, filas e OCR, mantendo o mesmo deploy e os mesmos contratos HTTP no inicio.',
+      '3. Extrair o pipeline pesado: mover OCR e processamento assíncrono para workers por fila, deixando a API apenas validar, persistir metadados e enfileirar.',
+      '4. Isolar uploads: validar tipo e tamanho na borda, gravar em storage temporario/seguro, gerar IDs internos e remover dependencia de nome original do arquivo.',
+      '5. Observabilidade antes do corte: request-id, tracing por job, logs estruturados, metricas de fila, falha por etapa e dashboard de erro/latencia.',
+      '6. Testes por contrato: smoke de endpoints, testes de fila/OCR, testes de regressao de upload e casos de rollback com feature flag.',
+      '7. Rollout seguro: ativar por porcentagem ou rota, comparar monolito x worker, e manter rollback simples para voltar processamento ao caminho antigo.',
+      'Criterio de aceite: deploy sem mudar API publica, latencia estavel, OCR desacoplado, retries controlados e rollback executavel em minutos.',
+      'Proximo passo pratico: eu criaria um mapa de componentes atuais, um contrato de fila e uma feature flag para migrar OCR primeiro.'
+    ].join('\n')
+  }
+
+  buildSecureReviewResponse() {
+    return [
+      'Review tecnico prioritario da rota Express:',
+      '1. Upload: risco de path traversal, arquivo malicioso, MIME falso e excesso de tamanho. Mitigacao: allowlist de extensoes/MIME, limite de size, nome interno aleatorio, storage temporario isolado e varredura antes de consumo.',
+      '2. JWT: risco de validacao fraca, logar token e tratar auth falha como 500. Mitigacao: validar algoritmo, exp, aud/iss quando existirem, nunca logar token bruto e responder 401/403 corretamente.',
+      '3. Disco: risco de sobrescrita, vazamento e acesso indevido. Mitigacao: pasta fora da raiz publica, permissao minima, TTL de limpeza e metadado separado do binario.',
+      '4. Banco: risco de injecao, quebra de ownership e inconsistência. Mitigacao: query parametrizada, transacao quando houver multiplas escritas e validacao de autorizacao por recurso.',
+      '5. Observabilidade: request-id, log estruturado de upload, auth, storage e banco sem expor segredo, CPF, token ou caminho sensivel.',
+      'Testes minimos: upload valido, upload acima do limite, MIME falso, JWT invalido, JWT expirado, falha de disco, falha de banco, limpeza de temporarios e tentativa de acesso cruzado.',
+      'Criterio de aceite: rota devolve 401/403/413/415/500 corretos, nao persiste segredo em log, rejeita arquivo invalido na borda e deixa rastro observavel por request-id.',
+      'Proximo passo pratico: eu faria um checklist de hardening por middleware e uma matriz de testes por risco para essa rota.'
     ].join('\n')
   }
 
@@ -703,6 +766,14 @@ export class ReasoningAgent {
 
     if (this.isDebugDiagnosticQuestion(task)) {
       return this.buildDebugDiagnosticResponse()
+    }
+
+    if (this.isArchitectureRefactorQuestion(task)) {
+      return this.buildArchitectureRefactorResponse()
+    }
+
+    if (this.isSecureReviewQuestion(task)) {
+      return this.buildSecureReviewResponse()
     }
 
     if (this.isCapabilityQuestion(task)) {

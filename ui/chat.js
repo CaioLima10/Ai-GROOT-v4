@@ -329,7 +329,7 @@ function getConfiguredUploadAccept() {
   if (typeof accept === "string" && accept.trim()) {
     return accept
   }
-  return "image/*,.pdf,.docx,.xlsx,.pptx,.txt,.md,.svg,.json,.jsonl,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.php,.rb,.html,.css,.xml,.yml,.yaml,.log,.tsv,.csv,.sql"
+  return "image/*,.pdf,.zip,.docx,.xlsx,.pptx,.txt,.md,.svg,.json,.jsonl,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.h,.cs,.php,.rb,.html,.css,.xml,.yml,.yaml,.log,.tsv,.csv,.sql"
 }
 
 function applyUploadAccept() {
@@ -352,11 +352,12 @@ function describeUploadStatus() {
     return supportedKinds
       .map((kind) => {
         if (kind === "image_ocr") return "image/OCR"
+        if (kind === "zip") return "zip"
         return kind
       })
       .join(" | ")
   }
-  return "text | code | pdf | image"
+  return "text | code | pdf | zip | image"
 }
 
 function refreshCapabilityUI() {

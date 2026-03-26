@@ -8,6 +8,7 @@ Este documento resume o estado real das capacidades do GIOM na runtime atual.
 - RAG com base curada e conhecimento aprendido
 - Leitura de texto, markdown, JSON, codigo e configs como texto
 - Leitura de PDF com extracao de texto
+- Leitura de ZIP com extracao de arquivos textuais internos
 - Leitura de DOCX com extracao de texto
 - Leitura de XLSX com extracao tabular basica
 - Leitura de PPTX com extracao basica de texto dos slides
@@ -39,6 +40,7 @@ Este documento resume o estado real das capacidades do GIOM na runtime atual.
 - `GET /evaluation/packs`
 - `POST /generate/document`
 - `POST /generate/image`
+- `npm run eval:giom:audit`
 
 ## Observacao importante
 O objetivo da matriz e honestidade operacional. O GIOM nao deve fingir web ao vivo, parser de Office completo, entendimento visual multimodal de ponta ou automacao total de escritorio quando isso nao estiver realmente ligado na runtime.

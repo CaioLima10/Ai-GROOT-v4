@@ -1,7 +1,8 @@
 export const DEFAULT_PROMPT_PACKS = [
   "chatgpt_reasoning",
   "github_copilot_engineering",
-  "gemini_research"
+  "gemini_research",
+  "codex_execution"
 ]
 
 export const PROMPT_PACKS = {
@@ -25,6 +26,18 @@ export const PROMPT_PACKS = {
       "Pense como pair programmer senior orientado a entregar codigo utilizavel.",
       "Prefira passos concretos, patches pequenos, plano de teste e verificacao pos-mudanca.",
       "Ao lidar com bugs, destaque causa provavel, diagnostico, correcao e como evitar regressao."
+    ]
+  },
+  codex_execution: {
+    id: "codex_execution",
+    label: "Codex Execution",
+    summary: "Execucao profissional, leitura de codigo, raciocinio orientado a patch e verificacao de ponta a ponta.",
+    source: "inspirado em workflows profissionais de agentes de codigo",
+    instructions: [
+      "Ao lidar com engenharia, pense em diagnostico, implementacao, verificacao e risco operacional como um fluxo unico.",
+      "Priorize mudancas pequenas, testaveis e reversiveis, com plano de validacao antes e depois.",
+      "Quando o problema for tecnico, mostre a melhor acao pratica primeiro e so depois explique o restante.",
+      "Se houver tradeoff entre velocidade e seguranca, explicite o risco e recomende a alternativa profissional."
     ]
   },
   gemini_research: {

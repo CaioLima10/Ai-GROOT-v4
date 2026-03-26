@@ -137,6 +137,8 @@ const uploadOcrLang = process.env.OCR_LANG || "eng"
 const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
 const uploadPdfTextLimit = Number(process.env.UPLOAD_PDF_TEXT_LIMIT || uploadTextLimit)
 const uploadOfficeTextLimit = Number(process.env.UPLOAD_OFFICE_TEXT_LIMIT || uploadTextLimit)
+const uploadZipTextLimit = Number(process.env.UPLOAD_ZIP_TEXT_LIMIT || 16000)
+const uploadZipFileLimit = Number(process.env.UPLOAD_ZIP_FILE_LIMIT || 12)
 const imageGenerationModel = process.env.HUGGINGFACE_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
 const imageGenerationMinDimension = Number(process.env.IMAGE_MIN_DIMENSION || 512)
 const imageGenerationMaxDimension = Number(process.env.IMAGE_MAX_DIMENSION || 1536)
@@ -166,6 +168,7 @@ const documentGenerationFormatIds = documentGenerationFormats.map((entry) => ent
 const SUPPORTED_UPLOAD_ACCEPT = [
   "image/*",
   ".pdf",
+  ".zip",
   ".docx",
   ".xlsx",
   ".pptx",
@@ -285,6 +288,7 @@ function getUploadCapabilities() {
       "code",
       "svg",
       "pdf",
+      "zip",
       "docx",
       "xlsx",
       "pptx",
@@ -298,6 +302,7 @@ function getUploadCapabilities() {
       json: true,
       csv: true,
       pdf: true,
+      zip: true,
       docx: true,
       xlsx: true,
       pptx: true,
@@ -399,6 +404,12 @@ function isPresentationLike(name, type) {
   if (type === "application/vnd.openxmlformats-officedocument.presentationml.presentation") return true
   const lower = String(name || "").toLowerCase()
   return lower.endsWith(".pptx")
+}
+
+function isZipLike(name, type) {
+  if (type === "application/zip" || type === "application/x-zip-compressed") return true
+  const lower = String(name || "").toLowerCase()
+  return lower.endsWith(".zip")
 }
 
 async function extractTextFromImage(filePath) {
@@ -608,6 +619,102 @@ async function extractTextFromPptx(filePath) {
     return text
   } catch (error) {
     console.error("❌ Leitura de PPTX falhou:", error.message)
+    return null
+  }
+}
+
+async function extractTextFromZipArchive(filePath) {
+  try {
+    const yauzlModule = await import("yauzl")
+    const yauzl = yauzlModule.default || yauzlModule
+
+    return await new Promise((resolve, reject) => {
+      const textEntries = []
+      const skippedEntries = []
+      let totalChars = 0
+      let settled = false
+
+      yauzl.open(filePath, { lazyEntries: true }, (openError, zipfile) => {
+        if (openError) {
+          reject(openError)
+          return
+        }
+
+        const finish = () => {
+          if (settled) return
+          settled = true
+          const textBlock = textEntries.length > 0
+            ? textEntries.join("\n\n")
+            : "(nenhum arquivo textual util foi extraido do ZIP)"
+          const skippedBlock = skippedEntries.length > 0
+            ? `\n\nEntradas nao lidas como texto:\n- ${skippedEntries.slice(0, 8).join("\n- ")}`
+            : ""
+          resolve(`ZIP analisado.\n\nConteudo extraido:\n${textBlock}${skippedBlock}`.slice(0, uploadZipTextLimit))
+        }
+
+        const fail = (error) => {
+          if (settled) return
+          settled = true
+          reject(error)
+        }
+
+        zipfile.on("entry", (entry) => {
+          if (entry.fileName.endsWith("/")) {
+            zipfile.readEntry()
+            return
+          }
+
+          if ((textEntries.length + skippedEntries.length) >= uploadZipFileLimit || totalChars >= uploadZipTextLimit) {
+            zipfile.close()
+            finish()
+            return
+          }
+
+          if (!isTextLike(entry.fileName, "")) {
+            skippedEntries.push(entry.fileName)
+            zipfile.readEntry()
+            return
+          }
+
+          zipfile.openReadStream(entry, (streamError, readStream) => {
+            if (streamError) {
+              skippedEntries.push(entry.fileName)
+              zipfile.readEntry()
+              return
+            }
+
+            const chunks = []
+            readStream.on("data", (chunk) => {
+              if (totalChars >= uploadZipTextLimit) return
+              chunks.push(chunk)
+            })
+            readStream.on("error", () => {
+              skippedEntries.push(entry.fileName)
+              zipfile.readEntry()
+            })
+            readStream.on("end", () => {
+              const raw = Buffer.concat(chunks).toString("utf8").replace(/\u0000/g, " ").trim()
+              if (raw) {
+                const remaining = Math.max(0, uploadZipTextLimit - totalChars)
+                const clipped = raw.slice(0, Math.min(remaining, 3000))
+                totalChars += clipped.length
+                textEntries.push(`Arquivo: ${entry.fileName}\n${clipped}${raw.length > clipped.length ? "\n... (truncado)" : ""}`)
+              } else {
+                skippedEntries.push(entry.fileName)
+              }
+              zipfile.readEntry()
+            })
+          })
+        })
+
+        zipfile.on("end", finish)
+        zipfile.on("close", finish)
+        zipfile.on("error", fail)
+        zipfile.readEntry()
+      })
+    })
+  } catch (error) {
+    console.error("❌ Leitura de ZIP falhou:", error.message)
     return null
   }
 }
@@ -911,6 +1018,13 @@ async function buildPreparedAskPayload(req, requestId) {
         finalQuestion += `${label}\nTexto extraído da apresentação:\n${presentationText}`
       } else {
         finalQuestion += `${label}\n(Apresentação recebida, mas não consegui extrair texto útil)`
+      }
+    } else if (isZipLike(uploadEntry.name, uploadEntry.type)) {
+      const archiveText = await extractTextFromZipArchive(uploadEntry.path)
+      if (archiveText) {
+        finalQuestion += `${label}\nConteúdo extraído do ZIP:\n${archiveText}`
+      } else {
+        finalQuestion += `${label}\n(ZIP recebido, mas não consegui extrair conteúdo textual útil)`
       }
     } else if (isImageLike(uploadEntry.name, uploadEntry.type)) {
       const ocrText = await extractTextFromImage(uploadEntry.path)

@@ -443,6 +443,351 @@ export const EVALUATION_PACKS = {
         ]
       }
     ]
+  },
+  coding_expert_workflows: {
+    id: "coding_expert_workflows",
+    label: "Coding Expert Workflows",
+    summary: "Benchmark de engenharia profissional para diagnostico, refatoracao, seguranca e execucao estilo copiloto senior.",
+    recommendedProfile: "senior_engineer",
+    scenarios: [
+      {
+        id: "prod_debugging_plan",
+        label: "Diagnostico de producao",
+        summary: "Checa se o GIOM prioriza causa, teste, observabilidade e rollback.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Tenho uma API Node com erro 500 intermitente depois de ativar cache Redis e JWT. Monte um plano profissional de diagnostico com prioridade, logs, teste, rollback e verificacao.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["developer", "cybersecurity", "research"],
+              promptPacks: ["chatgpt_reasoning", "github_copilot_engineering", "codex_execution"]
+            }
+          }
+        ]
+      },
+      {
+        id: "architecture_refactor_plan",
+        label: "Plano de refatoracao",
+        summary: "Avalia se o GIOM entrega arquitetura, tradeoffs, rollout e riscos de forma madura.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Temos um monolito Node com filas, uploads e OCR. Proponha uma refatoracao incremental para escalar sem quebrar deploy, incluindo observabilidade, testes e rollback.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["developer", "research"],
+              promptPacks: ["chatgpt_reasoning", "github_copilot_engineering", "codex_execution"]
+            }
+          }
+        ]
+      },
+      {
+        id: "secure_review_scope",
+        label: "Secure code review",
+        summary: "Checa se o GIOM enxerga risco, mitigacao e verificacao em secure coding.",
+        tags: ["comprehension", "coherence", "safety"],
+        turns: [
+          {
+            question: "Faca um review tecnico de uma rota Express que recebe arquivo, usa JWT, salva no disco e consulta banco. Quero riscos principais, mitigacao, teste e criterio de aceite.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["developer", "cybersecurity"],
+              promptPacks: ["chatgpt_reasoning", "github_copilot_engineering", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  profile_delivery_audit: {
+    id: "profile_delivery_audit",
+    label: "Profile Delivery Audit",
+    summary: "Avalia se os perfis principais entregam personalidade, clareza e utilidade de forma consistente.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "adaptive_teacher_delivery",
+        label: "Adaptive teacher",
+        summary: "Checa didatica acessivel com exemplo e progressao clara.",
+        tags: ["conversation", "comprehension"],
+        turns: [
+          {
+            question: "Explique JWT para um desenvolvedor junior com um exemplo simples, depois uma observacao mais avancada em duas frases.",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["developer"],
+              promptPacks: ["chatgpt_reasoning", "codex_execution"]
+            }
+          }
+        ]
+      },
+      {
+        id: "senior_engineer_delivery",
+        label: "Senior engineer",
+        summary: "Checa resposta pragmatica, tecnica e orientada a execucao.",
+        tags: ["conversation", "coherence"],
+        turns: [
+          {
+            question: "Tenho timeout em endpoint critico no Render. Responda como engenheiro senior com causa provavel, teste, mitigacao e proximo passo.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["developer", "research"],
+              promptPacks: ["github_copilot_engineering", "codex_execution"]
+            }
+          }
+        ]
+      },
+      {
+        id: "research_mentor_delivery",
+        label: "Research mentor",
+        summary: "Checa comparacao disciplinada entre fato, inferencia e limite.",
+        tags: ["conversation", "transparency"],
+        turns: [
+          {
+            question: "Compare duas abordagens para embeddings locais e deixe claro o que e fato, o que e tradeoff e o que exigiria benchmark real.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["research", "developer"],
+              promptPacks: ["gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "expert_polymath_delivery",
+        label: "Expert polymath",
+        summary: "Checa sintese interdisciplinar clara entre produto, seguranca e engenharia.",
+        tags: ["conversation", "coherence", "comprehension"],
+        turns: [
+          {
+            question: "Integre em um plano curto os impactos de UX, custo, seguranca e arquitetura para um chat com OCR, documentos nativos e imagem.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["developer", "cybersecurity", "research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_developer_expert: {
+    id: "module_developer_expert",
+    label: "Module Developer Expert",
+    summary: "Mede se o modulo developer esta em nivel profissional para coding, arquitetura e incidentes.",
+    recommendedProfile: "senior_engineer",
+    scenarios: [
+      {
+        id: "developer_module_scenario",
+        label: "Developer module depth",
+        summary: "Checa diagnostico, correcao, validacao, observabilidade e prevencao.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estou com bug de concorrencia e vazamento de memoria numa API Node com streaming SSE. Monte diagnostico, patch conceitual, validacao e estrategia anti-regressao.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["developer"],
+              promptPacks: ["github_copilot_engineering", "codex_execution", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_bible_expert: {
+    id: "module_bible_expert",
+    label: "Module Bible Expert",
+    summary: "Mede exegese, historia biblica e limites hermeneuticos em nivel alto.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "bible_module_scenario",
+        label: "Bible module depth",
+        summary: "Checa profundidade, reverencia, contexto e transparencia interpretativa.",
+        tags: ["comprehension", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Compare Romanos 3 e Tiago 2 sobre fe e obras, separando exegese do texto, contexto historico, linhas protestantes/catolicas e o que ainda e interpretacao.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["bible", "history_archaeology", "research"],
+              bibleStudyModules: ["systematic_theology", "biblical_history", "church_history"],
+              promptPacks: ["gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_history_archaeology_expert: {
+    id: "module_history_archaeology_expert",
+    label: "Module History Archaeology Expert",
+    summary: "Mede uso de metodo historico, cronologia e leitura critica de fontes.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "history_module_scenario",
+        label: "History module depth",
+        summary: "Checa historiografia, evidencia e inferencia.",
+        tags: ["comprehension", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Avalie o valor historico da estela de Mesa para o estudo do Levante, diferenciando achado material, consenso academico e inferencias apologeticas.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["history_archaeology", "research"],
+              promptPacks: ["gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_research_expert: {
+    id: "module_research_expert",
+    label: "Module Research Expert",
+    summary: "Mede disciplina de pesquisa, comparacao de fontes e honestidade metodologica.",
+    recommendedProfile: "research_mentor",
+    scenarios: [
+      {
+        id: "research_module_scenario",
+        label: "Research module depth",
+        summary: "Checa criterio, evidencia, limite e sintese.",
+        tags: ["comprehension", "transparency", "conversation"],
+        turns: [
+          {
+            question: "Quero um metodo profissional para comparar duas solucoes de embeddings locais sem benchmark pronto. Estruture pergunta, criterios, evidencias, riscos e decisao provisoria.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["research", "developer"],
+              promptPacks: ["gemini_research", "chatgpt_reasoning"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_cybersecurity_expert: {
+    id: "module_cybersecurity_expert",
+    label: "Module Cybersecurity Expert",
+    summary: "Mede nivel defensivo, hardening, resposta a incidente e secure coding.",
+    recommendedProfile: "senior_engineer",
+    scenarios: [
+      {
+        id: "cybersecurity_module_scenario",
+        label: "Cybersecurity module depth",
+        summary: "Checa ameaca, impacto, mitigacao, monitoramento e recuperacao.",
+        tags: ["comprehension", "coherence", "safety"],
+        turns: [
+          {
+            question: "Monte um plano defensivo para proteger uploads, OCR, documentos sensiveis e tokens de usuarios em uma API Node exposta na internet.",
+            context: {
+              assistantProfile: "senior_engineer",
+              activeModules: ["cybersecurity", "developer", "research"],
+              promptPacks: ["chatgpt_reasoning", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_math_science_expert: {
+    id: "module_math_science_expert",
+    label: "Module Math Science Expert",
+    summary: "Mede clareza tecnica, metodo cientifico e rigor matematico.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "math_science_module_scenario",
+        label: "Math science module depth",
+        summary: "Checa intuicao, formula, verificacao e limites.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Explique overfitting com intuicao, um exemplo concreto, uma formula curta e uma estrategia de validacao robusta.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["math_science", "research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_agribusiness_expert: {
+    id: "module_agribusiness_expert",
+    label: "Module Agribusiness Expert",
+    summary: "Mede diagnostico agro, telemetria, risco operacional e agricultura de precisao.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "agribusiness_module_scenario",
+        label: "Agribusiness module depth",
+        summary: "Checa integracao entre campo, dados e decisao pratica.",
+        tags: ["comprehension", "conversation"],
+        turns: [
+          {
+            question: "Monte um plano de agricultura de precisao para reduzir desperdicio em soja usando satelite, sensores, GPS, taxa variavel e telemetria, com riscos e validacao em campo.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["agribusiness", "math_science", "research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_finance_expert: {
+    id: "module_finance_expert",
+    label: "Module Finance Expert",
+    summary: "Mede estrutura de decisao financeira, risco, cenarios e linguagem executiva.",
+    recommendedProfile: "expert_polymath",
+    scenarios: [
+      {
+        id: "finance_module_scenario",
+        label: "Finance module depth",
+        summary: "Checa risco, cenarios, caixa e leitura de indicadores.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Estruture um plano para decidir entre investir em infraestrutura propria ou SaaS para uma startup, comparando caixa, risco, prazo, resiliencia e governanca.",
+            context: {
+              assistantProfile: "expert_polymath",
+              activeModules: ["finance", "research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  module_games_logic_expert: {
+    id: "module_games_logic_expert",
+    label: "Module Games Logic Expert",
+    summary: "Mede logica, estrategia, clareza de ensino e capacidade de orientar treino em jogos e raciocinio.",
+    recommendedProfile: "adaptive_teacher",
+    scenarios: [
+      {
+        id: "games_logic_module_scenario",
+        label: "Games logic module depth",
+        summary: "Checa explicacao estrategica, passos praticos, erros comuns e progressao de treino.",
+        tags: ["comprehension", "conversation"],
+        turns: [
+          {
+            question: "Explique para um iniciante como melhorar no xadrez em 30 dias com rotina semanal, principios, erros comuns e um mini plano de treino.",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["games_logic", "research"],
+              promptPacks: ["chatgpt_reasoning", "codex_execution"]
+            }
+          }
+        ]
+      }
+    ]
   }
 }
 
