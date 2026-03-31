@@ -1,0 +1,76 @@
+[
+  {
+    "id": "conv-001",
+    "tipo": "conversacao",
+    "tema": "suporte_tecnico",
+    "conteudo": "Usuario relata erro de conexao com backend em ambiente local.",
+    "explicacao": "Mapear porta, healthcheck e proxy antes de alterar codigo.",
+    "contexto_uso": "Quando houver falha de rede, timeout ou failed to fetch.",
+    "tags": [
+      "debug",
+      "backend",
+      "frontend",
+      "proxy",
+      "ops-check"
+    ]
+  },
+  {
+    "id": "prog-001",
+    "tipo": "programacao",
+    "tema": "api_design",
+    "conteudo": "Padronizar payload canonico para /ask: { question, context }.",
+    "explicacao": "Evita ambiguidades entre formatos legados e melhora observabilidade.",
+    "contexto_uso": "Quando frontend e backend divergem no contrato.",
+    "tags": [
+      "api",
+      "schema",
+      "contract",
+      "express",
+      "nextjs"
+    ]
+  },
+  {
+    "id": "gen-001",
+    "tipo": "conhecimento_geral",
+    "tema": "metodo_resposta",
+    "conteudo": "Responder do geral para o especifico, com passos verificaveis.",
+    "explicacao": "Mantem clareza e reduz respostas vagas.",
+    "contexto_uso": "Perguntas de explicacao tecnica ou estudo.",
+    "tags": [
+      "didatica",
+      "clareza",
+      "passo-a-passo"
+    ]
+  },
+  {
+    "id": "bib-001",
+    "tipo": "conteudo_biblico",
+    "tema": "abordagem_contextual",
+    "conteudo": "Ao citar Biblia, considerar contexto historico-literario e aplicacao responsavel.",
+    "explicacao": "Evita leitura superficial e reduz conflito desnecessario.",
+    "contexto_uso": "Perguntas de fe, estudos biblicos e comparacao de traducoes.",
+    "tags": [
+      "biblia",
+      "naa",
+      "king-james-1611",
+      "almeida",
+      "hebraico",
+      "grego",
+      "aramaico"
+    ]
+  },
+  {
+    "id": "prob-001",
+    "tipo": "resolucao_problemas",
+    "tema": "triagem_incidentes",
+    "conteudo": "Fluxo: reproduzir, coletar evidencia, isolar camada, corrigir minimo, validar.",
+    "explicacao": "Reduz regressao e acelera diagnostico real.",
+    "contexto_uso": "Erros intermitentes em producao ou dev.",
+    "tags": [
+      "incident",
+      "triage",
+      "root-cause",
+      "validation"
+    ]
+  }
+]

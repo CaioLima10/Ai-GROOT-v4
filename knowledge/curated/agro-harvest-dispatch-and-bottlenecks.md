@@ -6,7 +6,7 @@ modules: agribusiness, research
 updatedAt: 2026-03-26
 ---
 
-# Colheita organizada e gargalos operacionais
+## Colheita organizada e gargalos operacionais
 
 ## Ordem de talhões
 

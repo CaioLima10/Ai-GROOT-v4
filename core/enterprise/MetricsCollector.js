@@ -17,6 +17,15 @@ export class MetricsCollector {
       },
       users: new Map(),
       errors: new Map(),
+      quality: {
+        evaluationsTotal: 0,
+        scoreSum: 0,
+        avgScore: 0,
+        lowQualityCount: 0,
+        highQualityCount: 0,
+        hallucinationRiskCount: 0,
+        selfHealAppliedCount: 0
+      },
       performance: {
         p50: 0,
         p95: 0,
@@ -29,7 +38,7 @@ export class MetricsCollector {
 
   recordRequest(requestId, responseTime, success = true, provider = null) {
     this.metrics.requests.total++
-    
+
     if (success) {
       this.metrics.requests.successful++
     } else {
@@ -41,7 +50,7 @@ export class MetricsCollector {
     if (this.responseTimes.length > 1000) {
       this.responseTimes = this.responseTimes.slice(-1000) // Manter últimos 1000
     }
-    
+
     this.updatePerformanceMetrics()
     this.metrics.requests.avgResponseTime = this.calculateAverage(responseTime)
 
@@ -54,7 +63,7 @@ export class MetricsCollector {
           avgResponseTime: 0
         })
       }
-      
+
       const providerMetrics = this.metrics.providers.get(provider)
       providerMetrics.requests++
       if (success) providerMetrics.successful++
@@ -112,7 +121,7 @@ export class MetricsCollector {
     const errorMetrics = this.metrics.errors.get(errorType)
     errorMetrics.count++
     errorMetrics.lastOccurrence = Date.now()
-    
+
     // Manter últimas 5 amostras de erro
     errorMetrics.samples.push({
       timestamp: Date.now(),
@@ -120,7 +129,7 @@ export class MetricsCollector {
       stack: error.stack,
       context
     })
-    
+
     if (errorMetrics.samples.length > 5) {
       errorMetrics.samples = errorMetrics.samples.slice(-5)
     }
@@ -128,9 +137,46 @@ export class MetricsCollector {
     this.logger.error('ERROR_RECORDED', { errorType, error: error.message })
   }
 
+  recordResponseEvaluation(requestId, evaluation = null, selfHealing = null) {
+    const score = Number(evaluation?.score)
+    const hasScore = Number.isFinite(score)
+
+    if (!hasScore) {
+      return
+    }
+
+    this.metrics.quality.evaluationsTotal++
+    this.metrics.quality.scoreSum += score
+    this.metrics.quality.avgScore = Number(
+      (this.metrics.quality.scoreSum / this.metrics.quality.evaluationsTotal).toFixed(4)
+    )
+
+    if (score < 0.6) {
+      this.metrics.quality.lowQualityCount++
+    }
+    if (score >= 0.8) {
+      this.metrics.quality.highQualityCount++
+    }
+
+    if (evaluation?.flags?.highHallucinationRisk) {
+      this.metrics.quality.hallucinationRiskCount++
+    }
+
+    if (selfHealing?.applied) {
+      this.metrics.quality.selfHealAppliedCount++
+    }
+
+    this.logger.debug('RESPONSE_EVALUATION_RECORDED', {
+      requestId,
+      score,
+      classification: evaluation?.classification || null,
+      selfHealApplied: Boolean(selfHealing?.applied)
+    })
+  }
+
   updateCacheHitRate() {
     const total = this.metrics.cache.hits + this.metrics.cache.misses
-    this.metrics.cache.hitRate = total > 0 
+    this.metrics.cache.hitRate = total > 0
       ? (this.metrics.cache.hits / total * 100).toFixed(2)
       : 0
   }
@@ -151,7 +197,7 @@ export class MetricsCollector {
 
   calculateAverage(responseTime) {
     if (this.responseTimes.length === 0) return 0
-    
+
     const sum = this.responseTimes.reduce((acc, time) => acc + time, 0)
     return Math.round(sum / this.responseTimes.length)
   }
@@ -170,7 +216,7 @@ export class MetricsCollector {
     for (const [provider, metrics] of this.metrics.providers.entries()) {
       stats[provider] = {
         ...metrics,
-        successRate: metrics.requests > 0 
+        successRate: metrics.requests > 0
           ? (metrics.successful / metrics.requests * 100).toFixed(2)
           : 0
       }
@@ -206,40 +252,65 @@ export class MetricsCollector {
 
   exportMetrics(format = 'json') {
     const summary = this.getSummary()
-    
+
     if (format === 'prometheus') {
       return this.convertToPrometheusFormat(summary)
     }
-    
+
     return summary
   }
 
   convertToPrometheusFormat(metrics) {
     const lines = []
-    
+
     // Request metrics
     lines.push(`# HELP ai_groot_requests_total Total number of requests`)
     lines.push(`# TYPE ai_groot_requests_total counter`)
     lines.push(`ai_groot_requests_total ${metrics.requests.total}`)
-    
+
     // Success rate
     lines.push(`# HELP ai_groot_success_rate Success rate percentage`)
     lines.push(`# TYPE ai_groot_success_rate gauge`)
-    const successRate = metrics.requests.total > 0 
+    const successRate = metrics.requests.total > 0
       ? (metrics.requests.successful / metrics.requests.total * 100).toFixed(2)
       : 0
     lines.push(`ai_groot_success_rate ${successRate}`)
-    
+
     // Response time
     lines.push(`# HELP ai_groot_response_time_ms Average response time in milliseconds`)
     lines.push(`# TYPE ai_groot_response_time_ms gauge`)
     lines.push(`ai_groot_response_time_ms ${metrics.requests.avgResponseTime}`)
-    
+
     // Cache hit rate
     lines.push(`# HELP ai_groot_cache_hit_rate Cache hit rate percentage`)
     lines.push(`# TYPE ai_groot_cache_hit_rate gauge`)
     lines.push(`ai_groot_cache_hit_rate ${metrics.cache.hitRate}`)
-    
+
+    // Quality metrics
+    lines.push(`# HELP ai_groot_quality_evaluations_total Total evaluated responses`)
+    lines.push(`# TYPE ai_groot_quality_evaluations_total counter`)
+    lines.push(`ai_groot_quality_evaluations_total ${metrics.quality.evaluationsTotal}`)
+
+    lines.push(`# HELP ai_groot_quality_avg_score Average response quality score`)
+    lines.push(`# TYPE ai_groot_quality_avg_score gauge`)
+    lines.push(`ai_groot_quality_avg_score ${metrics.quality.avgScore}`)
+
+    lines.push(`# HELP ai_groot_quality_low_total Total low-quality responses`)
+    lines.push(`# TYPE ai_groot_quality_low_total counter`)
+    lines.push(`ai_groot_quality_low_total ${metrics.quality.lowQualityCount}`)
+
+    lines.push(`# HELP ai_groot_quality_high_total Total high-quality responses`)
+    lines.push(`# TYPE ai_groot_quality_high_total counter`)
+    lines.push(`ai_groot_quality_high_total ${metrics.quality.highQualityCount}`)
+
+    lines.push(`# HELP ai_groot_hallucination_risk_total Total high hallucination risk responses`)
+    lines.push(`# TYPE ai_groot_hallucination_risk_total counter`)
+    lines.push(`ai_groot_hallucination_risk_total ${metrics.quality.hallucinationRiskCount}`)
+
+    lines.push(`# HELP ai_groot_self_heal_applied_total Total self-healing rewrites applied`)
+    lines.push(`# TYPE ai_groot_self_heal_applied_total counter`)
+    lines.push(`ai_groot_self_heal_applied_total ${metrics.quality.selfHealAppliedCount}`)
+
     return lines.join('\n')
   }
 
@@ -259,6 +330,15 @@ export class MetricsCollector {
       },
       users: new Map(),
       errors: new Map(),
+      quality: {
+        evaluationsTotal: 0,
+        scoreSum: 0,
+        avgScore: 0,
+        lowQualityCount: 0,
+        highQualityCount: 0,
+        hallucinationRiskCount: 0,
+        selfHealAppliedCount: 0
+      },
       performance: {
         p50: 0,
         p95: 0,
@@ -266,7 +346,7 @@ export class MetricsCollector {
       }
     }
     this.responseTimes = []
-    
+
     this.logger.info('METRICS_RESET')
   }
 }

@@ -1,0 +1,16 @@
+{
+  "total": 48,
+  "ok": 48,
+  "genericFallbacks": 0,
+  "hardErrors": 0,
+  "errorRate": 0,
+  "fallbackRate": 0,
+  "p50Ms": 8750,
+  "p95Ms": 16411,
+  "p99Ms": 16493,
+  "byKind": {
+    "ok": 48
+  },
+  "timestamp": "2026-03-31T19:21:25.465Z",
+  "baseUrl": "http://localhost:3002/backend"
+}

@@ -1,0 +1,19 @@
+{
+  "total": 24,
+  "ok": 1,
+  "genericFallbacks": 0,
+  "hardErrors": 0,
+  "errorRate": 0,
+  "fallbackRate": 0,
+  "p50Ms": 8567,
+  "p95Ms": 11113,
+  "p99Ms": 11116,
+  "avgChunks": 12.58,
+  "avgPings": 0,
+  "byKind": {
+    "ok_no_chunk": 23,
+    "ok": 1
+  },
+  "timestamp": "2026-03-31T19:22:20.810Z",
+  "baseUrl": "http://localhost:3002/backend"
+}

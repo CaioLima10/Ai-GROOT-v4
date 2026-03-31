@@ -1,11 +1,25 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import { existsSync } from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 import fs from "fs/promises"
 import crypto from "crypto"
+import { createAskGiomLegacyAdapter, createAskGiomService } from "../../../backend/src/application/ask/askGiom.js"
+import { buildRuntimeContext } from "../../../backend/src/application/context/buildRuntimeContext.js"
+import { createMemoryContextMetricsCollector } from "../../../backend/src/application/monitoring/memoryContextMetrics.js"
+import { createRuntimeSessionMemoryStore } from "../../../backend/src/infrastructure/memory/runtimeSessionMemoryStore.js"
+import { createGrootMemoryRetrievalAdapter } from "../../../backend/src/infrastructure/memory/grootMemoryRetrievalAdapter.js"
+import { createGrootEmbeddingsProviderAdapter } from "../../../backend/src/infrastructure/memory/grootEmbeddingsProviderAdapter.js"
+import { createSemanticMemoryStore } from "../../../backend/src/infrastructure/memory/semanticMemoryStore.js"
+import { createRedisMemoryClient } from "../../../backend/src/infrastructure/memory/redisMemoryClient.js"
+import { buildPreparedAskPayloadFromHttp } from "../../../backend/src/interfaces/http/adapters/buildPreparedAskPayloadFromHttp.js"
+import { createSaveConversationNonBlocking } from "../../../backend/src/application/conversation/saveConversationNonBlocking.js"
+import { buildHealthSnapshot } from "../../../backend/src/application/monitoring/buildHealthSnapshot.js"
+import { createRequireAdminMiddleware } from "../../../backend/src/interfaces/http/middlewares/requireAdmin.js"
+import { evaluateResponse } from "../../../backend/src/application/evaluation/evaluateResponse.js"
+import { processEvaluation } from "../../../backend/src/application/evaluation/improvementLoop.js"
+import { selfHealResponse } from "../../../backend/src/application/selfHealing/selfHealResponse.js"
 import { askGroot } from "../../../core/aiBrain.js"
 import { aiGateway } from "../../../core/enterprise/AIGateway.js"
 import { streamingGateway } from "../../../core/enterprise/StreamingAIGateway.js"
@@ -15,7 +29,6 @@ import {
   AI_KNOWLEDGE_SERVICE_SLUG,
   AI_MODEL_OWNER,
   AI_SERVICE_SLUG,
-  buildCapabilityMatrix,
   getResearchCapabilities,
   listAssistantProfiles,
   listBibleStudyModules,
@@ -27,12 +40,18 @@ import {
   listModuleEnhancementPlans,
   listPlannedModules,
   listPromptPacks,
+  parseBibleReference,
   resolveCompatModel
 } from "../../../packages/shared-config/src/index.js"
+import {
+  getAskContextDiagnostics,
+  sanitizeAskContext
+} from "../../../packages/shared-config/src/runtimeContracts.js"
 import {
   buildAssistantPromptContext,
   generateStructuredDocument,
   evaluateConversationTurn,
+  giomOrchestrator,
   grootAdvancedRAG,
   grootEmbeddings,
   grootMemoryConnector,
@@ -42,11 +61,155 @@ import {
 } from "../../../packages/ai-core/src/index.js"
 import { fetchBiblePassage } from "../../../core/bibleApi.js"
 import { buildSafetyResponse, detectSafetyRisk } from "../../../core/safetyGuard.js"
+import {
+  buildGreetingLead,
+  buildGreetingResponse,
+  detectGreetingSignals
+} from "../../../core/greetingBehavior.js"
+import {
+  getLiveResearchRuntime,
+  hasGoogleCustomSearchConfigured,
+  performGoogleCustomSearch,
+  resolveApproximateLocationByIp,
+  resolveNextFixtureFromQuestion,
+  summarizeGoogleSearchResults
+} from "./liveResearch.js"
+import {
+  isFixtureCardPreferred as runtimeIsFixtureCardPreferred,
+  isFixtureQuestion as runtimeIsFixtureQuestion,
+  isSportsScheduleRelevant as runtimeIsSportsScheduleRelevant,
+  shouldInjectGoogleLiveSearch as runtimeShouldInjectGoogleLiveSearch
+} from "./liveResearchIntents.js"
+import {
+  buildClockVerificationMeta,
+  getVerifiedRuntimeClock
+} from "./runtimeClock.js"
+import { buildRuntimeConversationContext as buildRuntimeConversationContextCore } from "./runtimeConversationContext.js"
+import {
+  buildWeatherCardResponse as runtimeBuildWeatherCardResponse,
+  buildWeatherClientMetadata as runtimeBuildWeatherClientMetadata,
+  buildWeatherConversationLocationMetadata as runtimeBuildWeatherConversationLocationMetadata,
+  buildWeatherIntentFallback as runtimeBuildWeatherIntentFallback,
+  buildWeatherSnapshot as runtimeBuildWeatherSnapshot,
+  extractWeatherLocationQuery as runtimeExtractWeatherLocationQuery,
+  fetchWeatherForecastPayload as runtimeFetchWeatherForecastPayload,
+  inferWeatherForecastDays as runtimeInferWeatherForecastDays,
+  isAgroWeatherRelevant as runtimeIsAgroWeatherRelevant,
+  isWeatherCardPreferred as runtimeIsWeatherCardPreferred,
+  isWeatherQuestion as runtimeIsWeatherQuestion,
+  resolveRecentWeatherLocationFromMemory as runtimeResolveRecentWeatherLocationFromMemory,
+  shouldPreferRecentWeatherMemory as runtimeShouldPreferRecentWeatherMemory,
+  resolveWeatherLocationByQuery as runtimeResolveWeatherLocationByQuery,
+  resolveWeatherLocationContext as runtimeResolveWeatherLocationContext
+} from "./weatherRuntime.js"
 import helmet from "helmet"
 import rateLimit from "express-rate-limit"
 import slowDown from "express-slow-down"
 import hpp from "hpp"
 import compression from "compression"
+import {
+  IMAGE_RATIO_DIMENSIONS,
+  IMAGE_STYLE_PRESETS,
+  SUPPORTED_UPLOAD_ACCEPT,
+  UPLOAD_DIR,
+  buildImageStylePresetPrompt,
+  getImageGenerationToken,
+  getUploadCapabilities,
+  imageGenerationMaxDimension,
+  imageGenerationMinDimension,
+  imageGenerationModel,
+  isImageGenerationEnabled,
+  parseImageGenerationRequest,
+  uploadMaxBytes,
+  uploadOcrEnabled,
+  uploads,
+  uploadTtlMinutes
+} from "./enterpriseAssetsRuntime.js"
+import { configureEnterpriseSecurity } from "./enterpriseSecurityRuntime.js"
+import {
+  buildUploadExtractionBlock,
+  detectMimeFromMagic,
+  ensureUploadDir,
+  finalizeTextExtraction,
+  isAllowedUploadByAccept,
+  isMimeCompatibleWithExtension,
+  normalizeUploadMime,
+  parseBase64Payload,
+  safeFilename,
+  scheduleUploadCleanup
+} from "./enterpriseUploadsRuntime.js"
+import {
+  consumeImageQuota,
+  consumeUploadQuota,
+  getImageQuotaStatus,
+  getUploadQuotaStatus,
+  resolveImageQuotaContext,
+  resolveUploadQuotaContext
+} from "./enterpriseUploadQuotaRuntime.js"
+import { resolveDeterministicUploadResponse as resolveDeterministicUploadResponseRuntime } from "./enterpriseUploadResponsesRuntime.js"
+import {
+  decodeXmlEntities,
+  dedupeParagraphs,
+  normalizeTextForDeduplication
+} from "./enterpriseTextRuntime.js"
+import {
+  buildFixtureCardResponse,
+  buildFixtureIntentFallback,
+  buildPromptCardResponse,
+  isPromptCardPreferred,
+  normalizeAnswerText,
+  shouldKeepIdentityPreamble
+} from "./enterpriseResponseCardsRuntime.js"
+import {
+  buildQuestionFromGeminiContents,
+  buildQuestionFromMessages,
+  estimateUsage,
+  flattenMessageContent
+} from "./enterpriseRequestRuntime.js"
+import {
+  buildGospelCoreFallback,
+  extractBibleConversationPreferencesFromHistory,
+  extractRecentBibleContextFromHistory,
+  inferMinistryFocusFromText,
+  isBibleFollowUpQuestion,
+  isInterpretiveBibleQuestion,
+  mergeRuntimeInstructions,
+  refineBibleInterpretiveResponse,
+  resolveDeterministicBibleGuidanceResponse,
+  resolveDeterministicBiblePassageResponse
+} from "./enterpriseBibleRuntime.js"
+import {
+  buildDocumentDraftPrompt,
+  sanitizeDocumentTitle
+} from "./enterpriseDocumentRuntime.js"
+import { buildRuntimeCapabilityMatrix } from "./enterpriseCapabilityRuntime.js"
+import { writeSSE } from "./enterpriseSSERuntime.js"
+import {
+  buildOperationalContingencyResponseCore,
+  buildUnknownInformationResponseCore,
+  getCompatContext,
+  isAgroWeatherRelevantCore,
+  postProcessAssistantResponseCore,
+  requiresVerifiedFreshDataCore,
+  resolveDeterministicFixtureResponseCore,
+  resolveDeterministicWeatherResponseCore,
+  resolveSafetyChatPayloadCore
+} from "./enterpriseResponseProcessingRuntime.js"
+import { sanitizeWeatherLocationQuery } from "./weatherGeocoding.js"
+import { resolveUploadExtraction } from "./enterpriseUploadExtractionRuntime.js"
+import {
+  buildLanguageClientMetadata,
+  cleanupLanguageRuntimeCache,
+  enrichLanguageRuntimeContext,
+  getLanguageRuntimeStatus
+} from "./languageRuntime.js"
+
+/** @typedef {import("../../../packages/ai-core/src/aiContracts").EnhancedRuntimeConversationContext} EnhancedRuntimeConversationContext */
+/** @typedef {import("../../../packages/ai-core/src/aiContracts").LiveWeatherClientMetadata} LiveWeatherClientMetadata */
+/** @typedef {import("../../../packages/ai-core/src/aiContracts").LiveWeatherSnapshot} LiveWeatherSnapshot */
+/** @typedef {import("../../../packages/ai-core/src/aiContracts").RuntimeClock} RuntimeClock */
+/** @typedef {import("../../../packages/ai-core/src/aiContracts").WeatherForecastProviderPayload} WeatherForecastProviderPayload */
+/** @typedef {import("../../../packages/ai-core/src/aiContracts").WeatherLocationResolution} WeatherLocationResolution */
 
 dotenv.config()
 
@@ -54,808 +217,55 @@ const app = express()
 app.disable("x-powered-by")
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false)
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
-  .split(",")
-  .map(origin => origin.trim())
-  .filter(Boolean)
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true)
-    if (allowedOrigins.length === 0) return callback(null, true)
-    if (allowedOrigins.includes(origin)) return callback(null, true)
-    return callback(new Error("Not allowed by CORS"))
-  },
-  credentials: true
-}
-
-// Middleware enterprise
-app.use(cors(corsOptions))
-app.use(hpp())
-app.use(compression({
-  filter: (req, res) => {
-    if (req.path === "/ask/stream") return false
-    return compression.filter(req, res)
-  }
-}))
-
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'", process.env.SUPABASE_URL || ""].filter(Boolean),
-      frameAncestors: ["'none'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false
-}))
-
-app.use((req, res, next) => {
-  res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")
-  next()
+const { askLimiter, askSlowDown } = configureEnterpriseSecurity(app, {
+  cors,
+  hpp,
+  compression,
+  helmet,
+  rateLimit,
+  slowDown,
+  express
 })
-
-const globalLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_GLOBAL || 600),
-  standardHeaders: true,
-  legacyHeaders: false
-})
-
-const askLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_ASK || 60),
-  standardHeaders: true,
-  legacyHeaders: false
-})
-
-const askSlowDown = slowDown({
-  windowMs: 60 * 1000,
-  delayAfter: Number(process.env.SLOWDOWN_AFTER || 30),
-  delayMs: () => Number(process.env.SLOWDOWN_DELAY_MS || 350)
-})
-
-app.use(globalLimiter)
-app.use(express.json({ limit: process.env.REQUEST_LIMIT || "4mb", strict: true }))
 
 // Corrige __dirname no ESModules
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const WEB_PUBLIC_DIR = existsSync(path.resolve(__dirname, "../../web/public"))
-  ? path.resolve(__dirname, "../../web/public")
-  : path.resolve(__dirname, "../../../ui")
 
-const UPLOAD_DIR = path.join(process.cwd(), "tmp_uploads")
-const uploads = new Map()
-const uploadTtlMinutes = Number(process.env.UPLOAD_TTL_MINUTES || 10)
-const uploadMaxBytes = Number(process.env.UPLOAD_MAX_BYTES || 2_000_000)
-const uploadTextLimit = Number(process.env.UPLOAD_TEXT_LIMIT || 12000)
-const uploadOcrEnabled = process.env.UPLOAD_OCR_ENABLED === "true"
-const uploadOcrLang = process.env.OCR_LANG || "eng"
-const uploadOcrTextLimit = Number(process.env.OCR_TEXT_LIMIT || 8000)
-const uploadPdfTextLimit = Number(process.env.UPLOAD_PDF_TEXT_LIMIT || uploadTextLimit)
-const uploadOfficeTextLimit = Number(process.env.UPLOAD_OFFICE_TEXT_LIMIT || uploadTextLimit)
-const uploadZipTextLimit = Number(process.env.UPLOAD_ZIP_TEXT_LIMIT || 16000)
-const uploadZipFileLimit = Number(process.env.UPLOAD_ZIP_FILE_LIMIT || 12)
-const imageGenerationModel = process.env.HUGGINGFACE_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
-const imageGenerationMinDimension = Number(process.env.IMAGE_MIN_DIMENSION || 512)
-const imageGenerationMaxDimension = Number(process.env.IMAGE_MAX_DIMENSION || 1536)
-const imageGenerationDefaultSteps = Number(process.env.IMAGE_INFERENCE_STEPS_DEFAULT || 28)
-const imageGenerationMaxSteps = Number(process.env.IMAGE_INFERENCE_STEPS_MAX || 50)
-const imageGenerationDefaultGuidance = Number(process.env.IMAGE_GUIDANCE_SCALE_DEFAULT || 4)
-const IMAGE_STYLE_PRESETS = Object.freeze({
-  editorial: "Editorial product render, polished lighting, premium composition, crisp details, commercial design quality.",
-  cinematic: "Cinematic lighting, atmospheric depth, dramatic framing, realistic materials, premium post-production look.",
-  ui: "Product design showcase, modern interface composition, readable panels, premium SaaS art direction.",
-  dracula: "Dark dracula-inspired palette, neon accents, elegant contrast, clean futuristic composition.",
-  illustration: "High-end illustration, stylized but readable, balanced colors, refined shapes, professional finish.",
-  logo: "Minimal brand concept, vector-friendly silhouette, clean negative space, strong contrast, presentation-ready.",
-  diagram: "Structured infographic composition, clear hierarchy, presentation-friendly layout, minimal clutter."
-})
-const IMAGE_RATIO_DIMENSIONS = Object.freeze({
-  "1:1": { width: 1024, height: 1024 },
-  "16:9": { width: 1344, height: 768 },
-  "9:16": { width: 768, height: 1344 },
-  "4:3": { width: 1152, height: 864 },
-  "3:4": { width: 864, height: 1152 },
-  "3:2": { width: 1216, height: 832 },
-  "2:3": { width: 832, height: 1216 }
-})
 const documentGenerationFormats = listDocumentFormats()
 const documentGenerationFormatIds = documentGenerationFormats.map((entry) => entry.format)
-const SUPPORTED_UPLOAD_ACCEPT = [
-  "image/*",
-  ".pdf",
-  ".zip",
-  ".docx",
-  ".xlsx",
-  ".pptx",
-  ".txt",
-  ".md",
-  ".svg",
-  ".json",
-  ".jsonl",
-  ".js",
-  ".ts",
-  ".tsx",
-  ".jsx",
-  ".py",
-  ".java",
-  ".go",
-  ".rs",
-  ".c",
-  ".cpp",
-  ".h",
-  ".cs",
-  ".php",
-  ".rb",
-  ".html",
-  ".css",
-  ".xml",
-  ".yml",
-  ".yaml",
-  ".log",
-  ".tsv",
-  ".csv",
-  ".sql"
-]
-
-function getImageGenerationToken() {
-  return process.env.HUGGINGFACE_API_KEY ||
-    process.env.HF_API_KEY ||
-    process.env.HUGGINGFACEHUB_API_TOKEN ||
-    null
+const orchestratorShadowEnabled = process.env.GIOM_ORCHESTRATOR_SHADOW !== "false"
+const deterministicUploadResponseDeps = {
+  decodeXmlEntities,
+  dedupeParagraphs,
+  normalizeTextForDeduplication,
+  isWeatherQuestion: runtimeIsWeatherQuestion,
+  isFixtureQuestion: runtimeIsFixtureQuestion
 }
 
-function isImageGenerationEnabled() {
-  return Boolean(getImageGenerationToken())
-}
-
-function clampImageNumber(value, min, max, fallback) {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return fallback
-  return Math.min(max, Math.max(min, numeric))
-}
-
-function normalizeImageDimension(value, fallback) {
-  const clamped = clampImageNumber(value, imageGenerationMinDimension, imageGenerationMaxDimension, fallback)
-  return Math.round(clamped / 64) * 64
-}
-
-function normalizeImageStylePreset(value = "") {
-  const normalized = String(value || "").trim().toLowerCase()
-  return Object.prototype.hasOwnProperty.call(IMAGE_STYLE_PRESETS, normalized) ? normalized : ""
-}
-
-function normalizeImageAspectRatio(value = "") {
-  const normalized = String(value || "").trim()
-  return Object.prototype.hasOwnProperty.call(IMAGE_RATIO_DIMENSIONS, normalized) ? normalized : ""
-}
-
-function normalizeImageSeed(value) {
-  if (value == null || value === "") return null
-  const numeric = Math.trunc(Number(value))
-  return Number.isFinite(numeric) ? Math.max(0, numeric) : null
-}
-
-function resolveImageDimensions({ width, height, aspectRatio } = {}) {
-  const normalizedRatio = normalizeImageAspectRatio(aspectRatio) || "1:1"
-  const preset = IMAGE_RATIO_DIMENSIONS[normalizedRatio] || IMAGE_RATIO_DIMENSIONS["1:1"]
-
-  return {
-    aspectRatio: normalizedRatio,
-    width: normalizeImageDimension(width, preset.width),
-    height: normalizeImageDimension(height, preset.height)
-  }
-}
-
-function buildImageStylePresetPrompt(stylePreset = "") {
-  return IMAGE_STYLE_PRESETS[stylePreset] || ""
-}
-
-function parseImageGenerationRequest(body = {}) {
-  const stylePreset = normalizeImageStylePreset(body?.stylePreset)
-  const negativePrompt = String(body?.negativePrompt || "").trim().slice(0, 400)
-  const guidanceScale = clampImageNumber(body?.guidanceScale, 1, 20, imageGenerationDefaultGuidance)
-  const numInferenceSteps = Math.trunc(
-    clampImageNumber(body?.numInferenceSteps, 12, imageGenerationMaxSteps, imageGenerationDefaultSteps)
-  )
-  const seed = normalizeImageSeed(body?.seed)
-  const dimensions = resolveImageDimensions({
-    width: body?.width,
-    height: body?.height,
-    aspectRatio: body?.aspectRatio
-  })
-
-  return {
-    style: String(body?.style || "").trim(),
-    stylePreset,
-    negativePrompt,
-    guidanceScale,
-    numInferenceSteps,
-    seed,
-    ...dimensions
-  }
-}
-
-function getUploadCapabilities() {
-  return {
-    accept: SUPPORTED_UPLOAD_ACCEPT,
-    supportedKinds: [
-      "text",
-      "code",
-      "svg",
-      "pdf",
-      "zip",
-      "docx",
-      "xlsx",
-      "pptx",
-      uploadOcrEnabled ? "image_ocr" : "image"
-    ],
-    supports: {
-      text: true,
-      code: true,
-      svg: true,
-      markdown: true,
-      json: true,
-      csv: true,
-      pdf: true,
-      zip: true,
-      docx: true,
-      xlsx: true,
-      pptx: true,
-      image: true,
-      ocr: uploadOcrEnabled,
-      officeBinaryDocuments: true,
-      genericBinaryInspection: false,
-      mimeSignatureValidation: true
-    }
-  }
-}
-
-function buildRuntimeCapabilityMatrix() {
-  const runtimeResearchCapabilities = getResearchCapabilities()
-  const liveWebEnabled = Boolean(
-    runtimeResearchCapabilities.liveWeb ||
-    runtimeResearchCapabilities.google ||
-    runtimeResearchCapabilities.bing ||
-    runtimeResearchCapabilities.yahoo ||
-    runtimeResearchCapabilities.scholar ||
-    runtimeResearchCapabilities.news ||
-    runtimeResearchCapabilities.codeSearch ||
-    runtimeResearchCapabilities.browserAutomation
-  )
-
-  return buildCapabilityMatrix({
-    uploadAccept: SUPPORTED_UPLOAD_ACCEPT,
-    ocrEnabled: uploadOcrEnabled,
-    docxEnabled: true,
-    xlsxEnabled: true,
-    pptxEnabled: true,
-    imageGenerationEnabled: isImageGenerationEnabled(),
-    imageGenerationProvider: isImageGenerationEnabled() ? "huggingface" : "disabled",
-    imageControlsEnabled: true,
-    visualImageUnderstanding: uploadOcrEnabled,
-    imageEditingEnabled: false,
-    liveWebEnabled,
-    weatherForecastEnabled: Boolean(runtimeResearchCapabilities.weatherForecast),
-    browserPdfExport: true,
-    serverPdfGeneration: true,
-    structuredDocsNative: true,
-    documentGenerationFormats: documentGenerationFormatIds,
-    privacyRedaction: true,
-    sensitiveLearningBlocked: true,
-    temporaryUploads: true
-  })
-}
-
-async function ensureUploadDir() {
-  try {
-    await fs.mkdir(UPLOAD_DIR, { recursive: true })
-  } catch (error) {
-    console.error("❌ Falha ao criar pasta de uploads:", error.message)
-  }
-}
-
-function scheduleUploadCleanup(id) {
-  const entry = uploads.get(id)
-  if (!entry) return
-  const ttlMs = uploadTtlMinutes * 60 * 1000
-  entry.timeout = setTimeout(async () => {
-    try {
-      await fs.unlink(entry.path)
-    } catch {
-      // ignore
-    }
-    uploads.delete(id)
-  }, ttlMs)
-}
-
-function safeFilename(name) {
-  return String(name || "upload")
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .slice(0, 120)
-}
-
-function getFileExtension(name = "") {
-  const normalized = String(name || "").toLowerCase()
-  const parts = normalized.split(".")
-  return parts.length > 1 ? `.${parts.pop()}` : ""
-}
-
-function parseBase64Payload(input = "") {
-  const value = String(input || "").trim()
-  const stripped = value.startsWith("data:")
-    ? (value.split(",")[1] || "")
-    : value
-
-  if (!/^[A-Za-z0-9+/=\r\n]+$/.test(stripped)) {
-    return null
-  }
-
-  try {
-    const buffer = Buffer.from(stripped, "base64")
-    return buffer.length ? buffer : null
-  } catch {
-    return null
-  }
-}
-
-function detectMimeFromMagic(buffer, fileName = "") {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 4) return null
-
-  const signature = buffer.subarray(0, 16)
-  const startsWith = (...bytes) => bytes.every((byte, index) => signature[index] === byte)
-
-  if (startsWith(0x25, 0x50, 0x44, 0x46)) return "application/pdf"
-  if (startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png"
-  if (startsWith(0xff, 0xd8, 0xff)) return "image/jpeg"
-  if (startsWith(0x47, 0x49, 0x46, 0x38)) return "image/gif"
-  if (startsWith(0x52, 0x49, 0x46, 0x46) && signature[8] === 0x57 && signature[9] === 0x45 && signature[10] === 0x42 && signature[11] === 0x50) {
-    return "image/webp"
-  }
-  if (startsWith(0x50, 0x4b, 0x03, 0x04)) {
-    const ext = getFileExtension(fileName)
-    if (ext === ".docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    if (ext === ".xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    if (ext === ".pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    return "application/zip"
-  }
-
-  return null
-}
-
-function normalizeUploadMime(fileName = "", declaredType = "", detectedType = "") {
-  const ext = getFileExtension(fileName)
-  const declared = String(declaredType || "").trim().toLowerCase()
-  const detected = String(detectedType || "").trim().toLowerCase()
-
-  if (detected) {
-    return detected
-  }
-
-  if (declared) {
-    return declared
-  }
-
-  const extensionMimeMap = {
-    ".pdf": "application/pdf",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ".zip": "application/zip",
-    ".svg": "image/svg+xml",
-    ".json": "application/json",
-    ".jsonl": "application/x-ndjson",
-    ".csv": "text/csv",
-    ".tsv": "text/tab-separated-values",
-    ".txt": "text/plain",
-    ".md": "text/markdown",
-    ".xml": "application/xml",
-    ".yml": "text/yaml",
-    ".yaml": "text/yaml",
-    ".sql": "text/plain"
-  }
-
-  return extensionMimeMap[ext] || "application/octet-stream"
-}
-
-function isAllowedUploadByAccept(fileName = "", mimeType = "") {
-  const ext = getFileExtension(fileName)
-  const normalizedMime = String(mimeType || "").toLowerCase()
-  return SUPPORTED_UPLOAD_ACCEPT.some((rule) => {
-    const normalizedRule = String(rule || "").toLowerCase().trim()
-    if (!normalizedRule) return false
-    if (normalizedRule.endsWith("/*")) {
-      return normalizedMime.startsWith(normalizedRule.slice(0, -1))
-    }
-    if (normalizedRule.startsWith(".")) {
-      return ext === normalizedRule
-    }
-    return normalizedMime === normalizedRule
-  })
-}
-
-function isMimeCompatibleWithExtension(fileName = "", mimeType = "") {
-  const ext = getFileExtension(fileName)
-  const normalizedMime = String(mimeType || "").toLowerCase()
-  if (!ext || !normalizedMime) return true
-
-  const extensionCompatibilityMap = {
-    ".pdf": ["application/pdf"],
-    ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip"],
-    ".xlsx": ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip"],
-    ".pptx": ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/zip"],
-    ".zip": ["application/zip", "application/x-zip-compressed"],
-    ".png": ["image/png"],
-    ".jpg": ["image/jpeg"],
-    ".jpeg": ["image/jpeg"],
-    ".gif": ["image/gif"],
-    ".webp": ["image/webp"],
-    ".svg": ["image/svg+xml", "text/xml", "application/xml", "text/plain"]
-  }
-
-  const allowed = extensionCompatibilityMap[ext]
-  if (!allowed) return true
-  return allowed.includes(normalizedMime)
-}
-
-function isTextLike(name, type) {
-  if (type && type.startsWith("text/")) return true
-  const lower = String(name || "").toLowerCase()
-  return [
-    ".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".log",
-    ".svg", ".jsonl", ".tsv", ".ini", ".toml", ".env", ".sh", ".bat", ".ps1",
-    ".js", ".ts", ".tsx", ".jsx", ".py", ".java", ".go", ".rs",
-    ".c", ".cpp", ".h", ".cs", ".php", ".rb", ".sql", ".xml", ".html", ".css"
-  ].some(ext => lower.endsWith(ext))
-}
-
-function isImageLike(name, type) {
-  if (type && type.startsWith("image/")) return true
-  const lower = String(name || "").toLowerCase()
-  return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"].some(ext => lower.endsWith(ext))
-}
-
-function isPdfLike(name, type) {
-  if (type === "application/pdf") return true
-  const lower = String(name || "").toLowerCase()
-  return lower.endsWith(".pdf")
-}
-
-function isDocxLike(name, type) {
-  if (type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return true
-  const lower = String(name || "").toLowerCase()
-  return lower.endsWith(".docx")
-}
-
-function isSpreadsheetLike(name, type) {
-  if (type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") return true
-  const lower = String(name || "").toLowerCase()
-  return lower.endsWith(".xlsx")
-}
-
-function isPresentationLike(name, type) {
-  if (type === "application/vnd.openxmlformats-officedocument.presentationml.presentation") return true
-  const lower = String(name || "").toLowerCase()
-  return lower.endsWith(".pptx")
-}
-
-function isZipLike(name, type) {
-  if (type === "application/zip" || type === "application/x-zip-compressed") return true
-  const lower = String(name || "").toLowerCase()
-  return lower.endsWith(".zip")
-}
-
-async function extractTextFromImage(filePath) {
-  if (!uploadOcrEnabled) return null
-  try {
-    const { createWorker } = await import("tesseract.js")
-    const worker = await createWorker({ logger: () => {} })
-    await worker.loadLanguage(uploadOcrLang)
-    await worker.initialize(uploadOcrLang)
-    const { data } = await worker.recognize(filePath)
-    await worker.terminate()
-
-    const text = String(data?.text || "").trim()
-    if (!text) return null
-
-    if (text.length > uploadOcrTextLimit) {
-      return `${text.slice(0, uploadOcrTextLimit)}\n... (truncado)`
-    }
-
-    return text
-  } catch (error) {
-    console.error("❌ OCR falhou:", error.message)
-    return null
-  }
-}
-
-async function extractTextFromPdf(filePath) {
-  try {
-    const pdfParseModule = await import("pdf-parse")
-    const pdfParse = pdfParseModule.default || pdfParseModule
-    const buffer = await fs.readFile(filePath)
-    const parsed = await pdfParse(buffer)
-    const text = String(parsed?.text || "")
-      .replace(/\u0000/g, " ")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim()
-
-    if (!text) return null
-
-    if (text.length > uploadPdfTextLimit) {
-      return `${text.slice(0, uploadPdfTextLimit)}\n... (truncado)`
-    }
-
-    return text
-  } catch (error) {
-    console.error("❌ Leitura de PDF falhou:", error.message)
-    return null
-  }
-}
-
-async function extractTextFromDocx(filePath) {
-  try {
-    const mammothModule = await import("mammoth")
-    const mammoth = mammothModule.default || mammothModule
-    const parsed = await mammoth.extractRawText({ path: filePath })
-    const text = String(parsed?.value || "")
-      .replace(/\u0000/g, " ")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim()
-
-    if (!text) return null
-
-    if (text.length > uploadOfficeTextLimit) {
-      return `${text.slice(0, uploadOfficeTextLimit)}\n... (truncado)`
-    }
-
-    return text
-  } catch (error) {
-    console.error("❌ Leitura de DOCX falhou:", error.message)
-    return null
-  }
-}
-
-async function extractTextFromSpreadsheet(filePath) {
-  try {
-    const exceljsModule = await import("exceljs")
-    const ExcelJS = exceljsModule.default || exceljsModule
-    const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.readFile(filePath)
-    const sections = workbook.worksheets.slice(0, 4).map((worksheet) => {
-      const rows = []
-      worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-        if (rowNumber > 30) return
-        const cells = Array.isArray(row.values)
-          ? row.values.slice(1).map((cell) => {
-              if (cell == null) return ""
-              if (typeof cell === "object" && cell.text) return String(cell.text).trim()
-              if (typeof cell === "object" && cell.result != null) return String(cell.result).trim()
-              return String(cell).trim()
-            }).filter(Boolean)
-          : []
-        if (cells.length > 0) {
-          rows.push(cells.join(" | "))
-        }
-      })
-
-      const body = rows.join("\n")
-
-      if (!body) {
-        return `Planilha: ${worksheet.name}\n(sem texto tabular util)`
-      }
-
-      return `Planilha: ${worksheet.name}\n${body}`
-    }).filter(Boolean)
-
-    const text = sections.join("\n\n").trim()
-    if (!text) return null
-
-    if (text.length > uploadOfficeTextLimit) {
-      return `${text.slice(0, uploadOfficeTextLimit)}\n... (truncado)`
-    }
-
-    return text
-  } catch (error) {
-    console.error("❌ Leitura de XLSX falhou:", error.message)
-    return null
-  }
-}
-
-function decodeXmlEntities(text = "") {
-  return String(text || "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&apos;/g, "'")
-    .replace(/&#10;/g, "\n")
-    .replace(/&#13;/g, "\n")
-}
-
-async function extractSlideTextsFromPptx(filePath) {
-  const yauzlModule = await import("yauzl")
-  const yauzl = yauzlModule.default || yauzlModule
-
-  return new Promise((resolve, reject) => {
-    const slideChunks = []
-
-    yauzl.open(filePath, { lazyEntries: true }, (openError, zipfile) => {
-      if (openError) {
-        reject(openError)
-        return
-      }
-
-      zipfile.readEntry()
-
-      zipfile.on("entry", (entry) => {
-        if (!/^ppt\/slides\/slide\d+\.xml$/i.test(entry.fileName)) {
-          zipfile.readEntry()
-          return
-        }
-
-        zipfile.openReadStream(entry, (streamError, stream) => {
-          if (streamError) {
-            reject(streamError)
-            return
-          }
-
-          const chunks = []
-          stream.on("data", (chunk) => chunks.push(chunk))
-          stream.on("end", () => {
-            slideChunks.push({
-              fileName: entry.fileName,
-              xml: Buffer.concat(chunks).toString("utf8")
-            })
-            zipfile.readEntry()
-          })
-          stream.on("error", reject)
-        })
-      })
-
-      zipfile.on("end", () => resolve(slideChunks))
-      zipfile.on("error", reject)
-    })
-  })
-}
-
-async function extractTextFromPptx(filePath) {
-  try {
-    const slides = await extractSlideTextsFromPptx(filePath)
-    const sections = slides
-      .sort((a, b) => a.fileName.localeCompare(b.fileName, undefined, { numeric: true }))
-      .slice(0, 20)
-      .map((slide, index) => {
-        const text = Array.from(slide.xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g))
-          .map((match) => decodeXmlEntities(match[1]))
-          .map((value) => value.trim())
-          .filter(Boolean)
-          .join("\n")
-
-        if (!text) {
-          return null
-        }
-
-        return `Slide ${index + 1}\n${text}`
-      })
-      .filter(Boolean)
-
-    const text = sections.join("\n\n").trim()
-    if (!text) return null
-
-    if (text.length > uploadOfficeTextLimit) {
-      return `${text.slice(0, uploadOfficeTextLimit)}\n... (truncado)`
-    }
-
-    return text
-  } catch (error) {
-    console.error("❌ Leitura de PPTX falhou:", error.message)
-    return null
-  }
-}
-
-async function extractTextFromZipArchive(filePath) {
-  try {
-    const yauzlModule = await import("yauzl")
-    const yauzl = yauzlModule.default || yauzlModule
-
-    return await new Promise((resolve, reject) => {
-      const textEntries = []
-      const skippedEntries = []
-      let totalChars = 0
-      let settled = false
-
-      yauzl.open(filePath, { lazyEntries: true }, (openError, zipfile) => {
-        if (openError) {
-          reject(openError)
-          return
-        }
-
-        const finish = () => {
-          if (settled) return
-          settled = true
-          const textBlock = textEntries.length > 0
-            ? textEntries.join("\n\n")
-            : "(nenhum arquivo textual util foi extraido do ZIP)"
-          const skippedBlock = skippedEntries.length > 0
-            ? `\n\nEntradas nao lidas como texto:\n- ${skippedEntries.slice(0, 8).join("\n- ")}`
-            : ""
-          resolve(`ZIP analisado.\n\nConteudo extraido:\n${textBlock}${skippedBlock}`.slice(0, uploadZipTextLimit))
-        }
-
-        const fail = (error) => {
-          if (settled) return
-          settled = true
-          reject(error)
-        }
-
-        zipfile.on("entry", (entry) => {
-          if (entry.fileName.endsWith("/")) {
-            zipfile.readEntry()
-            return
-          }
-
-          if ((textEntries.length + skippedEntries.length) >= uploadZipFileLimit || totalChars >= uploadZipTextLimit) {
-            zipfile.close()
-            finish()
-            return
-          }
-
-          if (!isTextLike(entry.fileName, "")) {
-            skippedEntries.push(entry.fileName)
-            zipfile.readEntry()
-            return
-          }
-
-          zipfile.openReadStream(entry, (streamError, readStream) => {
-            if (streamError) {
-              skippedEntries.push(entry.fileName)
-              zipfile.readEntry()
-              return
-            }
-
-            const chunks = []
-            readStream.on("data", (chunk) => {
-              if (totalChars >= uploadZipTextLimit) return
-              chunks.push(chunk)
-            })
-            readStream.on("error", () => {
-              skippedEntries.push(entry.fileName)
-              zipfile.readEntry()
-            })
-            readStream.on("end", () => {
-              const raw = Buffer.concat(chunks).toString("utf8").replace(/\u0000/g, " ").trim()
-              if (raw) {
-                const remaining = Math.max(0, uploadZipTextLimit - totalChars)
-                const clipped = raw.slice(0, Math.min(remaining, 3000))
-                totalChars += clipped.length
-                textEntries.push(`Arquivo: ${entry.fileName}\n${clipped}${raw.length > clipped.length ? "\n... (truncado)" : ""}`)
-              } else {
-                skippedEntries.push(entry.fileName)
-              }
-              zipfile.readEntry()
-            })
-          })
-        })
-
-        zipfile.on("end", finish)
-        zipfile.on("close", finish)
-        zipfile.on("error", fail)
-        zipfile.readEntry()
-      })
-    })
-  } catch (error) {
-    console.error("❌ Leitura de ZIP falhou:", error.message)
-    return null
-  }
+const responseProcessingDeps = {
+  runtimeIsFixtureCardPreferred,
+  buildFixtureCardResponse,
+  buildFixtureIntentFallback,
+  runtimeIsWeatherCardPreferred,
+  runtimeBuildWeatherCardResponse,
+  runtimeBuildWeatherIntentFallback,
+  runtimeIsWeatherQuestion,
+  runtimeIsFixtureQuestion,
+  detectGreetingSignals,
+  buildGreetingResponse,
+  shouldKeepIdentityPreamble,
+  buildGospelCoreFallback,
+  resolveDeterministicUploadResponseRuntime,
+  deterministicUploadResponseDeps,
+  resolveDeterministicBibleGuidanceResponse,
+  isPromptCardPreferred,
+  buildPromptCardResponse,
+  isInterpretiveBibleQuestion,
+  refineBibleInterpretiveResponse,
+  buildGreetingLead,
+  detectSafetyRisk,
+  buildSafetyResponse,
+  runtimeIsAgroWeatherRelevant
 }
 
 async function generateImageWithProvider(prompt, options = {}) {
@@ -911,189 +321,211 @@ async function generateImageWithProvider(prompt, options = {}) {
   }
 }
 
-function sanitizeDocumentTitle(value = "", fallback = "Documento GIOM") {
-  const normalized = String(value || "")
-    .replace(/[\\/:*?"<>|]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  return normalized || fallback
+function resolveDeterministicFixtureResponse(question = "", context = {}) {
+  return resolveDeterministicFixtureResponseCore(question, context, responseProcessingDeps)
 }
 
-function buildDocumentDraftPrompt(prompt, format, options = {}) {
-  const locale = String(options.locale || "pt-BR")
-  const style = String(options.style || "natural")
-  const focusAreas = Array.isArray(options.activeModules) && options.activeModules.length > 0
-    ? options.activeModules.join(", ")
-    : "general"
-  const requestedTitle = sanitizeDocumentTitle(options.title || "", "")
-  const formatLabel = String(format || "").toUpperCase()
-
-  const formatInstructions = {
-    pdf: "Escreva um texto final bem estruturado, com titulo, secoes curtas e paragrafos limpos para exportacao em PDF.",
-    docx: "Escreva um conteudo final profissional, em secoes claras, pronto para virar DOCX.",
-    xlsx: "Escreva preferencialmente uma tabela em markdown ou CSV simples quando fizer sentido; se nao fizer, entregue linhas objetivas que possam virar planilha.",
-    pptx: "Estruture o conteudo como apresentacao executiva com titulo e blocos curtos por slide.",
-    svg: "Escreva um conteudo visual curto, com frases fortes e pouco texto por linha.",
-    html: "Entregue um conteudo direto e estruturado, sem scripts.",
-    json: "Entregue JSON valido, sem markdown e sem comentarios.",
-    md: "Entregue markdown limpo, sem cercas de codigo.",
-    txt: "Entregue texto puro limpo, sem markdown."
-  }
-
-  return [
-    `Crie o conteudo final de um documento ${formatLabel}.`,
-    requestedTitle ? `Titulo desejado: ${requestedTitle}.` : null,
-    `Idioma principal: ${locale}.`,
-    `Estilo de saida: ${style}.`,
-    `Areas de foco desta conversa: ${focusAreas}.`,
-    formatInstructions[format] || "Entregue um documento claro, profissional e pronto para exportacao.",
-    "Regras:",
-    "1. Nao descreva o que voce esta fazendo.",
-    "2. Nao use cercas de codigo, salvo se o proprio formato pedir texto bruto.",
-    "3. Entregue apenas o conteudo final do documento.",
-    "4. Se houver risco ou conteudo proibido, recuse com seguranca em vez de produzir o documento.",
-    `Objetivo do documento: ${prompt}`
-  ].filter(Boolean).join("\n")
+function resolveDeterministicWeatherResponse(question = "", context = {}) {
+  return resolveDeterministicWeatherResponseCore(question, context, responseProcessingDeps)
 }
 
-function flattenMessageContent(content) {
-  if (typeof content === "string") return content
-  if (!Array.isArray(content)) return ""
-
-  return content
-    .map(item => {
-      if (typeof item === "string") return item
-      if (item?.text) return item.text
-      if (item?.type === "input_text" && item?.text) return item.text
-      return ""
-    })
-    .filter(Boolean)
-    .join("\n")
+function requiresVerifiedFreshData(question = "", context = {}) {
+  return requiresVerifiedFreshDataCore(question, context, responseProcessingDeps)
 }
 
-function buildQuestionFromMessages(messages = []) {
-  if (!Array.isArray(messages) || messages.length === 0) return ""
-
-  const transcript = messages
-    .map(message => {
-      const content = flattenMessageContent(message?.content)
-      if (!content) return ""
-      return `${message.role || "user"}: ${content}`
-    })
-    .filter(Boolean)
-    .join("\n")
-
-  const lastUserMessage = [...messages]
-    .reverse()
-    .find(message => message?.role === "user")
-
-  const lastUserText = flattenMessageContent(lastUserMessage?.content)
-  if (!transcript) return lastUserText
-
-  return [
-    "Considere o historico abaixo e responda a ultima mensagem do usuario.",
-    transcript,
-    "",
-    "Ultima mensagem do usuario:",
-    lastUserText || transcript
-  ].join("\n")
+function buildUnknownInformationResponse(question = "", context = {}, options = {}) {
+  return buildUnknownInformationResponseCore(question, context, options, {
+    ...responseProcessingDeps,
+    requiresVerifiedFreshData
+  })
 }
 
-function buildQuestionFromGeminiContents(contents = []) {
-  if (typeof contents === "string") return contents
-  if (!Array.isArray(contents)) return ""
-
-  const lines = contents.map(item => {
-    const parts = Array.isArray(item?.parts) ? item.parts : []
-    const text = parts
-      .map(part => part?.text || "")
-      .filter(Boolean)
-      .join("\n")
-
-    if (!text) return ""
-    return `${item?.role || "user"}: ${text}`
-  }).filter(Boolean)
-
-  return lines.join("\n")
+function postProcessAssistantResponse(question = "", responseText = "", context = {}) {
+  return postProcessAssistantResponseCore(question, responseText, context, {
+    ...responseProcessingDeps,
+    resolveDeterministicWeatherResponse,
+    resolveDeterministicFixtureResponse
+  })
 }
 
-function getCompatContext(modelId, extras = {}) {
-  const preset = resolveCompatModel(modelId)
-  return {
-    assistantProfile: preset.profile,
-    activeModules: preset.modules,
-    bibleStudyModules: preset.bibleStudyModules || [],
-    ...extras
-  }
-}
-
-function estimateUsage(text = "") {
-  const outputTokens = Math.max(1, Math.ceil(String(text || "").length / 4))
-  return {
-    prompt_tokens: 0,
-    completion_tokens: outputTokens,
-    total_tokens: outputTokens
-  }
-}
-
-function normalizeAnswerText(answer) {
-  const responseText = typeof answer === "string"
-    ? answer
-    : (answer?.response ?? answer?.answer ?? "")
-
-  return String(responseText || "").trim()
-}
-
-function shouldKeepIdentityPreamble(question = "") {
-  return /\b(quem\s+(?:e|é)\s+(?:voce|você|o giom)|se apresente|apresente-se|o que voce faz|o que você faz|o que voce consegue|o que você consegue|suas capacidades|seus limites|who are you|what can you do)\b/i.test(String(question || ""))
-}
-
-function postProcessAssistantResponse(question = "", responseText = "") {
-  let text = String(responseText || "").trim()
-  if (!text || shouldKeepIdentityPreamble(question)) {
-    return text
-  }
-
-  text = text
-    .replace(/^(?:shalom[!,.:\s-]*)?(?:ol[aá][!,.:\s-]*)?(?:eu\s+sou|sou)\s+(?:o\s+)?giom(?:\s*,\s*|\s+)(?:um\s+assistente(?:\s+de\s+ia)?|assistente(?:\s+de\s+ia)?|uma\s+ia|uma\s+intelig[eê]ncia\s+artificial)?[!,.:\s-]*/i, "")
-    .replace(/^(?:shalom|ol[aá])[!,.:\s-]+/i, "")
-    .replace(/^(?:prazer|muito prazer)[!,.:\s-]*/i, "")
-    .replace(/^[-:,\s]+/i, "")
-    .trim()
-
-  return text
+function buildOperationalContingencyResponse(question = "", context = {}, reason = "") {
+  return buildOperationalContingencyResponseCore(question, context, reason, {
+    ...responseProcessingDeps,
+    resolveDeterministicWeatherResponse,
+    resolveDeterministicFixtureResponse,
+    buildUnknownInformationResponse
+  })
 }
 
 function resolveSafetyChatPayload(question, context = {}) {
-  const safety = detectSafetyRisk(question)
-  if (!safety?.triggered && !safety?.advisory) {
-    return null
-  }
-
-  return {
-    safety,
-    responseText: buildSafetyResponse(safety, {
-      locale: context?.locale || context?.language || "pt-BR",
-      promptText: question
-    })
-  }
+  return resolveSafetyChatPayloadCore(question, context, responseProcessingDeps)
 }
 
-async function askGiom(question, context = {}) {
-  const safePayload = resolveSafetyChatPayload(question, context)
-  if (safePayload) {
-    return safePayload.responseText
+const askGiomService = createAskGiomService({
+  ports: {
+    deterministicUpload: {
+      resolve: (question, context) => resolveDeterministicUploadResponseRuntime(
+        question,
+        context,
+        deterministicUploadResponseDeps
+      )
+    },
+    greeting: {
+      detect: detectGreetingSignals,
+      build: buildGreetingResponse
+    },
+    safety: {
+      resolve: resolveSafetyChatPayload
+    },
+    bible: {
+      passages: {
+        resolve: resolveDeterministicBiblePassageResponse
+      },
+      guidance: {
+        resolve: resolveDeterministicBibleGuidanceResponse
+      }
+    },
+    weather: {
+      resolve: resolveDeterministicWeatherResponse
+    },
+    fixture: {
+      resolve: resolveDeterministicFixtureResponse
+    },
+    aiProvider: {
+      ask: async (question, context) => {
+        try {
+          const providerContext = await buildAskProviderContext(question, context)
+          const answer = await askGroot(providerContext.finalPrompt, {
+            ...context,
+            ...providerContext.contextEnhancements
+          })
+
+          if (answer && typeof answer === "object") {
+            return {
+              ...answer,
+              contextEnhancements: providerContext.contextEnhancements
+            }
+          }
+
+          return {
+            success: true,
+            response: String(answer || ""),
+            contextEnhancements: providerContext.contextEnhancements
+          }
+        } catch (_error) {
+          return askGroot(question, context)
+        }
+      }
+    },
+    response: {
+      normalize: normalizeAnswerText,
+      postProcess: postProcessAssistantResponse,
+      contingency: buildOperationalContingencyResponse
+    }
+  },
+  logger: aiGateway.logger,
+  evaluation: {
+    enabled: String(process.env.GIOM_EVAL_ENABLED || "true").toLowerCase() !== "false",
+    selfHealingEnabled: String(process.env.GIOM_SELF_HEAL_ENABLED || "true").toLowerCase() !== "false",
+    selfHealingThreshold: Number(process.env.GIOM_SELF_HEAL_THRESHOLD || 0.6),
+    selfHealingTimeoutMs: Number(process.env.GIOM_SELF_HEAL_TIMEOUT_MS || 3500)
   }
+})
 
-  const answer = await askGroot(question, context)
-  const responseText = normalizeAnswerText(answer)
+const askGiom = createAskGiomLegacyAdapter(askGiomService)
 
-  if (!responseText) {
-    throw new Error("Resposta vazia da IA")
+const runtimeSessionMemoryStore = createRuntimeSessionMemoryStore({
+  ttlMs: Number(process.env.MEMORY_STM_TTL_MS || 30 * 60 * 1000),
+  maxTurnsPerSession: Number(process.env.MEMORY_STM_MAX_TURNS || 24)
+})
+
+const distributedMemoryClient = await createRedisMemoryClient({
+  logger: aiGateway.logger,
+  redisUrl: process.env.REDIS_URL,
+  clusterUrls: process.env.REDIS_CLUSTER_URLS,
+  prefix: process.env.MEMORY_REDIS_PREFIX || "ai-groot:memory"
+})
+
+const memoryMetricsNodeId = String(
+  process.env.MEMORY_METRICS_NODE_ID ||
+  process.env.HOSTNAME ||
+  `node_${process.pid}`
+)
+
+const embeddingProvider = createGrootEmbeddingsProviderAdapter({
+  embeddings: grootEmbeddings,
+  distributedCache: distributedMemoryClient,
+  cacheTtlMs: Number(process.env.MEMORY_EMBEDDING_CACHE_TTL_MS || 10 * 60 * 1000),
+  cacheMaxEntries: Number(process.env.MEMORY_EMBEDDING_CACHE_MAX_ITEMS || 5000)
+})
+
+const semanticMemoryStore = createSemanticMemoryStore({
+  embeddingProvider,
+  distributedClient: distributedMemoryClient,
+  ttlMs: Number(process.env.MEMORY_SEMANTIC_TTL_MS || 3 * 24 * 60 * 60 * 1000),
+  maxItemsPerBucket: Number(process.env.MEMORY_SEMANTIC_MAX_ITEMS || 5000)
+})
+
+const retrievalPort = createGrootMemoryRetrievalAdapter({
+  connector: grootMemoryConnector,
+  embeddingProvider,
+  semanticStore: semanticMemoryStore,
+  distributedCache: distributedMemoryClient,
+  distributedCacheTtlMs: Number(process.env.MEMORY_RETRIEVAL_DISTRIBUTED_TTL_MS || 60_000),
+  distributedLockTtlMs: Number(process.env.MEMORY_RETRIEVAL_LOCK_TTL_MS || 6_000),
+  distributedLockTimeoutMs: Number(process.env.MEMORY_RETRIEVAL_LOCK_TIMEOUT_MS || 2_500),
+  distributedLockRetryIntervalMs: Number(process.env.MEMORY_RETRIEVAL_LOCK_RETRY_MS || 35),
+  distributedCacheReadWaitMs: Number(process.env.MEMORY_RETRIEVAL_LOCK_CACHE_WAIT_MS || 1_500)
+})
+
+const memoryContextMetrics = createMemoryContextMetricsCollector({
+  maxSamples: Number(process.env.MEMORY_METRICS_MAX_SAMPLES || 5000),
+  nodeId: memoryMetricsNodeId,
+  distributedClient: distributedMemoryClient,
+  slos: {
+    retrievalP95BudgetMs: Number(process.env.MEMORY_SLO_RETRIEVAL_P95_MS || 250),
+    totalP95BudgetMs: Number(process.env.MEMORY_SLO_TOTAL_P95_MS || 900),
+    totalP99MaxBudgetMs: Number(process.env.MEMORY_SLO_TOTAL_P99_MS || 1800)
   }
+})
 
-  return postProcessAssistantResponse(question, responseText)
+function appendConversationToStm(userId, sessionId, question, responseText) {
+  const createdAt = new Date().toISOString()
+
+  runtimeSessionMemoryStore.appendTurn({
+    userId,
+    sessionId,
+    role: "user",
+    content: question,
+    created_at: createdAt
+  })
+  runtimeSessionMemoryStore.appendTurn({
+    userId,
+    sessionId,
+    role: "assistant",
+    content: responseText,
+    created_at: createdAt
+  })
+
+  void semanticMemoryStore
+    .addConversationPair({
+      userId,
+      sessionId,
+      userText: question,
+      assistantText: responseText,
+      createdAt
+    })
+    .catch((error) => {
+      aiGateway.logger.warn("semantic_memory_append", {
+        userId,
+        sessionId,
+        error: error?.message || "append_failed"
+      })
+    })
+}
+
+function shouldPersistLearnedConversation(giomResult = null) {
+  return giomResult?.learning?.shouldPersistMemory !== false
 }
 
 async function persistEvaluationArtifacts(userId, requestId, evaluation, metadata = {}) {
@@ -1113,283 +545,62 @@ async function persistEvaluationArtifacts(userId, requestId, evaluation, metadat
   )
 }
 
-function writeSSE(res, event, payload) {
-  res.write(`event: ${event}\n`)
-  res.write(`data: ${JSON.stringify(payload)}\n\n`)
-}
+const saveConversationNonBlocking = createSaveConversationNonBlocking({
+  connector: grootMemoryConnector,
+  logger: aiGateway.logger
+})
 
 function isAgroWeatherRelevant(question = "", context = {}) {
-  const input = String(question || "")
-  const activeModules = Array.isArray(context?.activeModules) ? context.activeModules : []
-  if (activeModules.includes("agribusiness")) {
-    return true
-  }
-
-  return /\b(agro|agric|soja|safra|talh[aã]o|colheita|plantio|pulveriza[cç][aã]o|gps agricola|rtk|telemetria|armazenagem|secagem|fila de descarga|clima|chuva|janela operacional|fazenda)\b/i.test(input)
+  return isAgroWeatherRelevantCore(question, context, responseProcessingDeps)
 }
 
-function resolveWeatherLocationContext(context = {}) {
-  const source = context?.weatherLocation || context?.agroWeather || {}
-  if (source?.enabled === false || source?.auto === false) {
-    return null
-  }
-
-  const latitude = Number(source.latitude ?? source.lat)
-  const longitude = Number(source.longitude ?? source.lon)
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null
-  }
-
-  return {
-    label: String(source.label || source.name || "").trim(),
-    latitude,
-    longitude,
-    forecastDays: Math.max(1, Math.min(Number(source.days || source.forecastDays || 3) || 3, 7)),
-    timezone: String(source.timezone || "auto")
-  }
-}
-
-async function fetchWeatherForecastPayload({
-  latitude,
-  longitude,
-  timezone = "auto",
-  forecastDays = 3
-} = {}) {
-  const url = new URL(process.env.WEATHER_API_BASE_URL || "https://api.open-meteo.com/v1/forecast")
-  url.searchParams.set("latitude", String(latitude))
-  url.searchParams.set("longitude", String(longitude))
-  url.searchParams.set("timezone", timezone)
-  url.searchParams.set("forecast_days", String(forecastDays))
-  url.searchParams.set("current", "temperature_2m,precipitation,weather_code,wind_speed_10m")
-  url.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m")
-  url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset")
-
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": `${AI_ENTERPRISE_NAME}/weather`
-    }
-  })
-
-  if (!response.ok) {
-    const details = await response.text().catch(() => "")
-    const error = new Error("Falha ao consultar o provedor de clima.")
-    error.code = "WEATHER_PROVIDER_FAILED"
-    error.details = details.slice(0, 400)
-    throw error
-  }
-
-  return response.json()
-}
-
-function buildWeatherSnapshot(payload = {}, weatherLocation = {}) {
-  const current = payload?.current
-    ? {
-        temperature: payload.current.temperature_2m ?? null,
-        precipitation: payload.current.precipitation ?? null,
-        windSpeed: payload.current.wind_speed_10m ?? null,
-        weatherCode: payload.current.weather_code ?? null
-      }
-    : null
-
-  const daily = Array.isArray(payload?.daily?.time)
-    ? payload.daily.time.slice(0, 3).map((date, index) => ({
-        date,
-        tempMax: payload.daily.temperature_2m_max?.[index] ?? null,
-        tempMin: payload.daily.temperature_2m_min?.[index] ?? null,
-        precipitationProbability: payload.daily.precipitation_probability_max?.[index] ?? null,
-        precipitationSum: payload.daily.precipitation_sum?.[index] ?? null,
-        windSpeedMax: payload.daily.wind_speed_10m_max?.[index] ?? null,
-        weatherCode: payload.daily.weather_code?.[index] ?? null
-      }))
-    : []
-
-  const locationLabel = weatherLocation.label
-    || `${weatherLocation.latitude.toFixed(3)}, ${weatherLocation.longitude.toFixed(3)}`
-
-  const summaryLines = [
-    `Local de referencia: ${locationLabel}.`,
-    current
-      ? `Agora: ${current.temperature ?? "?"}°C, chuva ${current.precipitation ?? 0} mm e vento ${current.windSpeed ?? "?"} km/h.`
-      : null,
-    daily[0]
-      ? `Hoje: max ${daily[0].tempMax ?? "?"}°C, min ${daily[0].tempMin ?? "?"}°C, chance de chuva ${daily[0].precipitationProbability ?? "?"}% e acumulado ${daily[0].precipitationSum ?? 0} mm.`
-      : null,
-    daily[1]
-      ? `Amanha: max ${daily[1].tempMax ?? "?"}°C, min ${daily[1].tempMin ?? "?"}°C, chance de chuva ${daily[1].precipitationProbability ?? "?"}% e acumulado ${daily[1].precipitationSum ?? 0} mm.`
-      : null,
-    daily[2]
-      ? `Dia seguinte: max ${daily[2].tempMax ?? "?"}°C, min ${daily[2].tempMin ?? "?"}°C, chance de chuva ${daily[2].precipitationProbability ?? "?"}% e acumulado ${daily[2].precipitationSum ?? 0} mm.`
-      : null
-  ].filter(Boolean)
-
-  return {
-    provider: "open-meteo",
-    locationLabel,
-    forecastDays: weatherLocation.forecastDays,
-    timezone: payload?.timezone || weatherLocation.timezone || "auto",
-    fetchedAt: new Date().toISOString(),
-    current,
-    daily,
-    summary: summaryLines.join("\n")
-  }
-}
-
-function buildWeatherClientMetadata(agroWeather = null) {
-  if (!agroWeather?.summary) {
-    return null
-  }
-
-  return {
-    provider: agroWeather.provider || "open-meteo",
-    locationLabel: agroWeather.locationLabel || null,
-    forecastDays: agroWeather.forecastDays || null,
-    fetchedAt: agroWeather.fetchedAt || null,
-    summary: agroWeather.summary,
-    error: agroWeather.error || null
-  }
-}
-
-async function buildRuntimeConversationContext(question = "", context = {}, extras = {}) {
-  const capabilityMatrix = buildRuntimeCapabilityMatrix()
-  const researchCapabilities = getResearchCapabilities(context?.researchCapabilities || {})
-  const enhancedContext = {
-    ...context,
-    ...extras,
-    researchCapabilities,
-    capabilityMatrix,
-    privacyCapabilities: {
-      sensitiveDataRedaction: true,
-      sensitiveLearningBlocked: true,
-      temporaryUploadStorage: true
-    },
-    timestamp: extras.timestamp || new Date().toISOString()
-  }
-
-  const weatherLocation = resolveWeatherLocationContext(context)
-  if (researchCapabilities.weatherForecast && weatherLocation && isAgroWeatherRelevant(question, context)) {
-    try {
-      const weatherPayload = await fetchWeatherForecastPayload(weatherLocation)
-      enhancedContext.agroWeather = buildWeatherSnapshot(weatherPayload, weatherLocation)
-      enhancedContext.weatherForecastData = enhancedContext.agroWeather
-    } catch (error) {
-      enhancedContext.agroWeather = {
-        provider: "open-meteo",
-        locationLabel: weatherLocation.label || `${weatherLocation.latitude.toFixed(3)}, ${weatherLocation.longitude.toFixed(3)}`,
-        forecastDays: weatherLocation.forecastDays,
-        fetchedAt: new Date().toISOString(),
-        error: error.code || "WEATHER_LOOKUP_FAILED",
-        summary: `Local de referencia: ${weatherLocation.label || `${weatherLocation.latitude.toFixed(3)}, ${weatherLocation.longitude.toFixed(3)}`}. Falha ao obter clima ao vivo nesta execucao; trate a resposta como plano tecnico sem confirmacao meteorologica externa.`
-      }
-      enhancedContext.weatherForecastData = enhancedContext.agroWeather
-    }
-  }
-
-  return enhancedContext
-}
-
-async function buildPreparedAskPayload(req, requestId) {
-  const { question, context = {} } = req.body || {}
-
-  if (!question) {
-    const error = new Error("Pergunta vazia")
-    error.statusCode = 400
-    error.code = "EMPTY_QUESTION"
-    throw error
-  }
-
-  if (question.length > 50000) {
-    const error = new Error("Pergunta muito longa (máx 50.000 caracteres)")
-    error.statusCode = 400
-    error.code = "QUESTION_TOO_LONG"
-    throw error
-  }
-
-  let finalQuestion = question
-  const uploadId = context?.uploadId
-  const uploadEntry = uploadId ? uploads.get(uploadId) : null
-  if (uploadEntry) {
-    const label = `\n\n[Arquivo enviado: ${uploadEntry.name} | tipo: ${uploadEntry.type}]`
-    if (isTextLike(uploadEntry.name, uploadEntry.type)) {
-      try {
-        const raw = await fs.readFile(uploadEntry.path, "utf8")
-        const snippet = raw.length > uploadTextLimit
-          ? `${raw.slice(0, uploadTextLimit)}\n... (truncado)`
-          : raw
-        finalQuestion += `${label}\n${snippet}`
-      } catch {
-        finalQuestion += `${label}\n(erro ao ler o arquivo)`
-      }
-    } else if (isPdfLike(uploadEntry.name, uploadEntry.type)) {
-      const pdfText = await extractTextFromPdf(uploadEntry.path)
-      if (pdfText) {
-        finalQuestion += `${label}\nTexto extraído do PDF:\n${pdfText}`
-      } else {
-        finalQuestion += `${label}\n(PDF recebido, mas não consegui extrair texto útil)`
-      }
-    } else if (isDocxLike(uploadEntry.name, uploadEntry.type)) {
-      const docxText = await extractTextFromDocx(uploadEntry.path)
-      if (docxText) {
-        finalQuestion += `${label}\nTexto extraído do DOCX:\n${docxText}`
-      } else {
-        finalQuestion += `${label}\n(DOCX recebido, mas não consegui extrair texto útil)`
-      }
-    } else if (isSpreadsheetLike(uploadEntry.name, uploadEntry.type)) {
-      const sheetText = await extractTextFromSpreadsheet(uploadEntry.path)
-      if (sheetText) {
-        finalQuestion += `${label}\nConteúdo extraído da planilha:\n${sheetText}`
-      } else {
-        finalQuestion += `${label}\n(Planilha recebida, mas não consegui extrair conteúdo útil)`
-      }
-    } else if (isPresentationLike(uploadEntry.name, uploadEntry.type)) {
-      const presentationText = await extractTextFromPptx(uploadEntry.path)
-      if (presentationText) {
-        finalQuestion += `${label}\nTexto extraído da apresentação:\n${presentationText}`
-      } else {
-        finalQuestion += `${label}\n(Apresentação recebida, mas não consegui extrair texto útil)`
-      }
-    } else if (isZipLike(uploadEntry.name, uploadEntry.type)) {
-      const archiveText = await extractTextFromZipArchive(uploadEntry.path)
-      if (archiveText) {
-        finalQuestion += `${label}\nConteúdo extraído do ZIP:\n${archiveText}`
-      } else {
-        finalQuestion += `${label}\n(ZIP recebido, mas não consegui extrair conteúdo textual útil)`
-      }
-    } else if (isImageLike(uploadEntry.name, uploadEntry.type)) {
-      const ocrText = await extractTextFromImage(uploadEntry.path)
-      if (ocrText) {
-        finalQuestion += `${label}\nTexto extraído (OCR):\n${ocrText}`
-      } else {
-        finalQuestion += `${label}\n(Imagem recebida. OCR nao encontrou texto legivel; descreva o que deseja que eu analise.)`
-      }
-    } else {
-      finalQuestion += `${label}\n(Leitura de imagens/arquivos binários ainda não habilitada)`
-    }
-
-    if (finalQuestion.length > 50000) {
-      finalQuestion = finalQuestion.slice(0, 50000)
-    }
-  }
-
-  const userId = req.get("X-User-Id") || req.ip || "default_user"
-  const enhancedContext = await buildRuntimeConversationContext(finalQuestion, context, {
-    userAgent: req.get("User-Agent"),
-    ip: req.ip,
-    userId,
-    timestamp: new Date().toISOString(),
-    requestId
-  })
-
-  if (enhancedContext?.agroWeather?.summary) {
-    finalQuestion += `\n\n[Clima operacional nesta execucao]\n${enhancedContext.agroWeather.summary}`
-  }
-
-  return {
+const runtimeConversationContextDeps = {
+  buildRuntimeCapabilityMatrix,
+  getResearchCapabilities,
+  inferWeatherForecastDays: runtimeInferWeatherForecastDays,
+  extractWeatherLocationQuery: runtimeExtractWeatherLocationQuery,
+  isAgroWeatherRelevant: runtimeIsAgroWeatherRelevant,
+  resolveWeatherLocationByQuery: runtimeResolveWeatherLocationByQuery,
+  isWeatherQuestion: runtimeIsWeatherQuestion,
+  shouldPreferRecentWeatherMemory: runtimeShouldPreferRecentWeatherMemory,
+  resolveRecentWeatherLocationFromMemory: runtimeResolveRecentWeatherLocationFromMemory,
+  resolveWeatherLocationContext: runtimeResolveWeatherLocationContext,
+  resolveApproximateLocationByIp,
+  getVerifiedRuntimeClock,
+  fetchWeatherForecastPayload: runtimeFetchWeatherForecastPayload,
+  buildWeatherSnapshot: runtimeBuildWeatherSnapshot,
+  buildClockVerificationMeta,
+  isSportsScheduleRelevant: runtimeIsSportsScheduleRelevant,
+  resolveNextFixtureFromQuestion,
+  shouldInjectGoogleLiveSearch: (question = "", context = {}) => runtimeShouldInjectGoogleLiveSearch(
     question,
-    finalQuestion,
-    enhancedContext,
-    userId,
-    uploadEntry
-  }
+    context,
+    { googleSearchConfigured: hasGoogleCustomSearchConfigured() }
+  ),
+  performGoogleCustomSearch,
+  summarizeGoogleSearchResults,
+  parseBibleReference,
+  isBibleFollowUpQuestion,
+  extractRecentBibleContextFromHistory,
+  inferMinistryFocusFromText,
+  extractBibleConversationPreferencesFromHistory,
+  fetchBiblePassage,
+  mergeRuntimeInstructions,
+  enrichLanguageRuntimeContext
+}
+
+/**
+ * @param {string} [question]
+ * @param {import("../../../packages/ai-core/src/aiContracts").PromptBuilderRuntimeContext} [context]
+ * @param {Record<string, unknown>} [extras]
+ * @returns {Promise<EnhancedRuntimeConversationContext>}
+ */
+async function buildRuntimeConversationContext(question = "", context = {}, extras = {}) {
+  return buildRuntimeConversationContextCore(question, context, extras, runtimeConversationContextDeps)
+}
+
+function buildLanguageRuntimeMetadata(enhancedContext = {}) {
+  return buildLanguageClientMetadata(enhancedContext?.languageRuntime || null)
 }
 
 async function buildStreamingPromptPackage(question, context = {}) {
@@ -1399,14 +610,69 @@ async function buildStreamingPromptPackage(question, context = {}) {
   })
 }
 
-// Servir interface da IA
-app.use(express.static(WEB_PUBLIC_DIR))
+async function buildAskProviderContext(question, context = {}) {
+  const plan = await giomOrchestrator.buildResponsePlan(question, {
+    ...context,
+    userStyle: context.userStyle || "natural"
+  })
+
+  const ragSources = Array.isArray(plan?.ragContext?.knowledge)
+    ? plan.ragContext.knowledge.slice(0, 4).map((item) => ({
+      title: item.title || item.sourceName || item.sourceId || item.category || null,
+      source: item.source || null,
+      sourceId: item.sourceId || null,
+      category: item.category || null,
+      rankingScore: item.rankingScore || item.similarity || null
+    }))
+    : []
+
+  return {
+    finalPrompt: plan?.finalPrompt || question,
+    contextEnhancements: {
+      promptPackage: plan?.promptPackage || null,
+      memoryContext: plan?.memoryContext || null,
+      ragContext: plan?.ragContext || null,
+      ragSources
+    }
+  }
+}
+
+async function buildShadowOrchestratorPlan(question, context = {}) {
+  if (!orchestratorShadowEnabled) return null
+
+  try {
+    const planPromise = giomOrchestrator.buildResponsePlan(question, {
+      ...context,
+      userStyle: context.userStyle || "natural"
+    })
+
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          error: true,
+          message: "orchestrator_shadow_timeout"
+        })
+      }, 250)
+    })
+
+    return await Promise.race([planPromise, timeoutPromise])
+  } catch (error) {
+    return {
+      error: true,
+      message: error?.message || "orchestrator_shadow_failed"
+    }
+  }
+}
+
+// Frontend legado removido do runtime oficial para evitar rotas ambíguas.
+// O frontend suportado é exclusivamente o app Next.js em apps/web-next.
 
 // Config público para o frontend (somente chaves seguras)
 app.get("/config", async (req, res) => {
   const knowledgeStats = await grootAdvancedRAG.getAdvancedStats()
   const capabilityMatrix = buildRuntimeCapabilityMatrix()
   const runtimeResearchCapabilities = getResearchCapabilities()
+  const liveResearchRuntime = getLiveResearchRuntime()
   const liveWebEnabled = Boolean(
     runtimeResearchCapabilities.liveWeb ||
     runtimeResearchCapabilities.google ||
@@ -1415,7 +681,8 @@ app.get("/config", async (req, res) => {
     runtimeResearchCapabilities.scholar ||
     runtimeResearchCapabilities.news ||
     runtimeResearchCapabilities.codeSearch ||
-    runtimeResearchCapabilities.browserAutomation
+    runtimeResearchCapabilities.browserAutomation ||
+    liveResearchRuntime.googleSearch
   )
 
   res.json({
@@ -1437,7 +704,10 @@ app.get("/config", async (req, res) => {
       imageGeneration: isImageGenerationEnabled(),
       documentGeneration: true,
       serverPdfGeneration: true,
-      weatherForecast: Boolean(runtimeResearchCapabilities.weatherForecast)
+      weatherForecast: Boolean(runtimeResearchCapabilities.weatherForecast),
+      sportsSchedule: Boolean(runtimeResearchCapabilities.sportsSchedule || liveResearchRuntime.sportsSchedule),
+      googleSearch: Boolean(liveResearchRuntime.googleSearch),
+      googleImageSearch: Boolean(liveResearchRuntime.googleImageSearch)
     },
     ai: {
       providerMode: process.env.GROOT_AI_PROVIDER || "auto",
@@ -1466,6 +736,7 @@ app.get("/config", async (req, res) => {
       }
     },
     research: runtimeResearchCapabilities,
+    liveResearch: liveResearchRuntime,
     privacy: {
       sensitiveDataRedaction: true,
       sensitiveLearningBlocked: true,
@@ -1527,7 +798,7 @@ app.get("/capabilities", (_req, res) => {
   res.json(buildRuntimeCapabilityMatrix())
 })
 
-app.get("/research/weather", async (req, res) => {
+app.get("/research/weather", askLimiter, async (req, res) => {
   const runtimeResearchCapabilities = getResearchCapabilities()
   if (!runtimeResearchCapabilities.weatherForecast) {
     return res.status(503).json({
@@ -1539,38 +810,153 @@ app.get("/research/weather", async (req, res) => {
   const latitude = Number(req.query.latitude ?? req.query.lat)
   const longitude = Number(req.query.longitude ?? req.query.lon)
   const timezone = String(req.query.timezone || "auto")
-  const forecastDays = Math.max(1, Math.min(Number(req.query.days || 3) || 3, 7))
+  const forecastDays = Math.max(1, Math.min(Number(req.query.days || 7) || 7, 7))
+  const cityQuery = sanitizeWeatherLocationQuery(String(req.query.city || req.query.name || req.query.q || ""))
+  let resolvedLocation = null
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    resolvedLocation = {
+      latitude,
+      longitude,
+      timezone,
+      forecastDays
+    }
+  } else if (cityQuery) {
+    try {
+      resolvedLocation = await runtimeResolveWeatherLocationByQuery(cityQuery, forecastDays, { question: cityQuery })
+      if (!resolvedLocation) {
+        return res.status(404).json({
+          error: `Nao encontrei a localidade ${cityQuery}.`,
+          code: "WEATHER_LOCATION_NOT_FOUND"
+        })
+      }
+    } catch (error) {
+      return res.status(502).json({
+        error: error.message || "Falha ao localizar a cidade informada.",
+        code: error.code || "WEATHER_GEOCODING_FAILED",
+        details: process.env.NODE_ENV === "development" ? (error.details || error.message) : undefined
+      })
+    }
+  } else {
     return res.status(400).json({
-      error: "Informe latitude e longitude validas para consultar a previsao.",
+      error: "Informe latitude/longitude validas ou uma cidade para consultar a previsao.",
       code: "WEATHER_COORDINATES_REQUIRED"
     })
   }
 
   try {
-    const payload = await fetchWeatherForecastPayload({
-      latitude,
-      longitude,
-      timezone,
-      forecastDays
-    })
+    const weatherClock = await getVerifiedRuntimeClock(resolvedLocation.timezone || timezone || "Etc/UTC")
+    const payload = await runtimeFetchWeatherForecastPayload(resolvedLocation)
     return res.json({
       success: true,
       provider: "open-meteo",
       coordinates: {
-        latitude,
-        longitude
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude
       },
       forecastDays,
-      timezone,
-      data: payload
+      timezone: resolvedLocation.timezone || timezone,
+      location: {
+        label: resolvedLocation.label || null,
+        city: resolvedLocation.city || null,
+        region: resolvedLocation.region || null,
+        country: resolvedLocation.country || null,
+        countryCode: resolvedLocation.countryCode || null,
+        locationType: resolvedLocation.locationType || null,
+        sourceType: resolvedLocation.sourceType || null
+      },
+      data: runtimeBuildWeatherSnapshot(payload, resolvedLocation, weatherClock)
     })
   } catch (error) {
     return res.status(error.code === "WEATHER_PROVIDER_FAILED" ? 502 : 500).json({
       error: error.message || "Falha ao obter previsao do tempo.",
       code: error.code || "WEATHER_LOOKUP_FAILED",
       details: process.env.NODE_ENV === "development" ? (error.details || error.message) : undefined
+    })
+  }
+})
+
+app.get("/research/search", askLimiter, async (req, res) => {
+  const runtimeResearchCapabilities = getResearchCapabilities()
+  if (!runtimeResearchCapabilities.google || !hasGoogleCustomSearchConfigured()) {
+    return res.status(503).json({
+      error: "Pesquisa Google ao vivo nao habilitada nesta execucao.",
+      code: "GOOGLE_SEARCH_DISABLED"
+    })
+  }
+
+  const query = String(req.query.q || req.query.query || "").trim()
+  const searchType = String(req.query.type || req.query.searchType || "").trim().toLowerCase() === "image"
+    ? "image"
+    : "web"
+  const num = Math.max(1, Math.min(Number(req.query.num || 5) || 5, 10))
+
+  if (!query) {
+    return res.status(400).json({
+      error: "Informe um termo de busca em q ou query.",
+      code: "SEARCH_QUERY_REQUIRED"
+    })
+  }
+
+  try {
+    const payload = await performGoogleCustomSearch(query, {
+      num,
+      searchType,
+      hl: String(req.query.hl || "pt-BR"),
+      gl: String(req.query.gl || "br")
+    })
+
+    return res.json({
+      success: true,
+      provider: payload.provider,
+      searchType: payload.searchType,
+      items: payload.items
+    })
+  } catch (error) {
+    return res.status(502).json({
+      error: error.message || "Falha ao consultar pesquisa Google.",
+      code: error.code || "GOOGLE_SEARCH_FAILED",
+      details: process.env.NODE_ENV === "development" ? error.details || null : undefined
+    })
+  }
+})
+
+app.get("/research/sports", askLimiter, async (req, res) => {
+  const runtimeResearchCapabilities = getResearchCapabilities()
+  if (!runtimeResearchCapabilities.sportsSchedule) {
+    return res.status(503).json({
+      error: "Consulta esportiva ao vivo nao habilitada nesta execucao.",
+      code: "SPORTS_SCHEDULE_DISABLED"
+    })
+  }
+
+  const query = String(req.query.q || req.query.query || "").trim()
+  if (!query) {
+    return res.status(400).json({
+      error: "Informe um time, selecao ou pergunta esportiva em q ou query.",
+      code: "SPORTS_QUERY_REQUIRED"
+    })
+  }
+
+  try {
+    const fixture = await resolveNextFixtureFromQuestion(query)
+    if (!fixture) {
+      return res.status(404).json({
+        error: "Nao encontrei agenda esportiva para a consulta informada.",
+        code: "SPORTS_LOOKUP_EMPTY"
+      })
+    }
+
+    return res.json({
+      success: true,
+      provider: fixture.provider || "thesportsdb",
+      data: fixture
+    })
+  } catch (error) {
+    return res.status(502).json({
+      error: error.message || "Falha ao consultar agenda esportiva.",
+      code: error.code || "SPORTS_LOOKUP_FAILED",
+      details: process.env.NODE_ENV === "development" ? error.details || null : undefined
     })
   }
 })
@@ -1656,8 +1042,8 @@ app.post("/v1/responses", async (req, res) => {
     const preset = resolveCompatModel(model)
     const question = Array.isArray(input)
       ? input
-          .map(item => typeof item === "string" ? item : flattenMessageContent(item?.content || item?.text || ""))
-          .join("\n")
+        .map(item => typeof item === "string" ? item : flattenMessageContent(item?.content || item?.text || ""))
+        .join("\n")
       : String(input || "")
 
     if (!question.trim()) {
@@ -1757,31 +1143,21 @@ app.post(/^\/v1beta\/models\/([^:]+):generateContent$/, async (req, res) => {
   }
 })
 
-const requireAdmin = (req, res, next) => {
-  const adminKey = process.env.ADMIN_DASH_KEY
-  if (!adminKey) return next()
-  const provided = req.get('X-Admin-Key') || req.query.key
-  if (provided && provided === adminKey) return next()
-  return res.status(401).json({ error: "Unauthorized", code: "ADMIN_REQUIRED" })
-}
+const requireAdmin = createRequireAdminMiddleware({ crypto })
 
 // Health check enterprise
 app.get("/health", async (req, res) => {
   try {
-    const health = await aiGateway.getHealthStatus()
-    const knowledge = await grootAdvancedRAG.getAdvancedStats()
-    res.json({
-      status: 'healthy',
+    const snapshot = await buildHealthSnapshot({
+      aiGateway,
+      grootAdvancedRAG,
       service: AI_SERVICE_SLUG,
-      version: '2.0.0',
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-      knowledge,
-      ...health
+      version: "2.0.0"
     })
+    res.json(snapshot)
   } catch (error) {
     res.status(503).json({
-      status: 'unhealthy',
+      status: "unhealthy",
       error: error.message
     })
   }
@@ -1811,6 +1187,32 @@ app.get("/metrics/json", requireAdmin, (req, res) => {
   }
 })
 
+app.get("/metrics/memoryContext", requireAdmin, async (req, res) => {
+  try {
+    const includeDistributed = String(req.query.includeDistributed || "false").toLowerCase() === "true"
+    const format = String(req.query.format || "json").toLowerCase()
+
+    if (format === "prometheus") {
+      const metricsText = await memoryContextMetrics.exportPrometheus({ includeDistributed })
+      res.set("Content-Type", "text/plain; version=0.0.4")
+      return res.send(metricsText)
+    }
+
+    const snapshot = includeDistributed
+      ? await memoryContextMetrics.snapshotDistributed()
+      : memoryContextMetrics.snapshot()
+
+    res.json({
+      success: true,
+      distributed: includeDistributed,
+      nodeId: memoryMetricsNodeId,
+      memoryContext: snapshot
+    })
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get memory context metrics" })
+  }
+})
+
 // Logs endpoint
 app.get("/logs", requireAdmin, (req, res) => {
   try {
@@ -1821,7 +1223,7 @@ app.get("/logs", requireAdmin, (req, res) => {
       since: req.query.since,
       until: req.query.until
     }
-    
+
     const logs = aiGateway.logger.getLogs(filter)
     res.json({ logs, summary: aiGateway.logger.getLogSummary() })
   } catch (error) {
@@ -1831,12 +1233,73 @@ app.get("/logs", requireAdmin, (req, res) => {
 
 // Admin dashboard
 app.get("/admin", requireAdmin, (req, res) => {
-  res.sendFile(path.join(WEB_PUBLIC_DIR, "admin.html"))
+  res.json({
+    service: AI_SERVICE_SLUG,
+    admin: true,
+    note: "UI de admin legada removida do runtime oficial. Use /metrics, /metrics/json, /logs e /runtime/language/status.",
+    endpoints: {
+      health: "/health",
+      metrics: "/metrics",
+      metricsJson: "/metrics/json",
+      memoryContextMetrics: "/metrics/memoryContext",
+      logs: "/logs",
+      languageRuntimeStatus: "/runtime/language/status",
+      languageRuntimeCleanup: "/runtime/language/cache/cleanup"
+    }
+  })
+})
+
+app.get("/runtime/language/status", requireAdmin, async (_req, res) => {
+  try {
+    const status = await getLanguageRuntimeStatus()
+    res.json({
+      success: true,
+      runtime: "language",
+      ...status
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Falha ao consultar status do language runtime",
+      details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      code: "LANGUAGE_RUNTIME_STATUS_FAILED"
+    })
+  }
+})
+
+app.post("/runtime/language/cache/cleanup", requireAdmin, async (_req, res) => {
+  try {
+    const cleanup = await cleanupLanguageRuntimeCache()
+    const status = await getLanguageRuntimeStatus()
+    res.json({
+      success: true,
+      runtime: "language",
+      cleanup,
+      ...status
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Falha ao limpar cache do language runtime",
+      details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      code: "LANGUAGE_RUNTIME_CACHE_CLEANUP_FAILED"
+    })
+  }
 })
 
 // Upload temporário (armazenamento local, auto-delete)
-app.post("/upload", async (req, res) => {
+app.post("/upload", askLimiter, async (req, res) => {
   try {
+    const quotaContext = resolveUploadQuotaContext(req)
+    const quotaBefore = getUploadQuotaStatus(quotaContext)
+    if (quotaBefore.blocked) {
+      return res.status(429).json({
+        error: "Limite diário de uploads atingido",
+        code: "UPLOAD_QUOTA_EXCEEDED",
+        quota: quotaBefore
+      })
+    }
+
     const { name, type, data } = req.body || {}
     if (!name || !data) {
       return res.status(400).json({ error: "Arquivo inválido", code: "INVALID_UPLOAD" })
@@ -1893,6 +1356,14 @@ app.post("/upload", async (req, res) => {
       expiresAt
     })
     scheduleUploadCleanup(id)
+    const uploadRef = uploads.get(id)
+    if (uploadRef) {
+      Promise.resolve()
+        .then(() => resolveUploadExtraction(uploadRef))
+        .catch(() => { })
+    }
+
+    const quotaAfter = consumeUploadQuota(quotaContext)
 
     res.json({
       id,
@@ -1900,7 +1371,8 @@ app.post("/upload", async (req, res) => {
       type: resolvedType,
       size: buffer.length,
       expiresAt,
-      detectedType: detectedType || resolvedType
+      detectedType: detectedType || resolvedType,
+      quota: quotaAfter
     })
   } catch (error) {
     console.error("❌ Falha no upload:", error.message)
@@ -1908,8 +1380,44 @@ app.post("/upload", async (req, res) => {
   }
 })
 
+app.get("/upload/quota", (req, res) => {
+  try {
+    const quotaContext = resolveUploadQuotaContext(req)
+    const quota = getUploadQuotaStatus(quotaContext)
+    res.json({ success: true, quota })
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Falha ao consultar cota de upload", code: "UPLOAD_QUOTA_STATUS_FAILED" })
+  }
+})
+
+app.get("/usage/limits", (req, res) => {
+  try {
+    const uploadContext = resolveUploadQuotaContext(req)
+    const imageContext = resolveImageQuotaContext(req)
+    res.json({
+      success: true,
+      limits: {
+        upload: getUploadQuotaStatus(uploadContext),
+        image: getImageQuotaStatus(imageContext)
+      }
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Falha ao consultar limites de uso", code: "USAGE_LIMITS_FAILED" })
+  }
+})
+
 app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
   try {
+    const imageQuotaContext = resolveImageQuotaContext(req)
+    const imageQuotaBefore = getImageQuotaStatus(imageQuotaContext)
+    if (imageQuotaBefore.blocked) {
+      return res.status(429).json({
+        error: "Limite diário de geração de imagem atingido",
+        code: "IMAGE_QUOTA_EXCEEDED",
+        quota: imageQuotaBefore
+      })
+    }
+
     const requestId = `img_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
     const prompt = String(req.body?.prompt || "").trim()
     const locale = String(req.body?.locale || "pt-BR")
@@ -1940,11 +1448,13 @@ app.post("/generate/image", askLimiter, askSlowDown, async (req, res) => {
       .join("\n")
 
     const image = await generateImageWithProvider(fullPrompt, imageRequest)
+    const imageQuotaAfter = consumeImageQuota(imageQuotaContext)
 
     res.json({
       success: true,
       requestId,
       image,
+      quota: imageQuotaAfter,
       controls: image.controls || {
         stylePreset: imageRequest.stylePreset || null,
         aspectRatio: imageRequest.aspectRatio,
@@ -1974,8 +1484,9 @@ app.post("/generate/document", askLimiter, askSlowDown, async (req, res) => {
     const requestedFormat = normalizeDocumentFormat(req.body?.format || "pdf")
     const locale = String(req.body?.locale || "pt-BR")
     const title = sanitizeDocumentTitle(req.body?.title || "", "Documento GIOM")
-    const activeModules = Array.isArray(req.body?.context?.activeModules) ? req.body.context.activeModules : []
-    const assistantProfile = String(req.body?.context?.assistantProfile || "auto")
+    const documentContext = sanitizeAskContext(req.body?.context)
+    const activeModules = Array.isArray(documentContext.activeModules) ? documentContext.activeModules : []
+    const assistantProfile = String(documentContext.assistantProfile || "auto")
 
     if (!requestedFormat) {
       return res.status(400).json({
@@ -2072,47 +1583,154 @@ app.post("/generate/document", askLimiter, askSlowDown, async (req, res) => {
 app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
   const requestId = `api_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   const startTime = Date.now()
-  
-  try {
-    const {
-      question,
-      finalQuestion,
-      enhancedContext,
-      userId
-    } = await buildPreparedAskPayload(req, requestId)
-    const { promptPackage } = await buildStreamingPromptPackage(finalQuestion, enhancedContext)
+  let preparedQuestion = ""
+  let preparedContext = {}
 
-    aiGateway.logger.info(requestId, 'REQUEST_STARTED', { 
-      questionLength: question.length,
-      context: Object.keys(enhancedContext)
+  const requestBodyShape = (() => {
+    const body = req.body || {}
+    const hasMessagesArray = Array.isArray(body.messages)
+    const firstMessage = hasMessagesArray ? body.messages[0] : null
+    return {
+      hasQuestion: typeof body.question === "string" && !!body.question.trim(),
+      hasMessage: typeof body.message === "string" && !!body.message.trim(),
+      hasPrompt: typeof body.prompt === "string" && !!body.prompt.trim(),
+      hasMessagesArray,
+      firstMessageKeys: firstMessage && typeof firstMessage === "object" ? Object.keys(firstMessage).slice(0, 6) : [],
+      hasInput: Boolean(body.input),
+      hasContentsArray: Array.isArray(body.contents),
+      hasContextObject: !!(body.context && typeof body.context === "object" && !Array.isArray(body.context))
+    }
+  })()
+
+  const contextDiagnostics = getAskContextDiagnostics(req.body?.context)
+
+  try {
+    const preparedSeedPayload = await buildPreparedAskPayloadFromHttp({
+      req,
+      requestId,
+      uploads,
+      resolveUploadExtraction,
+      buildUploadExtractionBlock
     })
 
-    const responseText = await askGiom(finalQuestion, enhancedContext)
+    const decision = askGiomService.decide(preparedSeedPayload, { mode: "standard" })
+
+    const runtimeContextResult = await buildRuntimeContext({
+      preparedPayload: preparedSeedPayload,
+      decisionResult: decision,
+      ports: {
+        stm: runtimeSessionMemoryStore,
+        retrieval: retrievalPort,
+        runtimeContext: {
+          enrich: buildRuntimeConversationContext
+        }
+      },
+      limits: {
+        maxConversationTurns: Number(process.env.MEMORY_CONTEXT_MAX_TURNS || 10),
+        maxMemorySummaryChars: Number(process.env.MEMORY_CONTEXT_SUMMARY_MAX_CHARS || 450),
+        maxContextTokens: Number(process.env.MEMORY_CONTEXT_MAX_TOKENS || 1800)
+      }
+    })
+
+    aiGateway.logger.info(requestId, "MEMORY_CONTEXT_BUILT", {
+      route: "ask",
+      memoryContext: runtimeContextResult.diagnostics
+    })
+
+    memoryContextMetrics.record({
+      route: "ask",
+      requestId,
+      sessionId: preparedSeedPayload?.enrichedData?.request?.sessionId || "",
+      payloadId: preparedSeedPayload?.enrichedData?.request?.requestId || requestId,
+      handlerId: decision?.handlerName || "",
+      diagnostics: runtimeContextResult.diagnostics
+    })
+
+    const preparedPayload = runtimeContextResult.preparedPayload
+    const {
+      normalizedQuestion,
+      preparedQuestion: finalQuestion,
+      context: enhancedContext,
+      enrichedData
+    } = preparedPayload
+    const question = normalizedQuestion
+    const userId = enrichedData.request.userId
+    preparedQuestion = finalQuestion
+    preparedContext = enhancedContext
+
+    const promptPackagePromise = buildStreamingPromptPackage(finalQuestion, enhancedContext)
+    const shadowPlanPromise = buildShadowOrchestratorPlan(finalQuestion, enhancedContext)
+
+    aiGateway.logger.info(requestId, 'REQUEST_STARTED', {
+      questionLength: question.length,
+      context: Object.keys(enhancedContext),
+      contextDiagnostics,
+      requestBodyShape,
+      decision,
+      memoryContext: runtimeContextResult.diagnostics,
+      orchestratorShadow: {
+        enabled: orchestratorShadowEnabled,
+        pending: orchestratorShadowEnabled
+      }
+    })
+
+    const giomResult = await askGiomService.execute(preparedPayload, decision)
+    const responseText = giomResult.responseText
+    aiGateway.metrics.recordResponseEvaluation(requestId, giomResult.evaluation, giomResult.selfHealing)
+
+    const [{ promptPackage }, shadowPlan] = await Promise.all([
+      promptPackagePromise,
+      shadowPlanPromise
+    ])
 
     if (!responseText) {
       throw new Error("Resposta vazia da IA")
     }
 
-    aiGateway.logger.info(requestId, 'REQUEST_COMPLETED', { 
-      responseLength: responseText.length 
+    aiGateway.logger.info(requestId, 'REQUEST_COMPLETED', {
+      responseLength: responseText.length,
+      handler: giomResult.handler,
+      intent: giomResult.intent,
+      routeType: giomResult.routeType
     })
 
-    await grootMemoryConnector.saveConversation(userId, question, responseText, {
-      provider: "standard_gateway",
-      requestId,
-      assistantProfile: promptPackage.profileId || enhancedContext.assistantProfile || null,
-      activeModules: promptPackage.activeModules || enhancedContext.activeModules || [],
-      domainSubmodules: promptPackage.domainSubmodules || enhancedContext.domainSubmodules || {},
-      bibleStudyModules: promptPackage.bibleStudyModules || enhancedContext.bibleStudyModules || [],
-      promptPacks: promptPackage.promptPacks || enhancedContext.promptPacks || [],
-      uploadName: enhancedContext.uploadName || null,
-      uploadType: enhancedContext.uploadType || null
-    })
+    if (shouldPersistLearnedConversation(giomResult)) {
+      saveConversationNonBlocking(userId, question, responseText, {
+        provider: "standard_gateway",
+        requestId,
+        sessionId: enrichedData.request.sessionId || null,
+        assistantProfile: promptPackage.profileId || enhancedContext.assistantProfile || null,
+        activeModules: promptPackage.activeModules || enhancedContext.activeModules || [],
+        domainSubmodules: promptPackage.domainSubmodules || enhancedContext.domainSubmodules || {},
+        bibleStudyModules: promptPackage.bibleStudyModules || enhancedContext.bibleStudyModules || [],
+        promptPacks: promptPackage.promptPacks || enhancedContext.promptPacks || [],
+        evaluation: giomResult.evaluation || null,
+        selfHealing: giomResult.selfHealing || null,
+        learning: giomResult.learning || null,
+        askRoute: {
+          handler: giomResult.handler,
+          intent: giomResult.intent,
+          routeType: giomResult.routeType
+        },
+        orchestratorShadow: shadowPlan && !shadowPlan.error
+          ? {
+            strategy: shadowPlan.strategy,
+            intentCategory: shadowPlan.intent?.category || "unknown",
+            finalPromptLength: String(shadowPlan.finalPrompt || "").length
+          }
+          : null,
+        uploadName: enhancedContext.uploadName || null,
+        uploadType: enhancedContext.uploadType || null
+      }, requestId)
+    }
 
     aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
     aiGateway.metrics.recordUserActivity(userId, "ask", {
       length: question.length
     })
+    if (shouldPersistLearnedConversation(giomResult)) {
+      appendConversationToStm(userId, enrichedData.request.sessionId || null, question, responseText)
+    }
 
     res.json({
       success: true,
@@ -2130,14 +1748,36 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
         activeModules: promptPackage.activeModules,
         domainSubmodules: promptPackage.domainSubmodules || {},
         bibleStudyModules: promptPackage.bibleStudyModules || [],
-        weatherUsed: buildWeatherClientMetadata(enhancedContext.agroWeather)
+        askRoute: {
+          handler: giomResult.handler,
+          intent: giomResult.intent,
+          routeType: giomResult.routeType,
+          traceLength: giomResult.trace.length
+        },
+        orchestratorShadow: shadowPlan && !shadowPlan.error
+          ? {
+            enabled: true,
+            strategy: shadowPlan.strategy,
+            intentCategory: shadowPlan.intent?.category || "unknown"
+          }
+          : {
+            enabled: orchestratorShadowEnabled,
+            error: shadowPlan?.message || null
+          },
+        weatherUsed: runtimeBuildWeatherClientMetadata(enhancedContext.agroWeather),
+        languageUsed: buildLanguageRuntimeMetadata(enhancedContext),
+        memoryContext: runtimeContextResult.diagnostics,
+        evaluation: giomResult.evaluation || null,
+        selfHealing: giomResult.selfHealing || null,
+        learning: giomResult.learning || null
       }
     })
 
   } catch (error) {
-    aiGateway.logger.error(requestId, 'REQUEST_FAILED', { 
+    aiGateway.logger.error(requestId, 'REQUEST_FAILED', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      requestBodyShape
     })
 
     aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, false)
@@ -2145,6 +1785,30 @@ app.post("/ask", askLimiter, askSlowDown, async (req, res) => {
 
     const statusCode = error.statusCode || error.response?.status || 500
     const errorCode = error.code || "INTERNAL_ERROR"
+
+    if (statusCode >= 500) {
+      const fallbackResponse = buildOperationalContingencyResponse(
+        preparedQuestion || req.body?.question || "",
+        preparedContext,
+        error.message
+      )
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          response: fallbackResponse
+        },
+        response: fallbackResponse,
+        answer: fallbackResponse,
+        requestId,
+        metadata: {
+          processingTime: Date.now() - startTime,
+          version: "2.0.0",
+          fallback: true,
+          fallbackReason: errorCode
+        }
+      })
+    }
 
     res.status(statusCode).json({
       error: "Erro ao processar sua pergunta",
@@ -2159,6 +1823,7 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
   const requestId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   const startTime = Date.now()
   let hasCompleted = false
+  const sseHeartbeatMs = Math.max(2_500, Number(process.env.SSE_HEARTBEAT_MS || 10_000))
 
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8")
   res.setHeader("Cache-Control", "no-cache, no-transform")
@@ -2166,42 +1831,178 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no")
   res.flushHeaders?.()
 
-  try {
-    const {
-      question,
-      finalQuestion,
-      enhancedContext,
-      userId
-    } = await buildPreparedAskPayload(req, requestId)
+  // Heartbeat periódico evita timeout em proxies e navegadores durante respostas longas.
+  const heartbeat = setInterval(() => {
+    if (hasCompleted || res.writableEnded) return
+    writeSSE(res, "ping", {
+      ts: Date.now()
+    })
+  }, sseHeartbeatMs)
 
-    const safePayload = resolveSafetyChatPayload(finalQuestion, enhancedContext)
-    if (safePayload) {
-      await grootMemoryConnector.saveConversation(userId, question, safePayload.responseText, {
-        provider: "safety_guard",
-        requestId,
-        safety: safePayload.safety,
-        streaming: true
-      })
+  const clearHeartbeat = () => clearInterval(heartbeat)
+  res.on("close", clearHeartbeat)
+  res.on("finish", clearHeartbeat)
+
+  try {
+    const preparedSeedPayload = await buildPreparedAskPayloadFromHttp({
+      req,
+      requestId,
+      uploads,
+      resolveUploadExtraction,
+      buildUploadExtractionBlock
+    })
+
+    const streamDecision = askGiomService.decide(preparedSeedPayload, { mode: "stream" })
+
+    const runtimeContextResult = await buildRuntimeContext({
+      preparedPayload: preparedSeedPayload,
+      decisionResult: streamDecision,
+      ports: {
+        stm: runtimeSessionMemoryStore,
+        retrieval: retrievalPort,
+        runtimeContext: {
+          enrich: buildRuntimeConversationContext
+        }
+      },
+      limits: {
+        maxConversationTurns: Number(process.env.MEMORY_CONTEXT_MAX_TURNS || 10),
+        maxMemorySummaryChars: Number(process.env.MEMORY_CONTEXT_SUMMARY_MAX_CHARS || 450),
+        maxContextTokens: Number(process.env.MEMORY_CONTEXT_MAX_TOKENS || 1800)
+      }
+    })
+
+    aiGateway.logger.info(requestId, "MEMORY_CONTEXT_BUILT", {
+      route: "ask_stream",
+      memoryContext: runtimeContextResult.diagnostics
+    })
+
+    memoryContextMetrics.record({
+      route: "ask_stream",
+      requestId,
+      sessionId: preparedSeedPayload?.enrichedData?.request?.sessionId || "",
+      payloadId: preparedSeedPayload?.enrichedData?.request?.requestId || requestId,
+      handlerId: streamDecision?.handlerName || "",
+      diagnostics: runtimeContextResult.diagnostics
+    })
+
+    const preparedPayload = runtimeContextResult.preparedPayload
+    const {
+      normalizedQuestion: question,
+      preparedQuestion: finalQuestion,
+      context: enhancedContext,
+      enrichedData
+    } = preparedPayload
+    const userId = enrichedData.request.userId
+
+    aiGateway.logger.info(requestId, "STREAM_REQUEST_DECISION", {
+      intent: streamDecision.intent,
+      handlerName: streamDecision.handlerName,
+      routeType: streamDecision.routeType,
+      requiresStreaming: streamDecision.requiresStreaming,
+      decisionMs: streamDecision.decisionMs,
+      memoryContext: runtimeContextResult.diagnostics
+    })
+
+    if (!streamDecision.requiresStreaming) {
+      const deterministicResult = await askGiomService.execute(
+        {
+          normalizedQuestion: question,
+          preparedQuestion: finalQuestion,
+          context: enhancedContext,
+          flags: preparedPayload.flags,
+          enrichedData
+        },
+        streamDecision
+      )
+
+      aiGateway.metrics.recordResponseEvaluation(requestId, deterministicResult.evaluation, deterministicResult.selfHealing)
+
+      if (shouldPersistLearnedConversation(deterministicResult)) {
+        saveConversationNonBlocking(userId, question, deterministicResult.responseText, {
+          provider: "decision_router_direct",
+          requestId,
+          assistantProfile: enhancedContext.assistantProfile || null,
+          activeModules: enhancedContext.activeModules || [],
+          domainSubmodules: enhancedContext.domainSubmodules || {},
+          bibleStudyModules: enhancedContext.bibleStudyModules || [],
+          promptPacks: enhancedContext.promptPacks || [],
+          evaluation: deterministicResult.evaluation || null,
+          selfHealing: deterministicResult.selfHealing || null,
+          learning: deterministicResult.learning || null,
+          streaming: true,
+          askRoute: {
+            handler: deterministicResult.handler,
+            intent: deterministicResult.intent,
+            routeType: deterministicResult.routeType
+          }
+        }, requestId)
+      }
 
       aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
       aiGateway.metrics.recordUserActivity(userId, "ask_stream", {
         length: question.length,
-        safetyBlocked: true
+        routeType: deterministicResult.routeType,
+        intent: deterministicResult.intent
+      })
+      if (shouldPersistLearnedConversation(deterministicResult)) {
+        appendConversationToStm(userId, enrichedData.request.sessionId || null, question, deterministicResult.responseText)
+      }
+
+      writeSSE(res, "meta", {
+        requestId,
+        providerMode: process.env.GROOT_AI_PROVIDER || "auto",
+        assistantProfile: enhancedContext.assistantProfile || null,
+        requestedAssistantProfile: enhancedContext.assistantProfile || null,
+        activeModules: enhancedContext.activeModules || [],
+        domainSubmodules: enhancedContext.domainSubmodules || {},
+        bibleStudyModules: enhancedContext.bibleStudyModules || [],
+        askRoute: {
+          handler: deterministicResult.handler,
+          intent: deterministicResult.intent,
+          routeType: deterministicResult.routeType,
+          traceLength: deterministicResult.trace.length
+        },
+        weatherUsed: runtimeBuildWeatherClientMetadata(enhancedContext.agroWeather),
+        languageUsed: buildLanguageRuntimeMetadata(enhancedContext)
       })
 
       writeSSE(res, "complete", {
         requestId,
-        response: safePayload.responseText,
+        response: deterministicResult.responseText,
         metadata: {
           processingTime: Date.now() - startTime,
-          provider: "safety_guard"
+          provider: "decision_router_direct",
+          assistantProfile: enhancedContext.assistantProfile || null,
+          requestedAssistantProfile: enhancedContext.assistantProfile || null,
+          activeModules: enhancedContext.activeModules || [],
+          domainSubmodules: enhancedContext.domainSubmodules || {},
+          bibleStudyModules: enhancedContext.bibleStudyModules || [],
+          askRoute: {
+            handler: deterministicResult.handler,
+            intent: deterministicResult.intent,
+            routeType: deterministicResult.routeType
+          },
+          weatherUsed: runtimeBuildWeatherClientMetadata(enhancedContext.agroWeather),
+          languageUsed: buildLanguageRuntimeMetadata(enhancedContext),
+          memoryContext: runtimeContextResult.diagnostics,
+          evaluation: deterministicResult.evaluation || null,
+          selfHealing: deterministicResult.selfHealing || null,
+          learning: deterministicResult.learning || null
         }
       })
+      clearHeartbeat()
       res.end()
       return
     }
 
-    const { promptPackage } = await buildStreamingPromptPackage(finalQuestion, enhancedContext)
+    const streamProviderContext = await buildAskProviderContext(finalQuestion, enhancedContext)
+    const streamEnhancedContext = {
+      ...enhancedContext,
+      ...streamProviderContext.contextEnhancements
+    }
+    const promptPackage = streamProviderContext.contextEnhancements?.promptPackage
+      || await buildStreamingPromptPackage(finalQuestion, enhancedContext)
+    const shadowPlan = await buildShadowOrchestratorPlan(finalQuestion, enhancedContext)
 
     aiGateway.logger.info(requestId, "STREAM_REQUEST_STARTED", {
       questionLength: question.length,
@@ -2216,11 +2017,29 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
       activeModules: promptPackage.activeModules,
       domainSubmodules: promptPackage.domainSubmodules || {},
       bibleStudyModules: promptPackage.bibleStudyModules || [],
-      weatherUsed: buildWeatherClientMetadata(enhancedContext.agroWeather)
+      askRoute: {
+        handler: streamDecision.handlerName,
+        intent: streamDecision.intent,
+        routeType: streamDecision.routeType,
+        decisionMs: streamDecision.decisionMs
+      },
+      orchestratorShadow: shadowPlan && !shadowPlan.error
+        ? {
+          enabled: true,
+          strategy: shadowPlan.strategy,
+          intentCategory: shadowPlan.intent?.category || "unknown"
+        }
+        : {
+          enabled: orchestratorShadowEnabled,
+          error: shadowPlan?.message || null
+        },
+      weatherUsed: runtimeBuildWeatherClientMetadata(enhancedContext.agroWeather),
+      languageUsed: buildLanguageRuntimeMetadata(enhancedContext),
+      ragSources: streamEnhancedContext.ragSources || []
     })
 
     await streamingGateway.askStreaming(
-      finalQuestion,
+      streamProviderContext.finalPrompt,
       {
         systemPrompt: promptPackage.systemPrompt
       },
@@ -2229,32 +2048,141 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
       },
       async (payload) => {
         hasCompleted = true
-        const responseText = postProcessAssistantResponse(question, String(payload?.fullText || "").trim())
+        const providerResponseText = postProcessAssistantResponse(question, String(payload?.fullText || "").trim(), streamEnhancedContext)
+        let responseText = providerResponseText
 
         if (!responseText) {
-          writeSSE(res, "error", {
+          writeSSE(res, "complete", {
             requestId,
-            error: "Resposta vazia da IA"
+            response: buildOperationalContingencyResponse(question, streamEnhancedContext, "resposta vazia da IA"),
+            metadata: {
+              processingTime: Date.now() - startTime,
+              provider: payload?.provider || "streaming_gateway",
+              fallback: true
+            }
           })
+          clearHeartbeat()
           res.end()
           return
         }
 
-        await grootMemoryConnector.saveConversation(userId, question, responseText, {
-          provider: payload?.provider || "streaming_gateway",
-          requestId,
-          assistantProfile: promptPackage.profileId,
-          activeModules: promptPackage.activeModules,
-          domainSubmodules: promptPackage.domainSubmodules || {},
-          bibleStudyModules: promptPackage.bibleStudyModules,
-          promptPacks: promptPackage.promptPacks,
-          streaming: true
-        })
+        let evaluation = null
+        let selfHealing = { applied: false, issues: [] }
+        let learning = {
+          shouldPersistMemory: true,
+          memoryBoost: 1,
+          markedForRetraining: false,
+          score: null
+        }
+
+        const streamEvalEnabled = String(process.env.GIOM_EVAL_ENABLED || "true").toLowerCase() !== "false"
+        const streamSelfHealEnabled = String(process.env.GIOM_SELF_HEAL_ENABLED || "true").toLowerCase() !== "false"
+        const streamSelfHealThreshold = Number(process.env.GIOM_SELF_HEAL_THRESHOLD || 0.6)
+        const streamSelfHealTimeoutMs = Number(process.env.GIOM_SELF_HEAL_TIMEOUT_MS || 3500)
+
+        if (streamEvalEnabled && responseText) {
+          try {
+            evaluation = await evaluateResponse({
+              question,
+              answer: responseText,
+              context: streamEnhancedContext,
+              memoryContext: streamEnhancedContext?.memoryContext || null,
+              intent: streamDecision.intent,
+              handler: streamDecision.handlerName,
+              latencyMs: Date.now() - startTime
+            })
+
+            if (streamSelfHealEnabled) {
+              const healed = await selfHealResponse({
+                evaluation,
+                question,
+                answer: responseText,
+                aiProvider: {
+                  ask: (repairQuestion, repairContext) => askGroot(repairQuestion, {
+                    ...streamEnhancedContext,
+                    ...(repairContext || {})
+                  })
+                },
+                normalizeAnswer: normalizeAnswerText,
+                threshold: streamSelfHealThreshold,
+                timeoutMs: streamSelfHealTimeoutMs
+              })
+
+              selfHealing = {
+                applied: Boolean(healed?.healed),
+                issues: healed?.issues || []
+              }
+
+              if (healed?.healed && healed?.finalAnswer) {
+                responseText = postProcessAssistantResponse(question, String(healed.finalAnswer), streamEnhancedContext)
+                evaluation = await evaluateResponse({
+                  question,
+                  answer: responseText,
+                  context: streamEnhancedContext,
+                  memoryContext: streamEnhancedContext?.memoryContext || null,
+                  intent: streamDecision.intent,
+                  handler: streamDecision.handlerName,
+                  latencyMs: Date.now() - startTime
+                })
+              }
+            }
+
+            learning = await processEvaluation(
+              evaluation,
+              {
+                question,
+                normalizedQuestion: finalQuestion,
+                requestId,
+                intent: streamDecision.intent,
+                handler: streamDecision.handlerName
+              },
+              {
+                responseText,
+                handler: streamDecision.handlerName,
+                intent: streamDecision.intent,
+                routeType: streamDecision.routeType
+              }
+            )
+          } catch (evaluationError) {
+            aiGateway.logger.warn(requestId, "STREAM_EVALUATION_FAILED", {
+              error: evaluationError?.message || "stream_evaluation_failed"
+            })
+          }
+        }
+
+        aiGateway.metrics.recordResponseEvaluation(requestId, evaluation, selfHealing)
+
+        const streamLearningEnvelope = { learning }
+        if (shouldPersistLearnedConversation(streamLearningEnvelope)) {
+          saveConversationNonBlocking(userId, question, responseText, {
+            provider: payload?.provider || "streaming_gateway",
+            requestId,
+            assistantProfile: promptPackage.profileId,
+            activeModules: promptPackage.activeModules,
+            domainSubmodules: promptPackage.domainSubmodules || {},
+            bibleStudyModules: promptPackage.bibleStudyModules,
+            promptPacks: promptPackage.promptPacks,
+            evaluation: evaluation || null,
+            selfHealing: selfHealing || null,
+            learning: learning || null,
+            orchestratorShadow: shadowPlan && !shadowPlan.error
+              ? {
+                strategy: shadowPlan.strategy,
+                intentCategory: shadowPlan.intent?.category || "unknown",
+                finalPromptLength: String(shadowPlan.finalPrompt || "").length
+              }
+              : null,
+            streaming: true
+          }, requestId)
+        }
 
         aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
         aiGateway.metrics.recordUserActivity(userId, "ask_stream", {
           length: question.length
         })
+        if (shouldPersistLearnedConversation(streamLearningEnvelope)) {
+          appendConversationToStm(userId, enrichedData.request.sessionId || null, question, responseText)
+        }
 
         aiGateway.logger.info(requestId, "STREAM_REQUEST_COMPLETED", {
           responseLength: responseText.length
@@ -2271,19 +2199,108 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
             activeModules: promptPackage.activeModules,
             domainSubmodules: promptPackage.domainSubmodules || {},
             bibleStudyModules: promptPackage.bibleStudyModules || [],
-            weatherUsed: buildWeatherClientMetadata(enhancedContext.agroWeather)
+            askRoute: {
+              handler: streamDecision.handlerName,
+              intent: streamDecision.intent,
+              routeType: streamDecision.routeType,
+              decisionMs: streamDecision.decisionMs
+            },
+            weatherUsed: runtimeBuildWeatherClientMetadata(enhancedContext.agroWeather),
+            languageUsed: buildLanguageRuntimeMetadata(streamEnhancedContext),
+            memoryContext: runtimeContextResult.diagnostics,
+            evaluation: evaluation || null,
+            selfHealing: selfHealing || null,
+            learning: learning || null,
+            ragSources: streamEnhancedContext.ragSources || []
           }
         })
+        clearHeartbeat()
         res.end()
       },
-      (payload) => {
-        aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, false)
-        aiGateway.metrics.recordError("ask_stream_error", new Error(payload?.error || "streaming_error"), { requestId })
-        writeSSE(res, "error", {
-          requestId,
-          error: payload?.error || "Falha no streaming"
-        })
-        res.end()
+      async (payload) => {
+        const streamErrorMessage = String(payload?.error || "Falha no streaming")
+        try {
+          const fallbackResult = await askGiomService(preparedPayload, { mode: "standard" })
+          const responseText = String(fallbackResult.responseText || "").trim()
+            || buildOperationalContingencyResponse(question, enhancedContext, streamErrorMessage)
+
+          hasCompleted = true
+
+          aiGateway.metrics.recordResponseEvaluation(requestId, fallbackResult.evaluation, fallbackResult.selfHealing)
+
+          if (shouldPersistLearnedConversation(fallbackResult)) {
+            saveConversationNonBlocking(userId, question, responseText, {
+              provider: "streaming_fallback_standard",
+              requestId,
+              assistantProfile: promptPackage.profileId,
+              activeModules: promptPackage.activeModules,
+              domainSubmodules: promptPackage.domainSubmodules || {},
+              bibleStudyModules: promptPackage.bibleStudyModules,
+              promptPacks: promptPackage.promptPacks,
+              evaluation: fallbackResult.evaluation || null,
+              selfHealing: fallbackResult.selfHealing || null,
+              learning: fallbackResult.learning || null,
+              streaming: false,
+              fallbackFromStreaming: true,
+              askRoute: {
+                handler: fallbackResult.handler,
+                intent: fallbackResult.intent,
+                routeType: fallbackResult.routeType
+              }
+            }, requestId)
+          }
+
+          aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
+          aiGateway.metrics.recordUserActivity(userId, "ask_stream_fallback", {
+            length: question.length,
+            reason: "stream_provider_error"
+          })
+          if (shouldPersistLearnedConversation(fallbackResult)) {
+            appendConversationToStm(userId, enrichedData.request.sessionId || null, question, responseText)
+          }
+
+          writeSSE(res, "complete", {
+            requestId,
+            response: responseText,
+            metadata: {
+              processingTime: Date.now() - startTime,
+              provider: "standard_fallback",
+              fallbackFromStreaming: true,
+              assistantProfile: promptPackage.profileId,
+              requestedAssistantProfile: promptPackage.requestedProfileId || enhancedContext.assistantProfile || null,
+              activeModules: promptPackage.activeModules,
+              domainSubmodules: promptPackage.domainSubmodules || {},
+              bibleStudyModules: promptPackage.bibleStudyModules || [],
+              askRoute: {
+                handler: fallbackResult.handler,
+                intent: fallbackResult.intent,
+                routeType: fallbackResult.routeType
+              },
+              weatherUsed: runtimeBuildWeatherClientMetadata(streamEnhancedContext.agroWeather),
+              languageUsed: buildLanguageRuntimeMetadata(streamEnhancedContext),
+              memoryContext: runtimeContextResult.diagnostics,
+              evaluation: fallbackResult.evaluation || null,
+              selfHealing: fallbackResult.selfHealing || null,
+              learning: fallbackResult.learning || null,
+              ragSources: fallbackResult.ragSources || streamEnhancedContext.ragSources || []
+            }
+          })
+          clearHeartbeat()
+          res.end()
+          return
+        } catch (fallbackError) {
+          aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, false)
+          aiGateway.metrics.recordError("ask_stream_fallback_error", fallbackError, {
+            requestId
+          })
+          writeSSE(res, "error", {
+            requestId,
+            error: fallbackError.message || streamErrorMessage
+          })
+          clearHeartbeat()
+          res.end()
+          return
+        }
       }
     )
   } catch (error) {
@@ -2297,6 +2314,7 @@ app.post("/ask/stream", askLimiter, askSlowDown, async (req, res) => {
         error: error.message || "Falha ao processar streaming",
         code: error.code || "STREAM_FAILED"
       })
+      clearHeartbeat()
       res.end()
     }
   }
@@ -2399,9 +2417,10 @@ app.post("/evaluation/run", requireAdmin, async (req, res) => {
       researchCapabilities: getResearchCapabilities(),
       requestTurn: async ({ scenario, turn, history }) => {
         const requestId = `bench_${scenario.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const scenarioUserId = `${benchmarkUserId}_${scenario.id}`
         const context = await buildRuntimeConversationContext(turn.question, {
           ...(turn.context || {}),
-          userId: benchmarkUserId,
+          userId: scenarioUserId,
           requestId,
           evaluationMode: true,
           evaluationScenario: scenario.id,
@@ -2411,7 +2430,10 @@ app.post("/evaluation/run", requireAdmin, async (req, res) => {
         const answer = await askGiom(turn.question, context)
         return {
           answer,
-          requestId
+          requestId,
+          metadata: {
+            scenarioUserId
+          }
         }
       }
     })
@@ -2463,7 +2485,7 @@ app.post("/evaluation/run", requireAdmin, async (req, res) => {
 // Endpoints avançados para developers
 app.post("/analyze", async (req, res) => {
   const requestId = `analyze_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  
+
   try {
     const { code, language, type = 'general' } = req.body
 
@@ -2482,7 +2504,7 @@ app.post("/analyze", async (req, res) => {
     const question = `Analise este código ${language}: ${code.substring(0, 10000)}`
     const answer = await askGroot(question, context)
 
-    res.json({ 
+    res.json({
       analysis: answer,
       requestId,
       metadata: {
@@ -2501,7 +2523,7 @@ app.post("/analyze", async (req, res) => {
 // Code review endpoint
 app.post("/review", async (req, res) => {
   const requestId = `review_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  
+
   try {
     const { code, language, guidelines = [] } = req.body
 
@@ -2521,7 +2543,7 @@ app.post("/review", async (req, res) => {
     const question = `Faça um code review deste código ${language}, seguindo estas diretrizes: ${guidelines.join(', ')}\n\nCódigo:\n${code}`
     const answer = await askGroot(question, context)
 
-    res.json({ 
+    res.json({
       review: answer,
       requestId,
       metadata: {
@@ -2558,7 +2580,7 @@ app.get("/bible/passage", async (req, res) => {
 
     res.json({
       data,
-      source: "youversion",
+      source: data?.source || data?.provider || "youversion",
       requestId
     })
   } catch (error) {
@@ -2571,7 +2593,7 @@ app.get("/bible/passage", async (req, res) => {
   }
 })
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3002
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 ${AI_ENTERPRISE_NAME} rodando em http://localhost:${PORT}`)
@@ -2579,6 +2601,12 @@ const server = app.listen(PORT, () => {
   console.log(`📋 Logs: http://localhost:${PORT}/logs`)
   console.log(`🔧 Admin: http://localhost:${PORT}/admin`)
 })
+
+// Mantém conexões keep-alive abertas por 65s (> timeout padrão do proxy Next.js de 60s).
+// headersTimeout > keepAliveTimeout evita corrida entre servidor e cliente ao fechar
+// a conexão simultaneamente (causa do primeiro request "caindo").
+server.keepAliveTimeout = Number(process.env.SERVER_KEEPALIVE_TIMEOUT_MS || 65_000)
+server.headersTimeout = Number(process.env.SERVER_HEADERS_TIMEOUT_MS || 66_000)
 
 // Graceful shutdown enterprise
 process.on('SIGTERM', () => {

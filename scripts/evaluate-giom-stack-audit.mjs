@@ -6,7 +6,7 @@ dotenv.config()
 
 const SERVER_PORT = Number(process.env.GIOM_EVAL_PORT || (3301 + (process.pid % 400)))
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`
-const SERVER_ENTRY = "apps/api/src/server.js"
+const SERVER_ENTRY = "apps/api/dist/server.js"
 const REPORT_PATH = "reports/giom-stack-audit.json"
 
 const PACK_IDS = [

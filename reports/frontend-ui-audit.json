@@ -1,85 +1,43 @@
 {
-  "generatedAt": "2026-03-26T16:36:19.385Z",
+  "generatedAt": "2026-03-27T10:35:48.616Z",
   "mode": "static_frontend_runtime_audit",
-  "overall": 93,
+  "overall": 94,
   "status": "strong",
   "categories": [
     {
-      "name": "layout_shell",
+      "name": "shell_navigation",
       "score": 100,
       "status": "excellent",
       "checks": [
         {
           "label": "App shell oficial",
           "pass": true,
-          "detail": "Estrutura raiz do chat."
+          "detail": "Shell principal com estado aberto/fechado."
         },
         {
-          "label": "Sidebar dedicada",
+          "label": "Sidebar oficial",
           "pass": true,
-          "detail": "Coluna lateral fixa/painel."
+          "detail": "Coluna lateral do chat novo."
         },
         {
-          "label": "Topbar dedicada",
+          "label": "Scrim mobile",
           "pass": true,
-          "detail": "Barra superior separada."
+          "detail": "Fechamento seguro em viewport pequena."
         },
         {
-          "label": "Hero de entrada",
+          "label": "Menu mobile",
           "pass": true,
-          "detail": "Estado inicial mais guiado."
+          "detail": "Entrada de navegacao no mobile."
         },
         {
-          "label": "Recentes no sidebar",
+          "label": "Shell responsivo",
           "pass": true,
-          "detail": "Lista de chats recentes."
+          "detail": "Layout adaptado para desktop e mobile."
         },
         {
-          "label": "Busca lateral",
+          "label": "Entrada inicial clara",
           "pass": true,
-          "detail": "Busca local em recentes."
-        }
-      ]
-    },
-    {
-      "name": "sidebar_navigation",
-      "score": 100,
-      "status": "excellent",
-      "checks": [
-        {
-          "label": "Novo chat",
-          "pass": true,
-          "detail": "Atalho principal de conversa."
-        },
-        {
-          "label": "Atalhos sem emoji cru",
-          "pass": true,
-          "detail": "Ícones SVG mais profissionais."
-        },
-        {
-          "label": "Perfil no rodapé",
-          "pass": true,
-          "detail": "Conta acessível no rodapé."
-        },
-        {
-          "label": "Menu de perfil",
-          "pass": true,
-          "detail": "Ações rápidas de conta."
-        },
-        {
-          "label": "Busca de recentes",
-          "pass": true,
-          "detail": "Sidebar realmente alimentado por JS."
-        },
-        {
-          "label": "Limpeza de busca",
-          "pass": true,
-          "detail": "Reset rápido da busca lateral."
-        },
-        {
-          "label": "Threads reais com retomada",
-          "pass": true,
-          "detail": "Sem threads reais, ainda estamos mais perto de histórico rápido do que de navegação completa."
+          "detail": "Estado inicial orientado a conversa."
         }
       ]
     },
@@ -89,180 +47,150 @@
       "status": "excellent",
       "checks": [
         {
-          "label": "Composer primário",
+          "label": "Composer oficial",
           "pass": true,
-          "detail": "Input principal organizado em linha."
+          "detail": "Form principal de envio."
         },
         {
-          "label": "Centro do composer para anexo + texto",
+          "label": "Textarea principal",
           "pass": true,
-          "detail": "Anexo e textarea compartilham o mesmo núcleo visual."
+          "detail": "Campo de mensagem com contrato estável."
         },
         {
-          "label": "Textarea auto-resize",
+          "label": "Envio por submit",
           "pass": true,
-          "detail": "Altura cresce com o texto."
+          "detail": "Fluxo padrão do chat."
         },
         {
-          "label": "Enter envia",
+          "label": "Enter controlado",
           "pass": true,
-          "detail": "Envio rápido no teclado."
+          "detail": "Teclado integrado ao envio."
         },
         {
-          "label": "Anexo",
+          "label": "Upload inline",
           "pass": true,
-          "detail": "Upload visual acessível."
+          "detail": "Preview de anexos dentro do composer."
         },
         {
-          "label": "Voz",
+          "label": "Ditado por voz",
           "pass": true,
-          "detail": "Ditado ligado ao front."
+          "detail": "Entrada de voz pronta no front novo."
         },
         {
-          "label": "Enviar com estado",
+          "label": "Estado de envio",
           "pass": true,
-          "detail": "Botão muda ao trabalhar."
-        },
-        {
-          "label": "Quick tools",
-          "pass": true,
-          "detail": "Imagem/docs acessíveis sem decorar comandos."
-        },
-        {
-          "label": "Preview de arquivo inline",
-          "pass": true,
-          "detail": "Anexo aparece dentro da área do composer."
+          "detail": "Botão com estado operacional durante request."
         }
       ]
     },
     {
-      "name": "scroll_and_flow",
+      "name": "conversation_flow",
       "score": 100,
       "status": "excellent",
       "checks": [
         {
-          "label": "Container de chat com scroll dedicado",
+          "label": "Chat com scroll proprio",
           "pass": true,
-          "detail": "Scroll isolado do chat."
+          "detail": "Rolagem isolada do feed."
         },
         {
           "label": "Composer sticky",
           "pass": true,
-          "detail": "Input fixo no fundo."
+          "detail": "Input fica acessivel no rodape."
         },
         {
-          "label": "Scroll to bottom",
+          "label": "Botao de salto",
           "pass": true,
-          "detail": "Botão de retorno ao fim."
+          "detail": "Atalho para voltar ao fim da conversa."
         },
         {
-          "label": "Auto-scroll pós-resposta",
+          "label": "Mensagens mapeadas",
           "pass": true,
-          "detail": "Fluxo contínuo da conversa."
+          "detail": "Feed estruturado em itens rastreaveis."
         },
         {
-          "label": "Modo landing -> conversa",
+          "label": "Loading de pensamento",
           "pass": true,
-          "detail": "Tela inicial vira conversa sem quebrar."
+          "detail": "Estado de processamento visivel."
         },
         {
-          "label": "Toggle de sidebar",
+          "label": "Threads locais",
           "pass": true,
-          "detail": "Sidebar pode abrir e fechar sem gambiarra visual."
+          "detail": "Historico novo ja funciona sem o legado."
         }
       ]
     },
     {
-      "name": "message_presentations",
+      "name": "message_renderer",
       "score": 100,
       "status": "excellent",
       "checks": [
         {
-          "label": "Ações por mensagem",
+          "label": "Renderer dedicado",
           "pass": true,
-          "detail": "Copiar, editar, baixar, reutilizar."
+          "detail": "Feed rico desacoplado do shell."
         },
         {
-          "label": "Ações não poluem mensagem do usuário",
+          "label": "Codigo",
           "pass": true,
-          "detail": "A trilha de ações ficou mais discreta e profissional."
+          "detail": "Bloco de codigo com destaque."
         },
         {
-          "label": "Preview de documento",
+          "label": "Documento",
           "pass": true,
-          "detail": "Documento fica visualizável no chat."
+          "detail": "Documento com preview e download."
         },
         {
-          "label": "Preview de imagem",
+          "label": "Imagem",
           "pass": true,
-          "detail": "Imagem renderizada na conversa."
+          "detail": "Imagem pronta para revisao e download."
         },
         {
-          "label": "Bloco de código",
+          "label": "Tabela e timeline",
           "pass": true,
-          "detail": "Código com toolbar de cópia."
+          "detail": "Estruturas ricas para respostas analiticas."
         },
         {
-          "label": "Tabela rica",
+          "label": "Checklist e dados",
           "pass": true,
-          "detail": "Tabelas estilizadas."
-        },
-        {
-          "label": "Timeline",
-          "pass": true,
-          "detail": "Linha do tempo renderizada."
-        },
-        {
-          "label": "Versículo destacado",
-          "pass": true,
-          "detail": "Versos com cartão próprio."
-        },
-        {
-          "label": "Edição inline real",
-          "pass": true,
-          "detail": "Hoje o fluxo é levar ao editor, não editar inline como suite completa."
+          "detail": "Respostas operacionais interativas."
         }
       ]
     },
     {
-      "name": "auth_and_settings",
+      "name": "auth_and_guest_flow",
       "score": 100,
       "status": "excellent",
       "checks": [
         {
-          "label": "Botão topbar entrar",
+          "label": "Login no topo",
           "pass": true,
-          "detail": "Acesso rápido à conta."
+          "detail": "Entrada rapida para visitantes."
         },
         {
-          "label": "Botão topbar criar conta",
+          "label": "Signup no topo",
           "pass": true,
-          "detail": "CTA extra quando anônimo."
+          "detail": "CTA de conversao acessivel."
         },
         {
-          "label": "Modal de login",
+          "label": "Modal de autenticacao",
           "pass": true,
-          "detail": "Entrada centralizada."
+          "detail": "Fluxo de entrada desacoplado do legado."
         },
         {
-          "label": "Configurações separadas",
+          "label": "Guest mode",
           "pass": true,
-          "detail": "Avançado vai para Configurações."
+          "detail": "Uso anonimo continua suportado."
         },
         {
-          "label": "Perfil base configurável",
+          "label": "Supabase opcional",
           "pass": true,
-          "detail": "Perfil em auto/manual."
+          "detail": "Auth cloud mantido sem acoplar o boot."
         },
         {
-          "label": "Módulos configuráveis",
+          "label": "Persistencia local",
           "pass": true,
-          "detail": "Especializações controláveis."
-        },
-        {
-          "label": "Prompt packs configuráveis",
-          "pass": true,
-          "detail": "Packs profissionais expostos."
+          "detail": "Sessao local e historico resilientes."
         }
       ]
     },
@@ -319,19 +247,14 @@
           "detail": "Backend de geração existe."
         },
         {
-          "label": "Parser de comando /pdf etc",
+          "label": "Deteccao por linguagem natural",
           "pass": true,
-          "detail": "Front entende comandos de docs."
-        },
-        {
-          "label": "Quick tools de docs",
-          "pass": true,
-          "detail": "Acesso visual a documentos."
+          "detail": "Prompt comum vira pedido de documento."
         },
         {
           "label": "Preview + download",
           "pass": true,
-          "detail": "Resposta traz arquivo e prévia."
+          "detail": "Resposta traz previa e arquivo."
         },
         {
           "label": "Config anuncia docs",
@@ -344,15 +267,15 @@
           "detail": "Ações de documento prontas."
         },
         {
-          "label": "Edição nativa de documento",
+          "label": "Formatos configuraveis",
           "pass": true,
-          "detail": "Ainda não há editor de documento embutido no front."
+          "detail": "Front e back compartilham formatos suportados."
         }
       ]
     },
     {
       "name": "image_generation",
-      "score": 55,
+      "score": 50,
       "status": "weak",
       "checks": [
         {
@@ -361,14 +284,9 @@
           "detail": "Backend de geração existe."
         },
         {
-          "label": "Parser de comando /image",
+          "label": "Deteccao por prompt",
           "pass": true,
-          "detail": "Front entende comando de imagem."
-        },
-        {
-          "label": "Quick action de imagem",
-          "pass": true,
-          "detail": "Imagem acessível no composer."
+          "detail": "Front entende pedido de imagem sem menu legado."
         },
         {
           "label": "Preview da imagem no chat",
@@ -398,47 +316,42 @@
       ]
     },
     {
-      "name": "performance_boot",
-      "score": 71,
-      "status": "solid",
+      "name": "production_readiness",
+      "score": 100,
+      "status": "excellent",
       "checks": [
         {
-          "label": "Bootstrap assíncrono",
+          "label": "Proxy resiliente",
           "pass": true,
-          "detail": "Carga pesada tirada do boot principal."
+          "detail": "Rede preparada para contingencias."
         },
         {
-          "label": "Init pinta antes do runtime",
+          "label": "Build sem Google Fonts remotas",
           "pass": true,
-          "detail": "Tela aparece antes de saúde/memória."
+          "detail": "Build reproduzivel sem fetch externo de fontes."
         },
         {
-          "label": "Speech init isolado",
+          "label": "CSS responsivo consistente",
           "pass": true,
-          "detail": "Voz inicializada sem travar tudo."
+          "detail": "Quebras mobile corrigidas."
         },
         {
-          "label": "Carga de config separada",
+          "label": "Runtime de observabilidade",
           "pass": true,
-          "detail": "Config carregada em fluxo dedicado."
+          "detail": "Frontend oficial conversa com endpoints operacionais."
         },
         {
-          "label": "Scroll assistivo",
+          "label": "Contrato de QA estavel",
           "pass": true,
-          "detail": "Menos esforço de navegação em conversas longas."
-        },
-        {
-          "label": "Bundle dividido/lazy",
-          "pass": false,
-          "detail": "Ainda é um front grande em arquivo único, sem lazy loading real."
+          "detail": "Seletores estaveis para automacao."
         }
       ]
     }
   ],
   "notes": [
-    "Esta auditoria mede estrutura, wiring e sinais de runtime do frontend oficial em apps/web/public.",
+    "Esta auditoria mede estrutura, wiring e sinais de runtime do frontend oficial em apps/web-next.",
     "A geração de imagem só fecha 100% quando o backend tiver provider real configurado.",
     "Leitura de imagem, nesta execução, é OCR-based: boa para screenshots e imagens com texto, não para visão semântica completa.",
-    "Documentos estão melhor que imagem porque o backend já anuncia geração nativa ativa."
+    "Documentos estao mais maduros que imagem porque o backend ja anuncia geracao nativa ativa."
   ]
 }

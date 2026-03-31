@@ -1,0 +1,220 @@
+{
+  "generatedAt": "2026-03-30T05:51:46.709Z",
+  "summary": {
+    "totalRows": 62849,
+    "uniqueSourceDocuments": 23418,
+    "uniqueSupabaseSourceDocuments": 1419,
+    "supabaseSourceRows": 17323,
+    "interactionRows": 1015,
+    "localRows": 8,
+    "knowledgeVersionsCount": 0,
+    "oldestCreatedAt": "2026-03-20T17:58:50.727Z",
+    "newestCreatedAt": "2026-03-30T05:51:25.471Z"
+  },
+  "point1_unique_docs_vs_chunks": {
+    "uniqueSupabaseSourceDocuments": 1419,
+    "totalRowsInKnowledgeEmbeddings": 62849,
+    "avgChunksPerSupabaseDocument": 12.21
+  },
+  "point2_local_pending_files": {
+    "bucket": "giom-private-library",
+    "folders": {
+      "livrosDir": "C:\\Users\\GabeG\\Desktop\\LIVROS",
+      "biblesDir": "C:\\Users\\GabeG\\Desktop\\BIBLIAS PDF"
+    },
+    "livros": {
+      "totalFiles": 26,
+      "injectedFiles": 26,
+      "pendingFiles": 0,
+      "pendingExamples": []
+    },
+    "biblePdfs": {
+      "totalFiles": 25,
+      "injectedFiles": 25,
+      "pendingFiles": 0,
+      "pendingExamples": []
+    }
+  },
+  "point3_incremental_command": {
+    "recommended": "npm run knowledge:private-library -- --dir \"C:/Users/GabeG/Desktop/LIVROS\" --prefix preaching-library --index-mode full --skip-upload --rights user_provided_or_public_domain --continue-on-error",
+    "note": "Use --prefix bible-pdfs para PDFs bíblicos e mantenha --skip-upload para evitar reenvio desnecessário ao Storage."
+  },
+  "topSources": [
+    [
+      "supabase://giom-private-library/bible-pdfs/af2e5f38a3df-a-biblia-sagrada-almeida-revista-e-corrigida-por-joao-ferreira-de-almeida-arc-1995.txt",
+      3181
+    ],
+    [
+      "supabase://giom-private-library/bible-pdfs/0a48ab992816-biblia-sagrada-nova-almeida-atualizada-naa-2017.txt",
+      2806
+    ],
+    [
+      "supabase://giom-private-library/bible-pdfs/3971fa806b9d-biblia-sagrada-almeida-corrigida-fiel-versao-trinitariana-acf-2023.txt",
+      2636
+    ],
+    [
+      "supabase://giom-private-library/bible-pdfs/af90f0ea188f-biblia-de-jerusalem-completa.txt",
+      2435
+    ],
+    [
+      "supabase://giom-private-library/bible-pdfs/174af40cbeda-biblia-king-james-fiel-1611-falas-de-jesus-cristo-yeshuah-hamashiach-em-vermelho-2020.txt",
+      2039
+    ],
+    [
+      "supabase://giom-private-library/bible-pdfs/01b74e8fd332-biblia-hebraica-tora-pentateuco-profetas-e-escritos-baseada-no-hebraico-e-a-luz-do-talmud-e-das-fontes-judaicas-traducao-david-gorodovits-e-jairo-fridlin-2012.txt",
+      1776
+    ],
+    [
+      "interaction",
+      1015
+    ],
+    [
+      "local.generated.language",
+      650
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/176aa5c4f99b-mil-esbocos-biblicos.txt",
+      413
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/ee7efc539b52-charles-haddon-spurgeon-sermoes-devocionais.txt",
+      315
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/be916810ee3e-spurgeon-charles-diante-da-porta-estreita.txt",
+      74
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/0af210d42771-500-esbocos.txt",
+      20
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/dff6dca7af4e-7-24-esbocos-de-pregacoes-sobre-tomar-decisoes.txt",
+      20
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/c40ffc02449f-14-esbocos-de-pregacoes-sobre-acontecimentos-futuros.txt",
+      19
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/63edb35714ba-2-25-esbocos-de-pregacoes-sobre-a-palavra-de-deus.txt",
+      18
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/4b83629d320c-3-16-esbocos-de-pregacoes-sobre-biografias-de-personagens-biblicos.txt",
+      17
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/dfa40ff9362f-modulo-1.txt",
+      16
+    ],
+    [
+      "supabase://giom-private-library/bible-pdfs/e0cc6195ca10-formacao-completa-em-teologia.txt",
+      13
+    ],
+    [
+      "local",
+      8
+    ],
+    [
+      "supabase://giom-private-library/preaching-library/9aed9ddcead8-a-familia-abencoada-pregacao-no-salmo-128.txt",
+      5
+    ]
+  ],
+  "topCategories": [
+    [
+      "bible",
+      24174
+    ],
+    [
+      "research",
+      23820
+    ],
+    [
+      "language",
+      3211
+    ],
+    [
+      "education",
+      1722
+    ],
+    [
+      "developer",
+      1674
+    ],
+    [
+      "agribusiness",
+      1477
+    ],
+    [
+      "security",
+      1420
+    ],
+    [
+      "finance",
+      1239
+    ],
+    [
+      "math_science",
+      1005
+    ],
+    [
+      "theology",
+      1001
+    ],
+    [
+      "health",
+      1000
+    ],
+    [
+      "learned",
+      862
+    ],
+    [
+      "knowledge",
+      184
+    ],
+    [
+      "seed",
+      7
+    ],
+    [
+      "curated",
+      6
+    ],
+    [
+      "devops",
+      4
+    ],
+    [
+      "docs",
+      3
+    ],
+    [
+      "os",
+      3
+    ],
+    [
+      "architecture",
+      2
+    ],
+    [
+      "database",
+      2
+    ]
+  ],
+  "topLanguages": [
+    [
+      "pt",
+      62846
+    ],
+    [
+      "en",
+      2
+    ],
+    [
+      "javascript",
+      1
+    ]
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-03-30T08:03:01.197Z",
+  "apiBase": "http://127.0.0.1:3000",
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "successRate": 1
+  },
+  "results": [
+    {
+      "id": "api-health",
+      "ok": true,
+      "durationMs": 9940,
+      "details": {
+        "service": "giom-enterprise"
+      }
+    },
+    {
+      "id": "usage-limits-endpoint",
+      "ok": true,
+      "durationMs": 11,
+      "details": {
+        "uploadLimit": 9,
+        "imageLimit": 4
+      }
+    },
+    {
+      "id": "auth-upload-quota-9-per-24h",
+      "ok": true,
+      "durationMs": 110,
+      "details": {
+        "blockedAt": 10,
+        "expectedBlockedAt": 10,
+        "quota": {
+          "feature": "upload",
+          "tier": "auth",
+          "limit": 9,
+          "used": 9,
+          "remaining": 0,
+          "resetAt": "2026-03-31T08:03:01.003Z",
+          "windowHours": 24,
+          "blocked": true,
+          "retryAfterSeconds": 86400
+        }
+      }
+    },
+    {
+      "id": "paid-upload-not-blocked-early",
+      "ok": true,
+      "durationMs": 97,
+      "details": {
+        "successCount": 12
+      }
+    },
+    {
+      "id": "image-quota-shape",
+      "ok": true,
+      "durationMs": 4,
+      "details": {
+        "imageLimit": 4,
+        "tier": "auth"
+      }
+    }
+  ]
+}

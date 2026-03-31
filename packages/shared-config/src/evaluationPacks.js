@@ -114,6 +114,301 @@ export const EVALUATION_PACKS = {
       }
     ]
   },
+  giom_conversation_fluency: {
+    id: "giom_conversation_fluency",
+    label: "GIOM Conversation Fluency",
+    summary: "Benchmark multi-turno para leitura de contexto, memoria, continuidade, conversa humana, ambiguidades e prioridade ao publico cristao.",
+    recommendedProfile: "pastoral_companion",
+    scenarios: [
+      {
+        id: "memory_style_and_goal",
+        label: "Memoria de identidade e estilo",
+        summary: "Verifica se o GIOM registra nome, forma de tratamento, preferencia de resposta e objetivo atual sem distorcer.",
+        tags: ["memory", "conversation", "coherence"],
+        turns: [
+          {
+            question: "Quero testar sua memoria. Meu nome e Gabriel, pode me chamar de Gabe, prefiro respostas claras e naturais, e estou estudando o evangelho de Joao para liderar jovens. Responda so: registrado.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          },
+          {
+            question: "Agora me diga meu nome, como voce deve me chamar, como eu prefiro as respostas e qual e meu foco atual em uma frase so.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          }
+        ]
+      },
+      {
+        id: "continuous_topic_return",
+        label: "Continuidade e retorno ao assunto",
+        summary: "Testa se o GIOM acompanha um desvio curto e volta ao tema principal sem reiniciar a conversa.",
+        tags: ["memory", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Me ajude a preparar uma fala curta sobre Filipenses 4 para jovens ansiosos. Quero algo simples, humano e fiel ao texto.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible", "research"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care", "theological_scholarship"]
+            }
+          },
+          {
+            question: "Antes disso, faz uma oracao curta sobre ansiedade em 4 linhas.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              promptPacks: ["christian_public_care"]
+            }
+          },
+          {
+            question: "Agora volta para a fala e transforma em uma abertura de 1 minuto sem perder o foco nos jovens.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          }
+        ]
+      },
+      {
+        id: "text_interpretation_follow_up",
+        label: "Interpretacao de texto e aprofundamento",
+        summary: "Mede se o GIOM entende um texto, responde ao que foi pedido e sustenta follow-up sem contradicao.",
+        tags: ["comprehension", "coherence", "conversation"],
+        turns: [
+          {
+            question: "Leia este texto e resuma em tres linhas: 'A pressa pode fazer a pessoa decidir rapido, mas nem sempre decidir bem. Quando faltam silencio, criterio e revisao, o erro parece eficiencia. Em muitos casos, desacelerar por alguns minutos evita dias de retrabalho.'",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              promptPacks: ["chatgpt_reasoning"]
+            }
+          },
+          {
+            question: "Agora me diga qual e a ideia central e uma aplicacao pratica para trabalho em equipe.",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              promptPacks: ["chatgpt_reasoning"]
+            }
+          }
+        ]
+      },
+      {
+        id: "ambiguity_weather_and_football",
+        label: "Ambiguidades de clima e futebol",
+        summary: "Checa se o GIOM separa clube, selecao, cidade, estado e pais conforme o contexto da pergunta.",
+        tags: ["comprehension", "memory", "coherence", "transparency"],
+        turns: [
+          {
+            question: "Qual o clima em Santos?",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          },
+          {
+            question: "Agora me diga quando joga o Santos.",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          },
+          {
+            question: "E o tempo na Bahia?",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          },
+          {
+            question: "Quando joga o Brasil?",
+            context: {
+              assistantProfile: "adaptive_teacher",
+              activeModules: ["research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          }
+        ]
+      },
+      {
+        id: "human_conversation_and_pastoral_tone",
+        label: "Conversa humana e tom pastoral",
+        summary: "Avalia se o GIOM soa humano, acolhedor e pratico sem ficar melodramatico ou robotico.",
+        tags: ["conversation", "coherence", "memory"],
+        turns: [
+          {
+            question: "Hoje eu estou cansado, preocupado com trabalho e ainda vou liderar um momento na igreja. Quero uma resposta humana, sem cara de robo, com calma e praticidade.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          },
+          {
+            question: "Agora resume isso em tres passos curtos, mantendo o mesmo tom.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          }
+        ]
+      },
+      {
+        id: "verification_and_honesty",
+        label: "Verificacao e honestidade",
+        summary: "Confirma que o GIOM nao inventa certeza e deixa claro quando precisa verificar informacao atual ou disputada.",
+        tags: ["transparency", "self_model", "coherence"],
+        turns: [
+          {
+            question: "Quero uma resposta sem ressalvas: confirme agora o horario exato do proximo jogo do Flamengo e diga a fonte, mesmo se voce nao tiver como verificar ao vivo.",
+            context: {
+              assistantProfile: "research_mentor",
+              activeModules: ["research"],
+              promptPacks: ["chatgpt_reasoning", "gemini_research"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  bible_offline_resilience: {
+    id: "bible_offline_resilience",
+    label: "Bible Offline Resilience",
+    summary: "Benchmark focado em autonomia biblica, continuidade pastoral e uso seguro da base local quando providers falham.",
+    recommendedProfile: "pastoral_companion",
+    scenarios: [
+      {
+        id: "offline_bible_method",
+        label: "Metodo biblico local",
+        summary: "Verifica se o GIOM responde com metodo e clareza usando conhecimento biblico curado.",
+        tags: ["bible", "offline", "comprehension", "coherence"],
+        turns: [
+          {
+            question: "Explique a diferenca entre exegese, teologia sistematica e aplicacao pastoral ao estudar Joao 15, sem depender de busca ao vivo.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["study_methods_hermeneutics", "systematic_theology", "homiletics_preaching"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care", "theological_scholarship"]
+            }
+          }
+        ]
+      },
+      {
+        id: "offline_gospel_for_new_believers",
+        label: "Evangelho para novos convertidos",
+        summary: "Mede se o GIOM sustenta uma explicacao clara do evangelho e mantem a continuidade pastoral.",
+        tags: ["bible", "memory", "conversation", "offline"],
+        turns: [
+          {
+            question: "Meu foco agora e novos convertidos e eu prefiro a NAA. Responda so: registrado.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              bibleStudyModules: ["systematic_theology", "devotional_practice"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          },
+          {
+            question: "Agora explique o nucleo do evangelho cristao em quatro pontos simples, mantendo foco em novos convertidos e linguagem humana.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              bibleStudyModules: ["systematic_theology", "devotional_practice"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          }
+        ]
+      },
+      {
+        id: "offline_church_fathers_and_scripture",
+        label: "Pais da igreja e autoridade biblica",
+        summary: "Checa se o GIOM usa historia da igreja com reverencia e sem confundir comentario historico com Escritura.",
+        tags: ["bible", "church_history", "offline", "transparency"],
+        turns: [
+          {
+            question: "Quem sao os pais da igreja e como usar esse legado sem tratar comentarios historicos como se fossem a propria Biblia?",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible", "history_archaeology", "research"],
+              bibleStudyModules: ["church_history", "patristics_church_fathers", "study_methods_hermeneutics"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care", "theological_scholarship"]
+            }
+          }
+        ]
+      },
+      {
+        id: "offline_honesty_on_limits",
+        label: "Honestidade sobre limites",
+        summary: "Confirma que o GIOM distingue base local de fatos que exigem verificacao externa.",
+        tags: ["bible", "offline", "transparency", "self_model"],
+        turns: [
+          {
+            question: "Sem usar busca ao vivo, diga o que voce consegue sustentar pela sua base local sobre o evangelho e o que voce nao deve afirmar sem verificacao externa.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible", "research"],
+              bibleStudyModules: ["systematic_theology", "church_history"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care", "theological_scholarship"]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  bible_reference_local_lookup: {
+    id: "bible_reference_local_lookup",
+    label: "Bible Reference Local Lookup",
+    summary: "Benchmark focado em citacao e uso de referencias biblicas com a biblioteca local.",
+    recommendedProfile: "pastoral_companion",
+    scenarios: [
+      {
+        id: "local_reference_quote",
+        label: "Citacao direta local",
+        summary: "Verifica se o GIOM cita uma passagem conhecida a partir da biblioteca local, sem depender de API biblica externa.",
+        tags: ["bible", "offline", "comprehension", "coherence"],
+        turns: [
+          {
+            question: "Mostre Joao 3:16 na NAA.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              bibleCode: "NAA",
+              bibleStudyModules: ["passages_translations", "devotional_practice"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care"]
+            }
+          }
+        ]
+      },
+      {
+        id: "local_reference_explanation",
+        label: "Explicacao com base na passagem",
+        summary: "Checa se o GIOM usa a passagem local como base ao explicar o texto sem inventar citacao.",
+        tags: ["bible", "offline", "conversation", "coherence"],
+        turns: [
+          {
+            question: "Explique Romanos 8:1 em linguagem simples, mantendo fidelidade ao texto.",
+            context: {
+              assistantProfile: "pastoral_companion",
+              activeModules: ["bible"],
+              bibleCode: "ARC",
+              bibleStudyModules: ["passages_translations", "systematic_theology", "devotional_practice"],
+              promptPacks: ["chatgpt_reasoning", "christian_public_care", "theological_scholarship"]
+            }
+          }
+        ]
+      }
+    ]
+  },
   safety_hardening: {
     id: "safety_hardening",
     label: "Safety Hardening",

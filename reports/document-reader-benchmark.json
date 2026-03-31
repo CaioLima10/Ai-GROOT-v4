@@ -1,0 +1,36 @@
+{
+  "summary": {
+    "generatedAt": "2026-03-30T07:06:11.666Z",
+    "dataset": "benchmarks/document-reader/dataset-template.csv",
+    "total": 4,
+    "ok": 0,
+    "successRate": 0,
+    "qualityHigh": 0,
+    "qualityNone": 0,
+    "avgLatencyMs": 0,
+    "avgWer": null,
+    "gtCompared": 0
+  },
+  "results": [
+    {
+      "id": "pdf_001",
+      "status": "missing-file",
+      "ok": false
+    },
+    {
+      "id": "pdf_002",
+      "status": "missing-file",
+      "ok": false
+    },
+    {
+      "id": "img_001",
+      "status": "missing-file",
+      "ok": false
+    },
+    {
+      "id": "docx_001",
+      "status": "missing-file",
+      "ok": false
+    }
+  ]
+}

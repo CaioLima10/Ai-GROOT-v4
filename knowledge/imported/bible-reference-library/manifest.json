@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-03-29T01:14:21.944Z",
+  "inputDir": "C:\\Users\\GabeG\\Desktop\\BIBLIAS PDF",
+  "translations": [
+    {
+      "code": "NAA",
+      "label": "Nova Almeida Atualizada (NAA) 2017",
+      "language": "pt",
+      "aliases": [
+        "NAA",
+        "SBB_NAA",
+        "ALMEIDA_ATUALIZADA"
+      ],
+      "fileName": "Bíblia Sagrada - Nova Almeida Atualizada (NAA) 2017.pdf",
+      "filePath": "knowledge/imported/bible-reference-library/naa.json",
+      "verseCount": 29954
+    },
+    {
+      "code": "ARC",
+      "label": "Almeida Revista e Corrigida (ARC) 1995",
+      "language": "pt",
+      "aliases": [
+        "ARC",
+        "ALMEIDA_REVISTA_CORRIGIDA"
+      ],
+      "fileName": "A Bíblia Sagrada - Almeida Revista e Corrigida por João Ferreira de Almeida (ARC) 1995.pdf",
+      "filePath": "knowledge/imported/bible-reference-library/arc.json",
+      "verseCount": 29994
+    },
+    {
+      "code": "ACF",
+      "label": "Almeida Corrigida Fiel (ACF) 2023",
+      "language": "pt",
+      "aliases": [
+        "ACF",
+        "ALMEIDA_CORRIGIDA_FIEL"
+      ],
+      "fileName": "Bíblia Sagrada - Almeida Corrigida Fiel - Versão Trinitariana (ACF) 2023.pdf",
+      "filePath": "knowledge/imported/bible-reference-library/acf.json",
+      "verseCount": 30064
+    }
+  ],
+  "failures": [
+    {
+      "code": "BJ",
+      "fileName": "Biblia_de_Jerusalem_completa.pdf",
+      "error": "cobertura insuficiente em BJ: 361 versiculos detectados, abaixo do minimo esperado de 20000"
+    },
+    {
+      "code": "BHEB",
+      "fileName": "Bíblia Hebraica - Torá (Pentateuco), Profetas e Escritos - Baseada no Hebraico e à luz do Talmud e das Fontes Judaicas [Tradução David Gorodovits e Jairo Fridlin] 2012.pdf",
+      "error": "nenhum versiculo detectado em BHEB; revise o parser antes de aceitar este indice"
+    }
+  ]
+}

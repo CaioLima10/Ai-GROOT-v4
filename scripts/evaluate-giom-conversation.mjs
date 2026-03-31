@@ -5,7 +5,7 @@ dotenv.config()
 
 const SERVER_PORT = Number(process.env.GIOM_EVAL_PORT || (3101 + (process.pid % 400)))
 const SERVER_URL = `http://127.0.0.1:${SERVER_PORT}`
-const SERVER_ENTRY = "apps/api/src/server.js"
+const SERVER_ENTRY = "apps/api/dist/server.js"
 const CLI_ARGS = process.argv.slice(2)
 const PACK_ID = CLI_ARGS.find((arg) => !arg.startsWith("--")) || "core_diagnostics"
 const VERBOSE = CLI_ARGS.includes("--verbose")

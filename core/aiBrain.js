@@ -68,6 +68,7 @@ export async function scanProject(projectPath) {
 // Novas funções do GROOT 7.0
 export async function getStatus() {
   const { grootCore } = await import('../grootCore.js')
+  if (!grootCore?.getStatus) throw new Error("grootCore.getStatus not available")
   return await grootCore.getStatus()
 }
 

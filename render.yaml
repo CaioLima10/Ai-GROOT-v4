@@ -1,0 +1,135 @@
+# GIOM AI — Render.com Deployment Configuration
+# ─────────────────────────────────────────────────────────────────
+# This file defines backend + frontend services on Render.
+# Connect your GitHub repo in the Render dashboard and it will
+# automatically read this file for service configuration.
+#
+# Docs: https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: giom-backend
+    runtime: node
+    plan: starter          # upgrade to standard/pro for SLA
+    region: oregon         # choose closest to your users
+    branch: main
+    rootDir: .             # monorepo root
+    buildCommand: npm ci --omit=dev
+    startCommand: node apps/api/src/server.js
+    healthCheckPath: /health
+    numInstances: 1        # scale up here for HA
+    autoDeploy: true
+
+    envVars:
+      # Runtime
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: GROOT_MODE
+        value: quantum
+      - key: GROOT_AI_PROVIDER
+        value: auto
+
+      # AI Provider Keys — set via Render dashboard (never in code)
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+      # Database — Supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+      # Security
+      - key: JWT_SECRET
+        generateValue: true   # Render generates a secure random value
+      - key: CORS_ORIGIN
+        sync: false           # set to your frontend URL (Render or Vercel)
+
+      # Embeddings
+      - key: EMBEDDINGS_PROVIDER
+        value: auto
+      - key: OLLAMA_ENABLED
+        value: "false"
+
+      # External document reader (Python/FastAPI)
+      - key: UPLOAD_EXTERNAL_READER_ENABLED
+        value: "true"
+      - key: UPLOAD_EXTERNAL_READER_URL
+        sync: false           # set to https://giom-doc-reader.onrender.com
+      - key: UPLOAD_EXTERNAL_READER_TIMEOUT_MS
+        value: "20000"
+      - key: UPLOAD_EXTERNAL_READER_API_KEY
+        sync: false           # optional bearer token shared with giom-doc-reader
+
+    disk:
+      name: giom-memory
+      mountPath: /app/.groot-memory
+      sizeGB: 1             # persist GIOM's learned memory across deploys
+
+  - type: web
+    name: giom-doc-reader
+    runtime: python
+    plan: starter
+    region: oregon
+    branch: main
+    rootDir: services/document-reader
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      - key: DOC_READER_QUEUE_BACKEND
+        value: redis
+      - key: DOC_READER_REDIS_URL
+        sync: false           # paste Upstash rediss:// URL
+      - key: DOC_READER_REDIS_QUEUE_KEY
+        value: doc_reader:queue
+      - key: DOC_READER_REDIS_DLQ_KEY
+        value: doc_reader:dlq
+      - key: DOC_READER_REDIS_JOB_KEY_PREFIX
+        value: doc_reader:job:
+      - key: DOC_READER_MAX_RETRIES
+        value: "2"
+      - key: DOC_READER_RETRY_BASE_MS
+        value: "800"
+      - key: DOC_READER_MAX_QUEUE_JOBS
+        value: "2000"
+      - key: DOC_READER_MAX_LATENCY_SAMPLES
+        value: "1000"
+      - key: DOC_READER_API_KEY
+        sync: false           # optional; if set, mirror value in backend UPLOAD_EXTERNAL_READER_API_KEY
+
+  - type: web
+    name: giom-frontend
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    rootDir: .
+    buildCommand: npm ci && npm run web-next:build
+    startCommand: npm run web-next:start
+    healthCheckPath: /
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: NEXT_PUBLIC_BACKEND_PROXY_TARGET
+        sync: false           # set to Render backend URL after first deploy
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: ""            # use /backend proxy

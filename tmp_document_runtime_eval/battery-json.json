@@ -1,0 +1,15 @@
+{
+  "pipeline": {
+    "ocr": {
+      "status": "ativo",
+      "mode": "local"
+    },
+    "upload": {
+      "policy": "nao inventar detalhes ausentes"
+    },
+    "scoreTarget": 0.98
+  },
+  "review": {
+    "owner": "GIOM QA"
+  }
+}

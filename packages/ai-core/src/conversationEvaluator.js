@@ -1,9 +1,21 @@
+// @ts-check
+
 import {
   EVALUATION_DIMENSIONS,
   getEvaluationPack
 } from "../../shared-config/src/index.js"
 import { evaluateInteractionQuality } from "../../../core/qualityEngine.js"
 import { detectSafetyRisk } from "../../../core/safetyGuard.js"
+
+/** @typedef {import("./aiContracts").ConversationBenchmarkRequest} ConversationBenchmarkRequest */
+/** @typedef {import("./aiContracts").ConversationBenchmarkResult} ConversationBenchmarkResult */
+/** @typedef {import("./aiContracts").ConversationEvaluationSummary} ConversationEvaluationSummary */
+/** @typedef {import("./aiContracts").ConversationHistoryTurn} ConversationHistoryTurn */
+/** @typedef {import("./aiContracts").ConversationTurnDimension} ConversationTurnDimension */
+/** @typedef {import("./aiContracts").ConversationTurnEvaluation} ConversationTurnEvaluation */
+/** @typedef {import("./aiContracts").ConversationTurnRecord} ConversationTurnRecord */
+/** @typedef {import("./aiContracts").EvaluationStatus} EvaluationStatus */
+/** @typedef {import("./aiContracts").EvaluationTurnInput} EvaluationTurnInput */
 
 const STOPWORDS = new Set([
   "a", "ao", "aos", "as", "com", "como", "da", "das", "de", "do", "dos", "e",
@@ -1139,9 +1151,14 @@ function evaluateSafety(userMessage, aiResponse, tags = []) {
   }
 }
 
+/**
+ * @param {Record<string, number>} scores
+ * @returns {{ overall: number, status: EvaluationStatus }}
+ */
 function buildOverallSummary(scores) {
   const average = Object.values(scores).reduce((sum, score) => sum + score, 0) / Object.keys(scores).length
   const overall = roundScore(average)
+  /** @type {EvaluationStatus} */
   const status = overall >= 0.86
     ? "excellent"
     : overall >= 0.72
@@ -1153,6 +1170,10 @@ function buildOverallSummary(scores) {
   return { overall, status }
 }
 
+/**
+ * @param {EvaluationTurnInput} input
+ * @returns {ConversationTurnEvaluation}
+ */
 export function evaluateConversationTurn({
   userMessage,
   aiResponse,
@@ -1206,13 +1227,13 @@ export function evaluateConversationTurn({
     score: overall,
     status,
     issues: unique(issues),
-    dimensions: EVALUATION_DIMENSIONS.map((dimension) => ({
+    dimensions: /** @type {ConversationTurnDimension[]} */ (EVALUATION_DIMENSIONS.map((dimension) => ({
       id: dimension.id,
       label: dimension.label,
       score: dimensionScores[dimension.id],
       applicable: relevantFlags[dimension.id] ?? true,
       description: dimension.description
-    })),
+    }))),
     details: {
       memory,
       transparency,
@@ -1223,18 +1244,22 @@ export function evaluateConversationTurn({
   }
 }
 
+/**
+ * @param {ConversationTurnRecord[]} [turns]
+ * @returns {ConversationEvaluationSummary}
+ */
 export function summarizeConversationEvaluation(turns = []) {
   if (!Array.isArray(turns) || turns.length === 0) {
     return {
       score: 0,
       status: "unknown",
       issues: ["no_turns"],
-      dimensions: EVALUATION_DIMENSIONS.map((dimension) => ({
+      dimensions: /** @type {ConversationTurnDimension[]} */ (EVALUATION_DIMENSIONS.map((dimension) => ({
         id: dimension.id,
         label: dimension.label,
         score: 0,
         description: dimension.description
-      })),
+      }))),
       strengths: [],
       risks: []
     }
@@ -1258,7 +1283,7 @@ export function summarizeConversationEvaluation(turns = []) {
     issues.push(...(turn.evaluation.issues || []))
   })
 
-  const dimensions = EVALUATION_DIMENSIONS.map((dimension) => ({
+  const dimensions = /** @type {ConversationTurnDimension[]} */ (EVALUATION_DIMENSIONS.map((dimension) => ({
     id: dimension.id,
     label: dimension.label,
     description: dimension.description,
@@ -1269,7 +1294,7 @@ export function summarizeConversationEvaluation(turns = []) {
         ? dimensionScores[dimension.id].total / dimensionScores[dimension.id].count
         : 0
     )
-  }))
+  })))
 
   const applicableDimensions = dimensions.filter((dimension) => dimension.applicable)
   const average = applicableDimensions.length > 0
@@ -1306,6 +1331,10 @@ export function summarizeConversationEvaluation(turns = []) {
   }
 }
 
+/**
+ * @param {ConversationBenchmarkRequest} input
+ * @returns {Promise<ConversationBenchmarkResult>}
+ */
 export async function runConversationBenchmark({
   packId = "core_diagnostics",
   researchCapabilities = {},
@@ -1320,16 +1349,19 @@ export async function runConversationBenchmark({
     throw new Error("requestTurn precisa ser uma funcao")
   }
 
-  const history = []
+  /** @type {ConversationTurnRecord[]} */
   const turns = []
 
   for (const scenario of pack.scenarios) {
+    /** @type {ConversationHistoryTurn[]} */
+    const scenarioHistory = []
+
     for (const turn of scenario.turns) {
       const answerPayload = await requestTurn({
         pack,
         scenario,
         turn,
-        history: [...history]
+        history: [...scenarioHistory]
       })
 
       const answer = typeof answerPayload === "string"
@@ -1339,11 +1371,12 @@ export async function runConversationBenchmark({
       const evaluation = evaluateConversationTurn({
         userMessage: turn.question,
         aiResponse: answer,
-        history: [...history, { role: "user", content: turn.question }],
+        history: [...scenarioHistory, { role: "user", content: turn.question }],
         researchCapabilities,
         tags: unique([...(scenario.tags || []), ...(turn.tags || [])])
       })
 
+      /** @type {ConversationTurnRecord} */
       const record = {
         scenarioId: scenario.id,
         scenarioLabel: scenario.label,
@@ -1357,7 +1390,7 @@ export async function runConversationBenchmark({
       }
 
       turns.push(record)
-      history.push(
+      scenarioHistory.push(
         { role: "user", content: turn.question },
         { role: "assistant", content: answer }
       )

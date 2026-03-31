@@ -72,6 +72,7 @@ export function extractTopics(text = '', maxTopics = 3) {
 export function detectPreferences(text = '') {
   const input = String(text).toLowerCase()
   const preferences = {}
+  const bibleCodeMatch = String(text || '').toUpperCase().match(/\b(NAA|ARC|ACF|AA|ARA|NVI|NVT|BJ|KJA|KJF)\b/)
 
   if (input.match(/\b(sem|não use|nao use)\s+emoj/i)) {
     preferences.noEmojis = true
@@ -95,6 +96,17 @@ export function detectPreferences(text = '') {
 
   if (input.match(/\b(exemplo|exemplos|com exemplo)\b/)) {
     preferences.examples = true
+  }
+
+  if (
+    bibleCodeMatch?.[1]
+    && /\b(prefiro|prefere|uso|usar|mantenha|mantem|mantenha a|na|no|com a|com)\b/i.test(String(text || ""))
+  ) {
+    preferences.preferredBibleCode = bibleCodeMatch[1]
+  }
+
+  if (/\b(novos convertidos|novo convertido|novas convertidas|discipulado inicial|recem convertido|recém convertido)\b/i.test(input)) {
+    preferences.ministryFocus = "new_believers"
   }
 
   return preferences

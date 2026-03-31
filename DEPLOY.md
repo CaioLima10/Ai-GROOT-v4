@@ -1,9 +1,11 @@
 # 🚀 GROOT AI - Deploy Information
 
 ## 🌐 **PRODUCTION URL**
-**https://ai-groot.onrender.com**
+
+**<https://ai-groot.onrender.com>**
 
 ## 📋 **DEPLOY STATUS**
+
 - ✅ **Platform**: Render (Free Tier)
 - ✅ **Runtime**: Node.js
 - ✅ **Database**: Supabase PostgreSQL
@@ -12,6 +14,7 @@
 - ✅ **Status**: 🟢 **ONLINE & FUNCTIONAL**
 
 ## 🎯 **FEATURES IMPLEMENTED**
+
 - ✅ **Inteligência Real** - LLM avançado
 - ✅ **Memória Persistente** - Supabase + histórico
 - ✅ **Embeddings Avançados** - Vector search 384 dims
@@ -22,12 +25,14 @@
 - ✅ **GitHub Integration** - Aprendizado de código
 
 ## 🚀 **DEPLOY AUTOMÁTICO**
+
 - **Trigger**: Push para branch main
 - **Build**: `npm install`
-- **Start**: `node server-definitivo.js`
+- **Start**: `node apps/api/src/server.js`
 - **Health**: `/health` endpoint
 
 ## 📊 **ENVIRONMENT VARIABLES**
+
 ```env
 NODE_ENV=production
 PORT=10000
@@ -38,6 +43,7 @@ JWT_SECRET=***
 ```
 
 ## 🎉 **MISSION Status: COMPLETED**
+
 **GROOT evolved from basic AI to enterprise platform!**
 
 🌳 **AI Developer Assistant - Global Access**

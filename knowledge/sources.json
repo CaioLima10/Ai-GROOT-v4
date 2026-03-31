@@ -6,6 +6,70 @@
     "allowed": true
   },
   {
+    "name": "GitHub REST API",
+    "type": "external",
+    "domain": "api.github.com",
+    "license": "repository_specific",
+    "allowed": true,
+    "notes": "Usar apenas metadados, README/snippets curtos com atribuicao e respeitando licenca do repositorio."
+  },
+  {
+    "name": "Stack Exchange API",
+    "type": "external",
+    "domain": "api.stackexchange.com",
+    "license": "CC-BY-SA",
+    "allowed": true,
+    "notes": "Perguntas e respostas exigem atribuicao e preservacao de licenca CC-BY-SA."
+  },
+  {
+    "name": "Wikipedia / Wikimedia APIs",
+    "type": "external",
+    "domain": "wikipedia.org",
+    "license": "CC-BY-SA-4.0",
+    "allowed": true,
+    "notes": "Preferir API oficial e guardar titulo, link e extratos atribuidos."
+  },
+  {
+    "name": "Wiktionary APIs",
+    "type": "external",
+    "domain": "wiktionary.org",
+    "license": "CC-BY-SA-4.0",
+    "allowed": true,
+    "notes": "Bom para linguas biblicas e vocabulos com atribuicao."
+  },
+  {
+    "name": "Wikisource APIs",
+    "type": "external",
+    "domain": "wikisource.org",
+    "license": "page_specific_public_domain_or_cc",
+    "allowed": true,
+    "notes": "Usar API oficial do MediaWiki e preservar atribuicao, pagina e licenca quando o texto estiver em dominio publico ou licenca compativel."
+  },
+  {
+    "name": "Open Library APIs",
+    "type": "external",
+    "domain": "openlibrary.org",
+    "license": "Open Library data terms",
+    "allowed": true,
+    "notes": "Usar API/dumps oficiais; nao usar como backend de alto volume."
+  },
+  {
+    "name": "Gutendex / Project Gutenberg metadata",
+    "type": "external",
+    "domain": "gutendex.com",
+    "license": "Project Gutenberg public domain metadata",
+    "allowed": true,
+    "notes": "Preferir metadados e links public domain; para volume grande, hospedar espelho proprio."
+  },
+  {
+    "name": "Sefaria API",
+    "type": "external",
+    "domain": "sefaria.org",
+    "license": "mixed_text_licenses",
+    "allowed": true,
+    "notes": "Usar API oficial e preservar referencia, versao e licenca; preferir textos Public Domain, CC0, CC-BY ou CC-BY-SA quando possivel."
+  },
+  {
     "name": "YouVersion / Bible API",
     "type": "external",
     "license": "requires_agreement",

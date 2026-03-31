@@ -1,0 +1,156 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: giom-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api1
+      - api2
+    networks:
+      - giom-net
+
+  api1:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runner
+    image: giom-backend:prod
+    container_name: giom-api-1
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      REDIS_CLUSTER_URLS: redis://redis1:6379,redis://redis2:6379,redis://redis3:6379
+      MEMORY_BUDGET: "2000"
+      MAX_RETRIEVED_ITEMS: "10"
+    depends_on:
+      redis-init:
+        condition: service_completed_successfully
+    networks:
+      - giom-net
+
+  api2:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runner
+    image: giom-backend:prod
+    container_name: giom-api-2
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      REDIS_CLUSTER_URLS: redis://redis1:6379,redis://redis2:6379,redis://redis3:6379
+      MEMORY_BUDGET: "2000"
+      MAX_RETRIEVED_ITEMS: "10"
+    depends_on:
+      redis-init:
+        condition: service_completed_successfully
+    networks:
+      - giom-net
+
+  doc-reader:
+    image: python:3.11-slim
+    container_name: giom-doc-reader
+    restart: unless-stopped
+    working_dir: /app
+    command: bash -lc "pip install --no-cache-dir -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8090"
+    environment:
+      DOC_READER_QUEUE_BACKEND: redis
+      DOC_READER_REDIS_URL: redis://redis1:6379/0
+      DOC_READER_OCR_LANG: pt
+      DOC_READER_ENABLE_PADDLE: "true"
+    volumes:
+      - ../../services/document-reader:/app
+    depends_on:
+      redis-init:
+        condition: service_completed_successfully
+    networks:
+      - giom-net
+
+  redis1:
+    image: redis:7-alpine
+    container_name: giom-redis-1
+    restart: unless-stopped
+    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+    volumes:
+      - redis1-data:/data
+    networks:
+      - giom-net
+
+  redis2:
+    image: redis:7-alpine
+    container_name: giom-redis-2
+    restart: unless-stopped
+    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+    volumes:
+      - redis2-data:/data
+    networks:
+      - giom-net
+
+  redis3:
+    image: redis:7-alpine
+    container_name: giom-redis-3
+    restart: unless-stopped
+    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+    volumes:
+      - redis3-data:/data
+    networks:
+      - giom-net
+
+  redis-init:
+    image: redis:7-alpine
+    container_name: giom-redis-init
+    depends_on:
+      - redis1
+      - redis2
+      - redis3
+    entrypoint: [ "sh", "-c" ]
+    command: >-
+      "sleep 5; redis-cli --cluster create redis1:6379 redis2:6379 redis3:6379 --cluster-replicas 0 --cluster-yes || true"
+    networks:
+      - giom-net
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: giom-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - api1
+      - api2
+    networks:
+      - giom-net
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: giom-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - giom-net
+
+networks:
+  giom-net:
+    driver: bridge
+
+volumes:
+  redis1-data:
+  redis2-data:
+  redis3-data:
+  grafana-data:

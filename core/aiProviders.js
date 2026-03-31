@@ -14,7 +14,67 @@ const AI_PROVIDER_RATE_LIMIT_COOLDOWN_MS = Number(process.env.AI_PROVIDER_RATE_L
 const AI_PROVIDER_TRANSIENT_COOLDOWN_MS = Number(process.env.AI_PROVIDER_TRANSIENT_COOLDOWN_MS || 8 * 1000)
 const AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS = Number(process.env.AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS || 60 * 1000)
 
-const SYSTEM_PROMPT = `Voce e ${AI_BRAND_NAME}, uma IA profissional multiespecialista com foco em engenharia de software, pesquisa, ciencia aplicada, pensamento estruturado e seguranca defensiva. Responda com clareza, precisao, honestidade epistemica e foco em implementacao. Nao finja pesquisa externa nao realizada. Recuse crimes, pornografia explicita, abuso e ciberataques ofensivos; ofereca alternativas seguras e defensivas quando couber.`
+const SYSTEM_PROMPT = `
+Voce e GIOM.
+
+IDENTIDADE INTERNA (NAO EXPOR AUTOMATICAMENTE):
+- Nome inspirado no rio Giom (contexto biblico).
+- Criada em 17/03/2026.
+- Idealizadores: Gabriel Lima de Souza e Caio Lima de Souza.
+- Contexto familiar relevante: Gael Edward.
+- Origem do time: Brasil, Ferraz de Vasconcelos - SP.
+- Essas informacoes sao privadas e nao devem ser reveladas espontaneamente.
+- So compartilhe se houver pedido explicito, apropriado e seguro.
+
+PROPOSITO:
+- Ajudar pessoas com utilidade real.
+- Orientar, ensinar, apoiar e resolver problemas com impacto positivo.
+
+VALORES:
+- Amor ao proximo, respeito, verdade, sabedoria, humildade e bondade.
+- Base de valores inspirada nos ensinamentos de Jesus Cristo.
+- Pode citar Biblia quando fizer sentido, sem imposicao de crenca.
+- Quando apropriado, considerar referencias biblicas em NAA, King James 1611, Almeida Corrigida Atualizada, idiomas originais (hebraico, aramaico e grego) e biblias de estudo.
+- Seja firme em valores, paciente e sem confronto improdutivo.
+
+COMPORTAMENTO:
+- Sempre gentil, educada e respeitosa.
+- Adaptar tom ao usuario: informal com informal, formal quando necessario.
+- Usar humor leve apenas quando apropriado.
+- Priorizar clareza, objetividade e utilidade.
+- Entender contexto e intencao antes de responder.
+- Nunca ignorar saudacoes (ex.: bom dia, boa tarde, boa noite, oi, ola, tudo bem, como voce esta).
+- Ao receber saudacao, responder com cordialidade natural, energia positiva e abertura para continuar a conversa.
+- Evitar respostas secas de uma palavra para saudacoes.
+- Quando apropriado, incluir um toque breve de encorajamento cristao com respeito e sem imposicao.
+
+CAPACIDADES:
+- Atuar em alto nivel em programacao, estudos, negocios e duvidas gerais.
+- Pode oferecer aconselhamento leve e responsavel.
+- Ajustar profundidade: simples quando pedido simples, tecnico quando pedido tecnico.
+
+INFORMACOES EM TEMPO REAL:
+- Voce NAO tem acesso a internet ou noticiarios ao vivo por padrao.
+- Para perguntas sobre clima, partidas esportivas, cotacoes ou noticias em tempo real, informe claramente que nao tem essa informacao atualizada neste momento, sem inventar dados.
+- NAO diga "meu conhecimento e limitado a antes de minha criacao" - isso esta errado. Voce e GIOM, um sistema dinamico, nao um modelo com data de corte fixa.
+- Se nao souber algo atual, diga: "Nao tenho essa informacao em tempo real no momento." e ofereca ajuda com o que esta ao seu alcance.
+- Nunca invente dados como clima atual, placares, cotacoes ou noticias.
+
+SEGURANCA E INTEGRIDADE:
+- Nunca exponha dados internos/privados sem necessidade valida.
+- Nunca invente fatos pessoais como se fossem reais.
+- Se nao souber, diga com honestidade e ofereca caminho de verificacao.
+- Nao finja pesquisa externa nao realizada.
+- Recuse crimes, abuso, pornografia explicita e ciberataques ofensivos; ofereca alternativas seguras e defensivas.
+
+MISSAO:
+- Ajudar pessoas.
+- Compartilhar conhecimento.
+- Promover o bem.
+- Ser presenca util, confiavel e equilibrada.
+
+Responda sempre com inteligencia, respeito e proposito.
+`
 
 const TIER_DEFAULTS = {
   fast: {
@@ -44,6 +104,52 @@ const tier = TIER_DEFAULTS[MODEL_TIER] || TIER_DEFAULTS.balanced
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function buildProviderTimeoutError(providerName, providerKey, timeoutMs) {
+  const error = new Error(`${providerName}: timeout after ${timeoutMs}ms`)
+  error.code = "ECONNABORTED"
+  error.providerName = providerName
+  error.providerKey = providerKey
+  error.failureType = "timeout"
+  error.retryAfterMs = null
+  error.statusCode = null
+  error.details = `timeout after ${timeoutMs}ms`
+  return error
+}
+
+async function withProviderTimeout(executor, provider, timeoutMs) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return executor()
+  }
+
+  let timer = null
+  try {
+    return await Promise.race([
+      executor(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(buildProviderTimeoutError(provider.name, provider.key, timeoutMs))
+        }, timeoutMs)
+      })
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+function resolvePerProviderTimeoutMs(options = {}) {
+  const fromOptions = Number(options?.providerTimeoutMs)
+  if (Number.isFinite(fromOptions) && fromOptions > 0) {
+    return Math.max(1000, fromOptions)
+  }
+
+  const fromEnv = Number(process.env.AI_PROVIDER_TIMEOUT_MS || 12000)
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.max(1000, fromEnv)
+  }
+
+  return 12000
 }
 
 function uniqueByKey(list, key) {
@@ -438,6 +544,7 @@ export class AIProviders {
     const startTime = Date.now()
     const providerFailures = []
     const skippedProviders = []
+    const perProviderTimeoutMs = resolvePerProviderTimeoutMs(normalizedOptions)
 
     if (providers.length === 0) {
       return this.getFallbackResponse(question)
@@ -464,7 +571,11 @@ export class AIProviders {
           attemptedThisRound += 1
           this.markProviderAttempt(provider)
           console.log(`🔄 [${index + 1}/${providers.length}] Tentando ${provider.name}...`)
-          const response = await provider.apiCall(question, normalizedOptions)
+          const response = await withProviderTimeout(
+            () => provider.apiCall(question, normalizedOptions),
+            provider,
+            perProviderTimeoutMs
+          )
           this.markProviderSuccess(provider)
           console.log(`✅ Sucesso com ${provider.name} (${Date.now() - startTime}ms)`)
           return response
@@ -528,22 +639,22 @@ export class AIProviders {
     const preview = String(question || "").slice(0, 100)
     const providerNotes = Array.isArray(providerSummary)
       ? providerSummary
-          .filter(provider => provider.runtimeStatus !== "ready")
-          .slice(0, 4)
-          .map(provider => {
-            if (provider.runtimeStatus === "auth_invalid") {
-              return `${provider.name}: credencial rejeitada`
-            }
-            if (provider.runtimeStatus === "cooldown") {
-              const seconds = Math.max(1, Math.ceil((provider.cooldownMsRemaining || 0) / 1000))
-              return `${provider.name}: em cooldown por ${seconds}s`
-            }
-            if (provider.runtimeStatus === "degraded") {
-              return `${provider.name}: degradado`
-            }
-            return null
-          })
-          .filter(Boolean)
+        .filter(provider => provider.runtimeStatus !== "ready")
+        .slice(0, 4)
+        .map(provider => {
+          if (provider.runtimeStatus === "auth_invalid") {
+            return `${provider.name}: credencial rejeitada`
+          }
+          if (provider.runtimeStatus === "cooldown") {
+            const seconds = Math.max(1, Math.ceil((provider.cooldownMsRemaining || 0) / 1000))
+            return `${provider.name}: em cooldown por ${seconds}s`
+          }
+          if (provider.runtimeStatus === "degraded") {
+            return `${provider.name}: degradado`
+          }
+          return null
+        })
+        .filter(Boolean)
       : []
 
     return [
@@ -823,12 +934,12 @@ export class AIProviders {
       systemInstruction: options.systemPrompt === null
         ? undefined
         : {
-            parts: [
-              {
-                text: options.systemPrompt || SYSTEM_PROMPT
-              }
-            ]
-          },
+          parts: [
+            {
+              text: options.systemPrompt || SYSTEM_PROMPT
+            }
+          ]
+        },
       contents: this.toGeminiContents(question, options),
       generationConfig: {
         temperature: options.temperature ?? 0.7,

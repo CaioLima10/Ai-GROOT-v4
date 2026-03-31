@@ -8,53 +8,76 @@ async function read(relativePath) {
   return fs.readFile(path.join(root, relativePath), "utf8")
 }
 
-const [html, css, js, api, promptBuilder] = await Promise.all([
-  read("apps/web/public/index.html"),
-  read("apps/web/public/style.css"),
-  read("apps/web/public/chat.js"),
+const [
+  page,
+  css,
+  renderer,
+  layout,
+  api,
+  promptBuilder,
+  chatComposer,
+  chatConversation,
+  chatHeader,
+  chatSidebar,
+  uploadExtractionRuntime
+] = await Promise.all([
+  read("apps/web-next/src/app/page.tsx"),
+  read("apps/web-next/src/app/globals.css"),
+  read("apps/web-next/src/components/messages/MessageRenderer.tsx"),
+  read("apps/web-next/src/app/layout.tsx"),
   read("apps/api/src/enterpriseServer.js"),
-  read("packages/ai-core/src/promptBuilder.js")
+  read("packages/ai-core/src/promptBuilder.js"),
+  read("apps/web-next/src/components/chat/ChatComposer.tsx"),
+  read("apps/web-next/src/components/chat/ChatConversation.tsx"),
+  read("apps/web-next/src/components/chat/ChatHeader.tsx"),
+  read("apps/web-next/src/components/chat/ChatSidebar.tsx"),
+  read("apps/api/src/enterpriseUploadExtractionRuntime.js")
 ])
+
+const chatMarkup = [page, chatComposer, chatConversation, chatHeader, chatSidebar].join("\n")
 
 const checks = [
   {
     name: "composer keeps attachment preview inside the message area",
     run() {
-      assert.match(html, /class="composer-center"/)
-      assert.match(html, /<div class="file-preview hidden" id="filePreview"><\/div>[\s\S]*<textarea id="msg"/)
-      assert.match(js, /function renderFilePreview\(/)
+      assert.match(chatMarkup, /id="composerShell"/)
+      assert.match(chatMarkup, /composer-selected-files/)
+      assert.match(chatMarkup, /id="msg"/)
+      assert.match(chatMarkup, /id="fileInput"/)
     }
   },
   {
     name: "message send flow stays wired to button and Enter key",
     run() {
-      assert.match(js, /elements\.sendBtn\?\.addEventListener\("click", sendMessage\)/)
-      assert.match(js, /event\.key === "Enter"[\s\S]*sendMessage\(\)/)
-      assert.match(js, /async function sendMessage\(/)
+      assert.match(chatMarkup, /onSubmit=\{submitMessage\}/)
+      assert.match(chatMarkup, /onKeyDown=\{onComposerKeyDown\}/)
+      assert.match(chatMarkup, /id="sendBtn"/)
     }
   },
   {
     name: "sidebar supports real open-close behavior",
     run() {
-      assert.match(js, /function toggleSidebar\(force\)/)
-      assert.match(js, /sidebar-collapsed/)
-      assert.match(css, /sidebar-collapsed/)
+      assert.match(page, /sidebarOpen \? "sidebar-open" : "sidebar-closed"/)
+      assert.match(chatMarkup, /id="mobileMenuBtn"/)
+      assert.match(chatMarkup, /id="sidebarScrim"/)
+      assert.match(css, /sidebar-open/)
+      assert.match(css, /sidebar-closed/)
     }
   },
   {
     name: "chat owns its own scroll and sticky composer",
     run() {
       assert.match(css, /\.chat-stream\s*\{[\s\S]*overflow-y:\s*auto/)
-      assert.match(css, /\.composer-wrap\s*\{[\s\S]*position:\s*sticky/)
-      assert.match(js, /function syncScrollButton\(/)
+      assert.match(css, /\.composer-shell\s*\{[\s\S]*position:\s*sticky/)
+      assert.match(chatMarkup, /id="scrollBottomBtn"/)
     }
   },
   {
     name: "backend understands uploads for pdf and image OCR",
     run() {
       assert.match(api, /app\.post\("\/upload"/)
-      assert.match(api, /extractTextFromPdf/)
-      assert.match(api, /extractTextFromImage/)
+      assert.match(uploadExtractionRuntime, /extractTextFromPdf/)
+      assert.match(uploadExtractionRuntime, /extractTextFromImage/)
       assert.match(api, /visualImageUnderstanding:\s*uploadOcrEnabled/)
     }
   },
@@ -63,6 +86,15 @@ const checks = [
     run() {
       assert.match(promptBuilder, /nao abra com autoapresentacao/i)
       assert.match(api, /postProcessAssistantResponse/)
+    }
+  },
+  {
+    name: "message renderer covers rich blocks and production layout avoids remote fonts",
+    run() {
+      assert.match(page, /MessageRenderer/)
+      assert.match(renderer, /ImageBlock/)
+      assert.match(renderer, /DocumentBlock/)
+      assert.doesNotMatch(layout, /next\/font\/google/)
     }
   }
 ]

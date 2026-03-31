@@ -1,0 +1,31 @@
+name: GIOM Prod Stack Check
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "deploy/giom-prod/**"
+      - "scripts/render-giom-poster-a3.mjs"
+      - "docs/GIOM-BIG-TECH-POSTER.svg"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium
+
+      - name: Render poster A3 assets
+        run: node scripts/render-giom-poster-a3.mjs
+
+      - name: Validate docker compose syntax
+        run: docker compose -f deploy/giom-prod/docker-compose.prod.yml config

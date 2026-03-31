@@ -1,0 +1,57 @@
+{
+  "version": 2,
+  "name": "giom-frontend",
+  "buildCommand": "npm ci && npm run web-next:build",
+  "outputDirectory": "apps/web-next/.next",
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "rewrites": [
+    {
+      "source": "/backend/:path*",
+      "destination": "https://giom-backend.onrender.com/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(self), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/backend/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_BACKEND_PROXY_TARGET": "https://giom-backend.onrender.com"
+  },
+  "regions": [
+    "iad1"
+  ],
+  "cleanUrls": true
+}

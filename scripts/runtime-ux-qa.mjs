@@ -4,11 +4,21 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 
-const BASE_URL = "http://localhost:3000"
+const FRONTEND_URL = "http://localhost:3002"
+const BACKEND_URL = "http://localhost:3000"
 const REPORT_PATH = path.join(process.cwd(), "reports", "runtime-ux-qa.json")
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function spawnCommand(command, args, options = {}) {
+  if (process.platform === "win32") {
+    const comspec = process.env.ComSpec || "C:\\Windows\\System32\\cmd.exe"
+    return spawn(comspec, ["/d", "/s", "/c", [command, ...args].join(" ")], options)
+  }
+
+  return spawn(command, args, options)
 }
 
 async function waitForServer(url, timeoutMs = 45000) {
@@ -26,15 +36,14 @@ async function waitForServer(url, timeoutMs = 45000) {
 }
 
 function startDevServer() {
-  const child = spawn("npm run dev", {
-    shell: true,
+  const child = spawnCommand("npm", ["run", "dev"], {
     cwd: process.cwd(),
     stdio: "pipe",
     env: process.env
   })
 
-  child.stdout.on("data", () => {})
-  child.stderr.on("data", () => {})
+  child.stdout.on("data", () => { })
+  child.stderr.on("data", () => { })
   return child
 }
 
@@ -47,6 +56,14 @@ function createIssue(problem, cause, fix, validate) {
   }
 }
 
+async function waitComposerReady(page, timeout = 20000) {
+  await page.waitForFunction(() => {
+    const send = document.querySelector("#sendBtn")
+    const msg = document.querySelector("#msg")
+    return Boolean(send && msg && !send.disabled && !msg.disabled)
+  }, { timeout })
+}
+
 async function run() {
   const issues = []
   const checks = []
@@ -54,9 +71,10 @@ async function run() {
 
   try {
     server = startDevServer()
-    const up = await waitForServer(`${BASE_URL}/health`)
-    if (!up) {
-      throw new Error("Servidor não subiu em tempo hábil para QA runtime")
+    const backendUp = await waitForServer(`${BACKEND_URL}/health`)
+    const frontendUp = await waitForServer(FRONTEND_URL)
+    if (!backendUp || !frontendUp) {
+      throw new Error("Frontend ou backend não subiram em tempo hábil para QA runtime")
     }
 
     const browser = await chromium.launch({ headless: true })
@@ -64,7 +82,7 @@ async function run() {
     const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await desktop.newPage()
 
-    await page.goto(BASE_URL, { waitUntil: "domcontentloaded" })
+    await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" })
 
     await page.waitForSelector("#chat", { timeout: 8000 })
     checks.push({ name: "load_chat", ok: true })
@@ -72,22 +90,22 @@ async function run() {
     await page.locator("#msg").fill("Teste de fluxo runtime 1")
     await page.keyboard.press("Enter")
 
-    await page.waitForTimeout(300)
-    const hasWorkingState = await page.evaluate(() => {
+    const hasWorkingState = await page.waitForFunction(() => {
       const sendBtn = document.querySelector("#sendBtn")
-      return Boolean(sendBtn?.classList.contains("is-working"))
-    })
+      return Boolean(sendBtn?.classList.contains("is-working") || sendBtn?.disabled)
+    }, { timeout: 2500 }).then(() => true).catch(() => false)
 
     if (!hasWorkingState) {
       issues.push(createIssue(
         "Estado de loading do envio não ficou evidente no início da requisição.",
         "Transição de estado pode estar curta demais ou removida antes da primeira pintura.",
-        "Manter classe is-working por no mínimo um frame visível e sincronizar com request start/end.",
-        "Enviar mensagem e confirmar botão com estado de progresso por pelo menos 200ms."
+        "Manter classe is-working sincronizada com o início e o fim da requisição.",
+        "Enviar mensagem e confirmar botão com estado de progresso logo após o submit."
       ))
     }
     checks.push({ name: "send_loading_state", ok: hasWorkingState })
 
+    await page.waitForTimeout(250)
     const thinkingCount = await page.evaluate(() => document.querySelectorAll("article[data-thinking='true']").length)
     if (thinkingCount > 1) {
       issues.push(createIssue(
@@ -99,10 +117,7 @@ async function run() {
     }
     checks.push({ name: "thinking_single_instance", ok: thinkingCount <= 1 })
 
-    await page.waitForFunction(() => {
-      const sendBtn = document.querySelector("#sendBtn")
-      return Boolean(sendBtn && !sendBtn.disabled)
-    }, { timeout: 15000 })
+    await waitComposerReady(page, 20000)
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "groot-qa-"))
     const txtFile = path.join(tempDir, "qa-sample.txt")
@@ -116,18 +131,18 @@ async function run() {
 
     await page.locator("#msg").fill("Teste com anexo")
     await page.locator("#sendBtn").click()
-    await page.waitForTimeout(450)
+    await page.waitForSelector(".chat-message.user .sent-file-chip", { timeout: 15000 }).catch(() => { })
 
-    const chipUploading = await page.evaluate(() => Boolean(document.querySelector("#filePreview .file-chip.is-uploading")))
-    if (!chipUploading) {
+    const sentFileChipVisible = await page.evaluate(() => Boolean(document.querySelector(".chat-message.user .sent-file-chip")))
+    if (!sentFileChipVisible) {
       issues.push(createIssue(
-        "Chip de anexo não mostrou estado visual de upload durante envio.",
-        "Render do preview pode estar sendo limpo cedo demais ou sem flag uploading.",
-        "Renderizar chip com classe is-uploading e spinner até concluir uploadPendingFile.",
-        "Anexar arquivo e confirmar classe is-uploading no preview durante requisição."
+        "Mensagem enviada com anexo não exibiu o arquivo no histórico do chat.",
+        "O upload pode estar chegando ao backend sem refletir o nome do arquivo no bubble do usuário.",
+        "Persistir uploadName/uploadNames na mensagem local antes da resposta final.",
+        "Enviar arquivo e confirmar .sent-file-chip na mensagem do usuário."
       ))
     }
-    checks.push({ name: "attachment_upload_state", ok: chipUploading })
+    checks.push({ name: "attachment_sent_chip", ok: sentFileChipVisible })
 
     await page.evaluate(() => {
       const list = document.querySelector("#chatStreamInner")
@@ -191,7 +206,7 @@ async function run() {
     }
 
     const sidebarStable = await page.evaluate(async () => {
-      const sidebar = document.querySelector(".sidebar")
+      const sidebar = document.querySelector("#sidebar")
       const chat = document.querySelector("#chat")
       if (!sidebar || !chat) return false
       const before = sidebar.getBoundingClientRect().top
@@ -212,47 +227,44 @@ async function run() {
       ))
     }
 
-    let settingsVisible = false
-    const settingsLocator = page.locator('[data-view="settings"]')
-    const settingsClickable = await settingsLocator.isVisible().catch(() => false)
-    if (settingsClickable) {
-      await settingsLocator.click({ timeout: 3000 }).catch(() => {})
-      settingsVisible = await page.evaluate(() => {
-        const settings = document.querySelector("#view-settings")
-        return Boolean(settings && settings.classList.contains("active"))
-      })
+    let authModalVisible = false
+    const authButton = page.locator("#topAuthLoginBtn")
+    const authButtonVisible = await authButton.isVisible().catch(() => false)
+    if (authButtonVisible) {
+      await authButton.click({ timeout: 3000 }).catch(() => { })
+      authModalVisible = await page.locator("#authModal").isVisible().catch(() => false)
     }
 
-    if (!settingsVisible) {
-      const profileTrigger = page.locator("#profileTrigger")
-      const profileVisible = await profileTrigger.isVisible().catch(() => false)
-      if (profileVisible) {
-        await profileTrigger.click({ timeout: 3000 }).catch(() => {})
-        const settingsAction = page.locator('[data-action="profile-settings"]')
-        const settingsActionVisible = await settingsAction.isVisible().catch(() => false)
-        if (settingsActionVisible) {
-          await settingsAction.click({ timeout: 3000 }).catch(() => {})
-          settingsVisible = await page.evaluate(() => {
-            const settings = document.querySelector("#view-settings")
-            return Boolean(settings && settings.classList.contains("active"))
-          })
-        }
-      }
-    }
-
-    checks.push({ name: "settings_navigation", ok: settingsVisible })
-    if (!settingsVisible) {
+    checks.push({ name: "auth_modal_open", ok: authModalVisible })
+    if (!authModalVisible) {
       issues.push(createIssue(
-        "Configurações não abriram por navegação direta nem via menu de perfil.",
-        "Fluxo de acesso a settings está inconsistente entre estados visuais da interface.",
-        "Garantir rota de acesso a settings funcional por ao menos um caminho sempre visível.",
-        "Validar abertura de settings por sidebar e menu de perfil em estado anônimo e autenticado."
+        "Modal de autenticacao não abriu a partir do CTA principal.",
+        "Fluxo guest pode estar sem gatilho visível ou sem troca de estado para a modal.",
+        "Garantir que o CTA de login abra a modal em qualquer viewport.",
+        "Clicar no botão de login e validar #authModal visível."
+      ))
+    }
+
+    let authModalClosed = false
+    if (authModalVisible) {
+      await page.locator("#closeAuthModalBtn").click({ timeout: 3000 }).catch(() => { })
+      await page.waitForTimeout(150)
+      authModalClosed = await page.locator("#authModal").isHidden().catch(() => false)
+    }
+
+    checks.push({ name: "auth_modal_close", ok: authModalClosed })
+    if (authModalVisible && !authModalClosed) {
+      issues.push(createIssue(
+        "Modal de autenticacao abriu, mas não fechou pelo botão principal.",
+        "Estado local da modal pode estar sem sincronismo com o botão de fechar.",
+        "Garantir que o botão Fechar sempre desmonte o diálogo.",
+        "Abrir #authModal e fechar por #closeAuthModalBtn."
       ))
     }
 
     const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } })
     const mobilePage = await mobile.newPage()
-    await mobilePage.goto(BASE_URL, { waitUntil: "domcontentloaded" })
+    await mobilePage.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" })
     const mobileMenuLocator = mobilePage.locator("#mobileMenuBtn")
     const mobileMenuAvailable = await mobileMenuLocator.isVisible().catch(() => false)
 
@@ -305,7 +317,7 @@ async function run() {
 
     const report = {
       generatedAt: new Date().toISOString(),
-      baseUrl: BASE_URL,
+      baseUrl: FRONTEND_URL,
       checks,
       issues,
       summary: {

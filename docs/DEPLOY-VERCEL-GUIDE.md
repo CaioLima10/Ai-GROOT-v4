@@ -1,90 +1,50 @@
-# 🚀 GUIA DEPLOY GIOM - VERCEL (WEB ESTÁTICA)
+# GUIA DEPLOY GIOM - VERCEL
 
-## 📋 QUANDO USAR
+## Quando usar
 
-Use Vercel para publicar a interface web oficial do monorepo em `apps/web/public`.
+Use o Vercel para publicar o frontend oficial em Next.js do monorepo:
 
-Para a API principal do GIOM, prefira:
-- **Render**
-- **Railway**
-- **Zeabur**
+- Frontend oficial: `apps/web-next`
+- Backend oficial: `apps/api/src/server.js`
 
-O backend oficial continua em `apps/api/src/server.js`.
+O backend continua melhor hospedado em Render, Railway ou Zeabur. No Vercel, o foco aqui e a camada web.
 
-## 📋 PASSO A PASSO
+## Passo a passo
 
-### 1️⃣ CRIAR CONTA VERCEL
-- **Acesse**: https://vercel.com
-- **Clique**: "Sign Up"
-- **Use**: GitHub login
-- **Plano**: Hobby
+### 1. Importar o repositório
 
-### 2️⃣ IMPORTAR O PROJETO
-1. **Dashboard**: "Add New" → "Project"
-2. **Import**: seu repositório do monorepo
-3. **Framework**: "Other"
-4. **Root Directory**: `apps/web/public`
+1. Acesse https://vercel.com
+2. Clique em `Add New` -> `Project`
+3. Importe este repositório
+4. Mantenha o `Root Directory` na raiz do repositório
+5. Framework: `Next.js`
 
-### 3️⃣ CONFIGURAÇÃO
-Para o uso estático, não existe mais dependência de `server-definitivo.js`.
+### 2. Build e runtime
 
-O ponto oficial da web é:
+Este projeto ja possui [`vercel.json`](/c:/Users/GabeG/Desktop/Ai-GROOT/vercel.json) configurado para o frontend novo.
 
-```text
-apps/web/public
-```
+Config atual:
 
-Arquivos principais:
-- `index.html`
-- `admin.html`
-- `chat.js`
-- `style.css`
+- `buildCommand`: `npm ci && npm run web-next:build`
+- `outputDirectory`: `apps/web-next/.next`
+- rewrite de `/backend/:path*` para o backend publico
 
-### 4️⃣ VARIÁVEIS DE AMBIENTE
-Se a interface precisar conversar com uma API remota, configure apenas a URL pública do backend que estiver hospedado no Render, Railway ou Zeabur.
+### 3. Variaveis de ambiente
 
-Exemplo:
+Se o backend estiver fora do Vercel, configure:
 
 ```env
-API_BASE_URL=https://sua-api-publica.com
+NEXT_PUBLIC_BACKEND_PROXY_TARGET=https://seu-backend-publico.com
 ```
 
-### 5️⃣ DEPLOY
-- **Build**: imediato para conteúdo estático
-- **Deploy**: automático após push
-- **URL**: gerada pelo Vercel
+### 4. Deploy
 
----
+- Build: automatico apos push
+- URL: gerada pelo Vercel
+- Frontend servido a partir de `apps/web-next`
 
-## 🔗 LINKS DIRETOS
+## Fonte oficial do monorepo
 
-### 🚀 VERCEL CADASTRO:
-https://vercel.com/signup
-
-### 🚀 DASHBOARD:
-https://vercel.com/dashboard
-
-### 🚀 GUIA OFICIAL:
-https://vercel.com/docs
-
----
-
-## 📋 LIMITAÇÕES
-
-### ⚠️ IMPORTANTE
-- Vercel não é o caminho principal para rodar esta API Node/streaming como servidor persistente
-- Para streaming, memória remota e runtime contínuo, use o backend oficial em outra plataforma
-- O Vercel aqui entra como hospedagem da camada web
-
----
-
-## 🎯 RECOMENDAÇÃO
-
-### 🥇 MELHOR COMBINAÇÃO
-- **Frontend**: Vercel com `apps/web/public`
-- **Backend**: Render ou Railway com `apps/api/src/server.js`
-
-### ✅ FONTE OFICIAL DO MONOREPO
-- Web: `apps/web/public`
+- Web: `apps/web-next`
 - API: `apps/api/src/server.js`
 - Desktop: `apps/desktop/src/main.cjs`

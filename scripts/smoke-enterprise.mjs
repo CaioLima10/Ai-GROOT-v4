@@ -1,7 +1,7 @@
 import { spawn } from "child_process"
 
 const SERVER_URL = "http://127.0.0.1:3000"
-const SERVER_ENTRY = "apps/api/src/server.js"
+const SERVER_ENTRY = "apps/api/dist/server.js"
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))

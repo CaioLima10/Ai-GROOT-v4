@@ -1,0 +1,45 @@
+[
+  {
+    "id": "808dbb351530",
+    "fileName": "pack-0636-biologia-base-nivel-1.md",
+    "kind": "text",
+    "extractionMethod": "text:.md",
+    "bucket": "giom-private-library",
+    "fileObjectPath": "language-core/808dbb351530-pack-0636-biologia-base-nivel-1.md",
+    "textObjectPath": "language-core/808dbb351530-pack-0636-biologia-base-nivel-1.txt",
+    "fileObjectPaths": [
+      "language-core/808dbb351530-pack-0636-biologia-base-nivel-1.md"
+    ],
+    "textObjectPaths": [
+      "language-core/808dbb351530-pack-0636-biologia-base-nivel-1.txt"
+    ],
+    "fileManifestPath": null,
+    "textManifestPath": null,
+    "multipartStored": false,
+    "pages": null,
+    "sizeBytes": 1336,
+    "extractedChars": 1329,
+    "extractedFromStub": false,
+    "chunkCount": 1,
+    "indexMode": "full",
+    "rightsDeclaration": "user_generated_internal",
+    "importedAt": "2026-03-30T02:15:38.970Z",
+    "category": "language",
+    "categories": [
+      "private_library",
+      "science",
+      "languages",
+      "education"
+    ],
+    "modules": [
+      "research",
+      "math_science"
+    ],
+    "bibleStudyModules": [],
+    "themeKeywords": [],
+    "matchedTopicIds": [
+      "core_sciences_and_languages"
+    ],
+    "language": "pt"
+  }
+]

@@ -19,6 +19,9 @@ export function buildCapabilityMatrix(options = {}) {
     imageGenerationProvider = "disabled",
     liveWebEnabled = false,
     weatherForecastEnabled = false,
+    googleSearchEnabled = false,
+    googleImageSearchEnabled = false,
+    sportsScheduleEnabled = false,
     browserPdfExport = true,
     serverPdfGeneration = false,
     structuredDocsNative = false,
@@ -57,7 +60,10 @@ export function buildCapabilityMatrix(options = {}) {
         label: "Research",
         items: [
           buildItem("live_web", "Live web search", liveWebEnabled ? "ready" : "planned", liveWebEnabled ? "Live web connectors are active in this runtime." : "Google, Bing and Yahoo live search are not integrated in this runtime yet."),
+          buildItem("google_search", "Google Custom Search", googleSearchEnabled ? "ready" : "planned", googleSearchEnabled ? "Google Custom Search is configured with runtime filters and safe search." : "Google Custom Search still needs API key and search engine configuration."),
+          buildItem("google_image_search", "Google image search", googleImageSearchEnabled ? "ready" : "planned", googleImageSearchEnabled ? "Google image search is active via Programmable Search with safe filters." : "Google image search is not configured in this runtime yet."),
           buildItem("weather_forecast", "Live weather and forecast", weatherForecastEnabled ? "ready" : "planned", weatherForecastEnabled ? "Operational weather lookups and forecast queries are active in this runtime." : "Live forecast data is not integrated in this runtime yet."),
+          buildItem("sports_schedule", "Live sports schedule", sportsScheduleEnabled ? "ready" : "planned", sportsScheduleEnabled ? "Live next-match lookups for supported teams are active in this runtime." : "Live sports schedule data is not integrated in this runtime yet."),
           buildItem("source_honesty", "Source honesty", "ready", "GIOM should describe the difference between local knowledge, RAG and live web access honestly.")
         ]
       },

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Documentação oficial (exemplo)",
+    "domain": "docs.exemplo.com",
+    "license": "permissive",
+    "allowed": true
+  },
+  {
+    "name": "Resumo interno",
+    "domain": "internal.local",
+    "license": "internal",
+    "allowed": true
+  },
+  {
+    "name": "MDN Web Docs",
+    "domain": "developer.mozilla.org",
+    "license": "CC-BY-SA-2.5+ (docs), samples CC0",
+    "allowed": false
+  },
+  {
+    "name": "Stack Overflow",
+    "domain": "stackoverflow.com",
+    "license": "CC-BY-SA (ver termos)",
+    "allowed": false
+  },
+  {
+    "name": "AWS Documentation",
+    "domain": "docs.aws.amazon.com",
+    "license": "CC-BY-SA-4.0 (docs), MIT-0 (code)",
+    "allowed": false
+  },
+  {
+    "name": "Angular Docs",
+    "domain": "angular.dev",
+    "license": "CC-BY-4.0 (docs), MIT (code)",
+    "allowed": false
+  },
+  {
+    "name": "TypeScript Docs",
+    "domain": "www.typescriptlang.org",
+    "license": "CC-BY-4.0 (docs), MIT (code)",
+    "allowed": false
+  },
+  {
+    "name": "Amazon Pay Docs",
+    "domain": "developer.amazon.com",
+    "license": "terms",
+    "allowed": false
+  },
+  {
+    "name": "Mercado Pago Docs",
+    "domain": "www.mercadopago.com.br",
+    "license": "terms",
+    "allowed": false
+  }
+]

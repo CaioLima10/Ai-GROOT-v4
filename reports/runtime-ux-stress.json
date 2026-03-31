@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-03-26T22:28:41.833Z",
-  "baseUrl": "http://localhost:3000",
+  "generatedAt": "2026-03-30T19:37:21.328Z",
+  "baseUrl": "http://localhost:3001",
   "checks": [
     {
       "name": "sequential_messages",
@@ -11,18 +11,25 @@
       "ok": true
     },
     {
-      "name": "repeated_attachment_no_stuck_state",
+      "name": "repeated_attachment_history_stable",
       "ok": true
     },
     {
       "name": "mobile_open_close_quick",
-      "ok": true
+      "ok": false
     }
   ],
-  "issues": [],
+  "issues": [
+    {
+      "problem": "Fluxo mobile abrir/fechar sidebar falhou sob teste rapido.",
+      "cause": "Sincronizacao de classes de estado pode estar inconsistente no mobile.",
+      "fix": "Padronizar toggleSidebar e fechamento por scrim.",
+      "validate": "Em 390x844, abrir por botao e fechar por scrim com sucesso."
+    }
+  ],
   "summary": {
     "totalChecks": 4,
-    "passed": 4,
-    "failed": 0
+    "passed": 3,
+    "failed": 1
   }
 }

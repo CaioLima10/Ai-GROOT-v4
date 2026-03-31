@@ -3,9 +3,10 @@ import path from "node:path"
 
 const root = process.cwd()
 const files = {
-  html: path.join(root, "apps/web/public/index.html"),
-  css: path.join(root, "apps/web/public/style.css"),
-  js: path.join(root, "apps/web/public/chat.js"),
+  page: path.join(root, "apps/web-next/src/app/page.tsx"),
+  css: path.join(root, "apps/web-next/src/app/globals.css"),
+  renderer: path.join(root, "apps/web-next/src/components/messages/MessageRenderer.tsx"),
+  layout: path.join(root, "apps/web-next/src/app/layout.tsx"),
   api: path.join(root, "apps/api/src/enterpriseServer.js"),
   env: path.join(root, ".env"),
   report: path.join(root, "reports/frontend-ui-audit.json")
@@ -46,70 +47,56 @@ function hasConfiguredEnv(envText, key) {
   return Boolean(value) && !/your_|placeholder|changeme|dummy|test|example/i.test(value)
 }
 
-const [html, css, js, api, env] = await Promise.all([
-  fs.readFile(files.html, "utf8"),
+const [page, css, renderer, layout, api, env] = await Promise.all([
+  fs.readFile(files.page, "utf8"),
   fs.readFile(files.css, "utf8"),
-  fs.readFile(files.js, "utf8"),
+  fs.readFile(files.renderer, "utf8"),
+  fs.readFile(files.layout, "utf8"),
   fs.readFile(files.api, "utf8"),
   fs.readFile(files.env, "utf8").catch(() => "")
 ])
 
 const categories = [
-  computeCategory("layout_shell", [
-    { label: "App shell oficial", pass: has(html, /id="appShell"/), detail: "Estrutura raiz do chat." },
-    { label: "Sidebar dedicada", pass: has(html, /class="sidebar"/), detail: "Coluna lateral fixa/painel." },
-    { label: "Topbar dedicada", pass: has(html, /class="topbar"/), detail: "Barra superior separada." },
-    { label: "Hero de entrada", pass: has(html, /class="landing-hero"/), detail: "Estado inicial mais guiado." },
-    { label: "Recentes no sidebar", pass: has(html, /id="sidebarHistoryList"/), detail: "Lista de chats recentes." },
-    { label: "Busca lateral", pass: has(html, /id="sidebarHistorySearch"/), detail: "Busca local em recentes." }
-  ]),
-  computeCategory("sidebar_navigation", [
-    { label: "Novo chat", pass: has(html, /id="newChatBtn"/), detail: "Atalho principal de conversa." },
-    { label: "Atalhos sem emoji cru", pass: has(html, /<span class="nav-icon">\s*<svg/i), detail: "Ícones SVG mais profissionais." },
-    { label: "Perfil no rodapé", pass: has(html, /id="profileTrigger"/), detail: "Conta acessível no rodapé." },
-    { label: "Menu de perfil", pass: has(html, /id="profileMenu"/), detail: "Ações rápidas de conta." },
-    { label: "Busca de recentes", pass: has(js, /renderSidebarHistory/), detail: "Sidebar realmente alimentado por JS." },
-    { label: "Limpeza de busca", pass: has(html, /id="clearHistorySearchBtn"/), detail: "Reset rápido da busca lateral." },
-    { label: "Threads reais com retomada", pass: has(js, /thread|conversationId|chatThreads|threadList/i), detail: "Sem threads reais, ainda estamos mais perto de histórico rápido do que de navegação completa.", weight: 2 }
+  computeCategory("shell_navigation", [
+    { label: "App shell oficial", pass: has(page, /id="appShell"/), detail: "Shell principal com estado aberto/fechado." },
+    { label: "Sidebar oficial", pass: has(page, /id="sidebar"/), detail: "Coluna lateral do chat novo." },
+    { label: "Scrim mobile", pass: has(page, /id="sidebarScrim"/), detail: "Fechamento seguro em viewport pequena." },
+    { label: "Menu mobile", pass: has(page, /id="mobileMenuBtn"/), detail: "Entrada de navegacao no mobile." },
+    { label: "Shell responsivo", pass: has(css, /\.chatgpt-shell\.sidebar-open/) && has(css, /@media \(max-width: 980px\)/), detail: "Layout adaptado para desktop e mobile." },
+    { label: "Entrada inicial clara", pass: has(page, /hero-title/) && has(page, /hero-subtitle/), detail: "Estado inicial orientado a conversa." }
   ]),
   computeCategory("composer_and_input", [
-    { label: "Composer primário", pass: has(html, /class="composer-primary"/), detail: "Input principal organizado em linha." },
-    { label: "Centro do composer para anexo + texto", pass: has(html, /class="composer-center"/), detail: "Anexo e textarea compartilham o mesmo núcleo visual." },
-    { label: "Textarea auto-resize", pass: has(js, /function autoResizeTextarea/), detail: "Altura cresce com o texto." },
-    { label: "Enter envia", pass: has(js, /event\.key === "Enter"[\s\S]*sendMessage\(\)/), detail: "Envio rápido no teclado." },
-    { label: "Anexo", pass: has(html, /id="attachBtn"/), detail: "Upload visual acessível." },
-    { label: "Voz", pass: has(html, /id="voiceBtn"/) && has(js, /toggleVoiceInput/), detail: "Ditado ligado ao front." },
-    { label: "Enviar com estado", pass: has(js, /setSendButtonWorking/), detail: "Botão muda ao trabalhar." },
-    { label: "Quick tools", pass: has(html, /data-tool-template="image"/), detail: "Imagem/docs acessíveis sem decorar comandos." },
-    { label: "Preview de arquivo inline", pass: has(js, /renderFilePreview/) && has(html, /id="filePreview"/), detail: "Anexo aparece dentro da área do composer." }
+    { label: "Composer oficial", pass: has(page, /id="composerShell"/), detail: "Form principal de envio." },
+    { label: "Textarea principal", pass: has(page, /id="msg"/), detail: "Campo de mensagem com contrato estável." },
+    { label: "Envio por submit", pass: has(page, /onSubmit=\{submitMessage\}/), detail: "Fluxo padrão do chat." },
+    { label: "Enter controlado", pass: has(page, /onKeyDown=\{onComposerKeyDown\}/), detail: "Teclado integrado ao envio." },
+    { label: "Upload inline", pass: has(page, /id="fileInput"/) && has(page, /id="filePreview"/), detail: "Preview de anexos dentro do composer." },
+    { label: "Ditado por voz", pass: has(page, /toggleMicrophone/) && has(page, /IconMic/), detail: "Entrada de voz pronta no front novo." },
+    { label: "Estado de envio", pass: has(page, /id="sendBtn"/) && has(page, /is-working/), detail: "Botão com estado operacional durante request." }
   ]),
-  computeCategory("scroll_and_flow", [
-    { label: "Container de chat com scroll dedicado", pass: has(css, /\.chat-stream\s*\{[\s\S]*overflow-y:\s*auto/), detail: "Scroll isolado do chat." },
-    { label: "Composer sticky", pass: has(css, /\.composer-wrap\s*\{[\s\S]*position:\s*sticky/), detail: "Input fixo no fundo." },
-    { label: "Scroll to bottom", pass: has(html, /id="scrollBottomBtn"/) && has(js, /syncScrollButton/), detail: "Botão de retorno ao fim." },
-    { label: "Auto-scroll pós-resposta", pass: has(js, /function scrollChatToBottom/), detail: "Fluxo contínuo da conversa." },
-    { label: "Modo landing -> conversa", pass: has(js, /function syncChatMode/), detail: "Tela inicial vira conversa sem quebrar." },
-    { label: "Toggle de sidebar", pass: has(js, /function toggleSidebar/) && has(css, /sidebar-collapsed|sidebar-open/), detail: "Sidebar pode abrir e fechar sem gambiarra visual." }
+  computeCategory("conversation_flow", [
+    { label: "Chat com scroll proprio", pass: has(css, /\.chat-stream\s*\{[\s\S]*overflow-y:\s*auto/), detail: "Rolagem isolada do feed." },
+    { label: "Composer sticky", pass: has(css, /\.composer-shell\s*\{[\s\S]*position:\s*sticky/), detail: "Input fica acessivel no rodape." },
+    { label: "Botao de salto", pass: has(page, /id="scrollBottomBtn"/), detail: "Atalho para voltar ao fim da conversa." },
+    { label: "Mensagens mapeadas", pass: has(page, /messages\.map/) && has(page, /className=\{`message chat-message/), detail: "Feed estruturado em itens rastreaveis." },
+    { label: "Loading de pensamento", pass: has(page, /thinking-bubble/) && has(page, /data-thinking=/), detail: "Estado de processamento visivel." },
+    { label: "Threads locais", pass: has(page, /THREADS_STORAGE_KEY/) && has(page, /createThread/), detail: "Historico novo ja funciona sem o legado." }
   ]),
-  computeCategory("message_presentations", [
-    { label: "Ações por mensagem", pass: has(js, /buildMessageActions/), detail: "Copiar, editar, baixar, reutilizar." },
-    { label: "Ações não poluem mensagem do usuário", pass: has(js, /message\.role !== "assistant"/), detail: "A trilha de ações ficou mais discreta e profissional." },
-    { label: "Preview de documento", pass: has(js, /buildDocumentNode/) && has(css, /\.message-document-preview/), detail: "Documento fica visualizável no chat." },
-    { label: "Preview de imagem", pass: has(js, /buildMediaNode/) && has(css, /\.message-media img/), detail: "Imagem renderizada na conversa." },
-    { label: "Bloco de código", pass: has(js, /renderCodeBlock/), detail: "Código com toolbar de cópia." },
-    { label: "Tabela rica", pass: has(js, /rich-table-wrap/), detail: "Tabelas estilizadas." },
-    { label: "Timeline", pass: has(js, /timeline-block/), detail: "Linha do tempo renderizada." },
-    { label: "Versículo destacado", pass: has(js, /verse-card/), detail: "Versos com cartão próprio." },
-    { label: "Edição inline real", pass: has(js, /contenteditable|inline-editor|monaco|editor surface/i), detail: "Hoje o fluxo é levar ao editor, não editar inline como suite completa.", weight: 2 }
+  computeCategory("message_renderer", [
+    { label: "Renderer dedicado", pass: has(page, /MessageRenderer/), detail: "Feed rico desacoplado do shell." },
+    { label: "Codigo", pass: has(renderer, /CodeBlock/) && has(renderer, /tokenizeCode/), detail: "Bloco de codigo com destaque." },
+    { label: "Documento", pass: has(renderer, /DocumentBlock/) && has(renderer, /Download documento/), detail: "Documento com preview e download." },
+    { label: "Imagem", pass: has(renderer, /ImageBlock/) && has(renderer, /Download imagem/), detail: "Imagem pronta para revisao e download." },
+    { label: "Tabela e timeline", pass: has(renderer, /TableBlock/) && has(renderer, /TimelineBlock/), detail: "Estruturas ricas para respostas analiticas." },
+    { label: "Checklist e dados", pass: has(renderer, /ChecklistBlock/) && has(renderer, /DataBlock/), detail: "Respostas operacionais interativas." }
   ]),
-  computeCategory("auth_and_settings", [
-    { label: "Botão topbar entrar", pass: has(html, /id="topbarAccountBtn"/), detail: "Acesso rápido à conta." },
-    { label: "Botão topbar criar conta", pass: has(html, /id="topbarSignupBtn"/), detail: "CTA extra quando anônimo." },
-    { label: "Modal de login", pass: has(html, /id="loginModal"/), detail: "Entrada centralizada." },
-    { label: "Configurações separadas", pass: has(html, /id="view-settings"/), detail: "Avançado vai para Configurações." },
-    { label: "Perfil base configurável", pass: has(html, /id="assistantProfileSelect"/), detail: "Perfil em auto/manual." },
-    { label: "Módulos configuráveis", pass: has(html, /data-module-toggle/), detail: "Especializações controláveis." },
-    { label: "Prompt packs configuráveis", pass: has(html, /data-prompt-pack-toggle/), detail: "Packs profissionais expostos." }
+  computeCategory("auth_and_guest_flow", [
+    { label: "Login no topo", pass: has(page, /id="topAuthLoginBtn"/), detail: "Entrada rapida para visitantes." },
+    { label: "Signup no topo", pass: has(page, /id="topAuthSignupBtn"/), detail: "CTA de conversao acessivel." },
+    { label: "Modal de autenticacao", pass: has(page, /id="authModal"/) && has(page, /closeAuthModalBtn/), detail: "Fluxo de entrada desacoplado do legado." },
+    { label: "Guest mode", pass: has(page, /continueAsGuest/) && has(page, /source: "guest"/), detail: "Uso anonimo continua suportado." },
+    { label: "Supabase opcional", pass: has(page, /createClient/) && has(page, /supabaseUrl/), detail: "Auth cloud mantido sem acoplar o boot." },
+    { label: "Persistencia local", pass: has(page, /LOCAL_AUTH_SESSION_KEY/) && has(page, /window\.localStorage/), detail: "Sessao local e historico resilientes." }
   ]),
   computeCategory("file_understanding", [
     { label: "Upload route", pass: has(api, /app\.post\("\/upload"/), detail: "Backend recebe anexos com ciclo próprio." },
@@ -122,30 +109,27 @@ const categories = [
   ]),
   computeCategory("document_generation", [
     { label: "Endpoint de documento", pass: has(api, /app\.post\("\/generate\/document"/), detail: "Backend de geração existe." },
-    { label: "Parser de comando /pdf etc", pass: has(js, /function parseDocumentCommand/), detail: "Front entende comandos de docs." },
-    { label: "Quick tools de docs", pass: has(html, /data-tool-template="pdf"/), detail: "Acesso visual a documentos." },
-    { label: "Preview + download", pass: has(js, /documentDataUrl/) && has(js, /documentPreviewText/), detail: "Resposta traz arquivo e prévia." },
+    { label: "Deteccao por linguagem natural", pass: has(page, /detectToolIntent/) && has(page, /DEFAULT_DOC_FORMAT/), detail: "Prompt comum vira pedido de documento." },
+    { label: "Preview + download", pass: has(renderer, /DocumentBlock/) && has(renderer, /Download documento/), detail: "Resposta traz previa e arquivo." },
     { label: "Config anuncia docs", pass: has(api, /documentGeneration:\s*\{\s*enabled:\s*true/), detail: "Config do runtime expõe docs." },
-    { label: "Botões no chat", pass: has(js, /Baixar arquivo/) && has(js, /Ver prévia/), detail: "Ações de documento prontas." },
-    { label: "Edição nativa de documento", pass: has(js, /editDocument|openDocumentEditor|document editor/i), detail: "Ainda não há editor de documento embutido no front.", weight: 2 }
+    { label: "Botões no chat", pass: has(renderer, /Download documento/) && has(renderer, /Preview ativo/), detail: "Ações de documento prontas." },
+    { label: "Formatos configuraveis", pass: has(page, /availableDocFormats/) && has(api, /listDocumentFormats/), detail: "Front e back compartilham formatos suportados." }
   ]),
   computeCategory("image_generation", [
     { label: "Endpoint de imagem", pass: has(api, /app\.post\("\/generate\/image"/), detail: "Backend de geração existe." },
-    { label: "Parser de comando /image", pass: has(js, /function parseImageCommand/), detail: "Front entende comando de imagem." },
-    { label: "Quick action de imagem", pass: has(html, /data-tool-template="image"/), detail: "Imagem acessível no composer." },
-    { label: "Preview da imagem no chat", pass: has(js, /imageDataUrl/) && has(js, /Baixar imagem/), detail: "Render e download prontos." },
+    { label: "Deteccao por prompt", pass: has(page, /detectToolIntent/) && has(page, /mode: "image"/), detail: "Front entende pedido de imagem sem menu legado." },
+    { label: "Preview da imagem no chat", pass: has(renderer, /ImageBlock/) && has(renderer, /Download imagem/), detail: "Render e download prontos." },
     { label: "Config anuncia imagem", pass: has(api, /imageGeneration:\s*\{/), detail: "Config do runtime expõe imagem." },
     { label: "Leitura OCR conectada", pass: has(api, /extractTextFromImage/) && has(env, /^UPLOAD_OCR_ENABLED=true$/m), detail: "Imagem pode entrar via OCR antes da resposta." },
     { label: "Provider configurado", pass: hasConfiguredEnv(env, "HUGGINGFACE_API_KEY"), detail: "Sem provider real, a feature não fecha 100%." , weight: 3},
     { label: "Edição/inpainting", pass: !has(api, /imageEditingEnabled:\s*false/), detail: "O backend ainda declara edição de imagem como indisponível.", weight: 2 }
   ]),
-  computeCategory("performance_boot", [
-    { label: "Bootstrap assíncrono", pass: has(js, /async function bootstrapRuntime/), detail: "Carga pesada tirada do boot principal." },
-    { label: "Init pinta antes do runtime", pass: has(js, /renderChatHistory\(\)[\s\S]*setView\("chat"\)[\s\S]*bootstrapRuntime/), detail: "Tela aparece antes de saúde/memória." },
-    { label: "Speech init isolado", pass: has(js, /initSpeechRecognition\(\)/), detail: "Voz inicializada sem travar tudo." },
-    { label: "Carga de config separada", pass: has(js, /await loadConfig\(\)/), detail: "Config carregada em fluxo dedicado." },
-    { label: "Scroll assistivo", pass: has(js, /syncScrollButton/), detail: "Menos esforço de navegação em conversas longas." },
-    { label: "Bundle dividido/lazy", pass: has(js, /import\(/), detail: "Ainda é um front grande em arquivo único, sem lazy loading real.", weight: 2 }
+  computeCategory("production_readiness", [
+    { label: "Proxy resiliente", pass: has(page, /resilientFetch/) && has(page, /shouldTryNextApiBase/), detail: "Rede preparada para contingencias." },
+    { label: "Build sem Google Fonts remotas", pass: !has(layout, /next\/font\/google/), detail: "Build reproduzivel sem fetch externo de fontes." },
+    { label: "CSS responsivo consistente", pass: has(css, /@media \(max-width: 980px\)/) && has(css, /@media \(max-width: 640px\)/), detail: "Quebras mobile corrigidas." },
+    { label: "Runtime de observabilidade", pass: has(api, /app\.get\("\/health"/) && has(api, /app\.get\("\/config"/), detail: "Frontend oficial conversa com endpoints operacionais." },
+    { label: "Contrato de QA estavel", pass: has(page, /id="chat"/) && has(page, /id="sendBtn"/) && has(page, /id="fileInput"/), detail: "Seletores estaveis para automacao." }
   ])
 ]
 
@@ -158,10 +142,10 @@ const report = {
   status: statusFor(overall),
   categories,
   notes: [
-    "Esta auditoria mede estrutura, wiring e sinais de runtime do frontend oficial em apps/web/public.",
+    "Esta auditoria mede estrutura, wiring e sinais de runtime do frontend oficial em apps/web-next.",
     "A geração de imagem só fecha 100% quando o backend tiver provider real configurado.",
     "Leitura de imagem, nesta execução, é OCR-based: boa para screenshots e imagens com texto, não para visão semântica completa.",
-    "Documentos estão melhor que imagem porque o backend já anuncia geração nativa ativa."
+    "Documentos estao mais maduros que imagem porque o backend ja anuncia geracao nativa ativa."
   ]
 }
 

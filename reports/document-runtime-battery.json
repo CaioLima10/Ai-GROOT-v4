@@ -1,0 +1,347 @@
+{
+  "generatedAt": "2026-03-29T08:06:17.936Z",
+  "serverUrl": "http://127.0.0.1:3521",
+  "score": 1,
+  "scenariosPassed": 15,
+  "scenariosTotal": 15,
+  "turnsPassed": 22,
+  "turnsTotal": 22,
+  "skipped": [],
+  "results": [
+    {
+      "id": "txt_followup",
+      "description": "Texto puro com follow-up contextual",
+      "upload": {
+        "id": "0ce51660-85ec-4e82-b9b1-bc4f66e1840a",
+        "name": "battery-text.txt",
+        "type": "text/plain",
+        "size": 207,
+        "expiresAt": 1774772110757,
+        "detectedType": "text/plain"
+      },
+      "turns": [
+        {
+          "question": "Qual e o objetivo principal do arquivo?",
+          "answer": "O objetivo principal do arquivo e validar leitura fiel de anexos no runtime.",
+          "passed": true
+        },
+        {
+          "question": "Agora liste as tres prioridades em itens curtos.",
+          "answer": "As prioridades do documento sao:\n1. Clareza de resposta.\n2. Memoria de follow-up.\n3. Honestidade quando a leitura vier parcial.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "pdf_followup",
+      "description": "PDF textual com pergunta direta e resumo",
+      "upload": {
+        "id": "d34f95bf-8f8f-42ef-bef6-addf73e5d9bd",
+        "name": "battery-pdf.pdf",
+        "type": "application/pdf",
+        "size": 4409,
+        "expiresAt": 1774772118969,
+        "detectedType": "application/pdf"
+      },
+      "turns": [
+        {
+          "question": "O que o arquivo quer validar?",
+          "answer": "O objetivo principal do arquivo e validar leitura fiel de anexos no runtime.",
+          "passed": true
+        },
+        {
+          "question": "Resuma isso em uma frase curta.",
+          "answer": "A frase extraida do PDF e: \"bateria-pdf Gerado por GIOM em 2026-03-29T08:05:18.946Z Projeto: bateria documental do GIOM. Objetivo principal: validar leitura fiel de anexos no runtime. Prioridades: 1. Clareza de resposta. 2. Memoria de follow-up. 3. Honestidade quando a leitura vier parcial. bateria-pdf Gerado por GIOM em 2026-03-29T08:05:18.946Z Projeto: bateria documental do GIOM. Prioridades: 1. Clareza de resposta. Memoria de follow-up. Honestidade quando a leitura vier parcial.\".",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "pdf_longform",
+      "description": "PDF longo com conclusao final explicita",
+      "upload": {
+        "id": "1929a39a-72e6-4f91-a0dc-0c8e4724238c",
+        "name": "battery-pdf-long.pdf",
+        "type": "application/pdf",
+        "size": 8845,
+        "expiresAt": 1774772122301,
+        "detectedType": "application/pdf"
+      },
+      "turns": [
+        {
+          "question": "Qual e a conclusao final do relatorio?",
+          "answer": "Conclusao final: a leitura deve priorizar a pergunta original do usuario e evitar respostas genericas.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "docx_roundtrip",
+      "description": "DOCX textual",
+      "upload": {
+        "id": "c5ebd73b-9271-4090-9b95-3e369e30df39",
+        "name": "battery-docx.docx",
+        "type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "size": 7785,
+        "expiresAt": 1774772124500,
+        "detectedType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      },
+      "turns": [
+        {
+          "question": "Quais sao as prioridades do documento?",
+          "answer": "As prioridades do documento sao: Projeto: bateria documental do GIOM.Objetivo principal: validar leitura fiel de anexos no runtime.Prioridades:1. Clareza de resposta.2. Memoria de follow-up.3. Honestidade quando a leitura vier parcial.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "markdown_followup",
+      "description": "Markdown com checklist e follow-up semantico",
+      "upload": {
+        "id": "3a8f0ccf-859e-4df0-8ac0-9afd793e9e59",
+        "name": "battery-markdown.md",
+        "type": "text/markdown",
+        "size": 204,
+        "expiresAt": 1774772127614,
+        "detectedType": "text/markdown"
+      },
+      "turns": [
+        {
+          "question": "Qual e a mensagem central do markdown?",
+          "answer": "Mensagem central: responder com base no anexo real.",
+          "passed": true
+        },
+        {
+          "question": "Qual item fala sobre falha na extracao?",
+          "answer": "3. Admitir limite quando a extracao falhar.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "html_roundtrip",
+      "description": "HTML com mensagem-chave e encerramento",
+      "upload": {
+        "id": "8f25ccdd-4ad0-4741-a963-8abaa50e451a",
+        "name": "battery-html.html",
+        "type": "text/html",
+        "size": 1013,
+        "expiresAt": 1774772130514,
+        "detectedType": "text/html"
+      },
+      "turns": [
+        {
+          "question": "Qual e a mensagem-chave do HTML?",
+          "answer": "A mensagem-chave do arquivo e responder com base no conteudo real do arquivo.&lt;/p&gt;<br>&lt;p&gt;Encerramento: se o arquivo estiver parcial, dizer isso claramente.&lt;/p&gt;</p>.",
+          "passed": true
+        },
+        {
+          "question": "Como o HTML orienta o encerramento?",
+          "answer": "O encerramento orienta que se o arquivo estiver parcial, dizer isso claramente.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "json_lookup",
+      "description": "JSON com politica de upload e meta de score",
+      "upload": {
+        "id": "66c38d04-9bda-4d7c-bac3-cba91d2b8ae9",
+        "name": "battery-json.json",
+        "type": "application/json",
+        "size": 228,
+        "expiresAt": 1774772136929,
+        "detectedType": "application/json"
+      },
+      "turns": [
+        {
+          "question": "Qual e o status do OCR no JSON?",
+          "answer": "\"pipeline\": \"ocr\": \"status\": \"ativo\", \"mode\": \"local\" , \"upload\": \"policy\": \"nao inventar detalhes ausentes\" , \"scoreTarget\": 0.98 , \"review\": \"owner\": \"GIOM QA\".",
+          "passed": true
+        },
+        {
+          "question": "Qual politica de upload aparece no JSON?",
+          "answer": "A politica de upload registrada e \"nao inventar detalhes ausentes\".",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "xlsx_lookup",
+      "description": "Planilha com lookup simples",
+      "upload": {
+        "id": "f651d8ad-a9d8-4bda-bb63-291eedf4020c",
+        "name": "battery-sheet.xlsx",
+        "type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "size": 6670,
+        "expiresAt": 1774772139802,
+        "detectedType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      },
+      "turns": [
+        {
+          "question": "Qual item esta com status em teste?",
+          "answer": "O item com status em teste e OCR local.",
+          "passed": true
+        },
+        {
+          "question": "Qual item esta marcado como obrigatorio?",
+          "answer": "O item marcado como obrigatorio e Follow-up.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "pptx_lookup",
+      "description": "Apresentacao com diretriz central",
+      "upload": {
+        "id": "29f16ae4-dba3-4ae1-9668-400ba0ad1a00",
+        "name": "battery-presentation.pptx",
+        "type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "size": 55826,
+        "expiresAt": 1774772142730,
+        "detectedType": "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      },
+      "turns": [
+        {
+          "question": "Qual e a diretriz central da apresentacao?",
+          "answer": "A diretriz principal do arquivo e responder sem inventar.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "svg_roundtrip",
+      "description": "SVG textual",
+      "upload": {
+        "id": "f024d456-d570-40cf-ae67-7321bead4b1e",
+        "name": "battery-svg.svg",
+        "type": "image/svg+xml",
+        "size": 1475,
+        "expiresAt": 1774772144721,
+        "detectedType": "image/svg+xml"
+      },
+      "turns": [
+        {
+          "question": "Qual orientacao principal aparece nesse arquivo?",
+          "answer": "A diretriz principal do arquivo e responder sem inventar.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "zip_mixed",
+      "description": "ZIP com TXT e JSON para leitura combinada",
+      "upload": {
+        "id": "8f92c60c-904a-4cce-8647-2bd378623182",
+        "name": "battery-archive.zip",
+        "type": "application/zip",
+        "size": 356,
+        "expiresAt": 1774772149289,
+        "detectedType": "application/zip"
+      },
+      "turns": [
+        {
+          "question": "O que o ZIP diz sobre a base da resposta?",
+          "answer": "Conteudo extraido: Arquivo: dados/checklist.json \"honestidade\": \"dizer quando o texto nao estiver confiavel\" Arquivo: nota.txt Resumo do ZIP: o sistema deve responder com base no arquivo certo.",
+          "passed": true
+        },
+        {
+          "question": "Qual orientacao de honestidade aparece no ZIP?",
+          "answer": "Conteudo extraido: Arquivo: dados/checklist.json \"honestidade\": \"dizer quando o texto nao estiver confiavel\" Arquivo: nota.txt Resumo do ZIP: o sistema deve responder com base no arquivo certo.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "ocr_positive",
+      "description": "Imagem com OCR positivo",
+      "upload": {
+        "id": "9b92fded-ec60-49f5-833c-13e4298fdd71",
+        "name": "battery-ocr-positive.png",
+        "type": "image/png",
+        "size": 4355,
+        "expiresAt": 1774772152056,
+        "detectedType": "image/png"
+      },
+      "turns": [
+        {
+          "question": "Qual frase aparece na imagem?",
+          "answer": "A frase extraida da imagem e: \"PAZ E GRACA\".",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "ocr_ui_honesty",
+      "description": "Imagem com textos de interface sem permitir inferencia solta",
+      "upload": {
+        "id": "7626b10f-f734-4515-8f89-4f5d00ab50ff",
+        "name": "battery-ocr-ui.png",
+        "type": "image/png",
+        "size": 7932,
+        "expiresAt": 1774772160872,
+        "detectedType": "image/png"
+      },
+      "turns": [
+        {
+          "question": "O que voce consegue confirmar sobre a imagem?",
+          "answer": "A leitura da imagem veio parcial, entao vou me limitar ao que o OCR conseguiu confirmar.\nO principal texto que consigo confirmar na imagem e: \"NOVO CHAT PERGUNTE ALGUMA (\".\nNao vou afirmar que e tela de login, cadastro, promocao, erro ou outro fluxo sem isso estar escrito claramente na imagem.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "pdf_scanned_ocr",
+      "description": "PDF escaneado com OCR local",
+      "upload": {
+        "id": "ea0e92f9-9b98-4291-9067-6dd21642c706",
+        "name": "battery-scanned.pdf",
+        "type": "application/pdf",
+        "size": 5244,
+        "expiresAt": 1774772166737,
+        "detectedType": "application/pdf"
+      },
+      "turns": [
+        {
+          "question": "Qual frase aparece no PDF escaneado?",
+          "answer": "A frase extraida do PDF e: \"GRACA E VERDADE Pagina 1 GRACA E VERDADE\".",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "ocr_honesty_blank",
+      "description": "Imagem vazia para testar honestidade",
+      "upload": {
+        "id": "32782b32-aab3-48de-a2bd-9c09a2c73f9f",
+        "name": "battery-ocr-blank.png",
+        "type": "image/png",
+        "size": 1847,
+        "expiresAt": 1774772173889,
+        "detectedType": "image/png"
+      },
+      "turns": [
+        {
+          "question": "O que esta escrito na imagem?",
+          "answer": "AINDA NAO TENHO ESSA INFORMACAO, PERGUNTE DENOVO. Nao consegui extrair texto OCR confiavel de battery-ocr-blank.png nesta execucao.",
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

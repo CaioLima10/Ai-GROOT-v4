@@ -1,0 +1,5 @@
+doc_id,file_path,kind,language,source_type,has_tables,has_images,expected_min_chars,ground_truth_path,notes
+pdf_001,data/docs/pdf_001.pdf,pdf,pt,native,true,false,1200,data/gt/pdf_001.txt,contrato com tabela
+pdf_002,data/docs/pdf_002_scan.pdf,pdf,pt,scan,false,true,800,data/gt/pdf_002.txt,pdf escaneado
+img_001,data/docs/img_001.png,image,pt,scan,false,true,300,data/gt/img_001.txt,nota fiscal foto
+docx_001,data/docs/docx_001.docx,docx,pt,native,true,false,1000,data/gt/docx_001.txt,relatorio tecnico

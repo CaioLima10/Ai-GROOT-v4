@@ -230,6 +230,8 @@ async function generatePdfBuffer(title = "", content = "", metadata = {}) {
     const doc = new PDFDocument({
       size: "A4",
       margin: 54,
+      compress: false,
+      pdfVersion: "1.4",
       info: {
         Title: title,
         Author: "GIOM",

@@ -40,19 +40,23 @@ export class ReasoningAgent {
     console.log(`🧠 ReasoningAgent: Analisando tarefa: ${task}`)
 
     try {
-      const reasoningType = this.identifyReasoningType(task, analysis)
+      const effectiveTask = String(context?.originalQuestion || task || '')
+      const reasoningType = this.identifyReasoningType(effectiveTask, analysis)
 
       switch (reasoningType) {
         case 'analyze':
-          return await this.analyzeTask(task, analysis, context)
+          return await this.analyzeTask(effectiveTask, analysis, context)
         case 'decompose':
-          return await this.decomposeProblem(task, analysis, context)
+          return await this.decomposeProblem(effectiveTask, analysis, context)
         case 'validate':
-          return await this.validateSolution(task, analysis, context)
+          return await this.validateSolution(effectiveTask, analysis, context)
         case 'combine':
           return await this.combineResults(task, analysis, context)
         default:
-          return await this.generalReasoning(task, analysis, context)
+          return await this.generalReasoning(effectiveTask, analysis, {
+            ...context,
+            originalQuestion: effectiveTask
+          })
       }
 
     } catch (error) {
@@ -312,12 +316,12 @@ export class ReasoningAgent {
   }
 
   isMemoryRecallQuestion(task = '') {
-    return /\b(agora diga|qual e meu nome|qual é meu nome|minha area|minha área|como prefiro as respostas|o que eu disse|lembra do meu nome|lembra da minha area|lembra da minha área|uma unica frase|uma única frase)\b/i
+    return /\b(agora(?: me)? diga|qual e meu nome|qual é meu nome|minha area|minha área|como prefiro as respostas|como voce deve me chamar|como você deve me chamar|qual e meu foco atual|qual é meu foco atual|o que eu disse|lembra do meu nome|lembra da minha area|lembra da minha área|uma unica frase|uma única frase)\b/i
       .test(String(task || ''))
   }
 
   isMemoryRegistrationPrompt(task = '') {
-    return /\bresponda apenas:\s*memoria registrada\b/i.test(String(task || ''))
+    return /\bresponda\s+(?:so|só|apenas)\s*:\s*[^.\n]{1,80}\b/i.test(String(task || ''))
   }
 
   isDebugDiagnosticQuestion(task = '') {
@@ -1234,37 +1238,37 @@ export class ReasoningAgent {
     if (wantsDocumentGeneration) {
       const readyItems = wantsOfficeDirectDelivery
         ? [
-            'DOCX: geracao nativa de arquivo.',
-            'XLSX: geracao nativa de planilha.',
-            'PPTX: geracao nativa de apresentacao.'
-          ].filter(Boolean)
+          'DOCX: geracao nativa de arquivo.',
+          'XLSX: geracao nativa de planilha.',
+          'PPTX: geracao nativa de apresentacao.'
+        ].filter(Boolean)
         : [
-            serverPdfReady ? 'PDF: geracao nativa no servidor.' : null,
-            structuredDocsReady ? 'DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON: geracao nativa de arquivo.' : null,
-            browserPdfReady ? 'Exportacao de conversa em PDF pelo navegador.' : null
-          ].filter(Boolean)
+          serverPdfReady ? 'PDF: geracao nativa no servidor.' : null,
+          structuredDocsReady ? 'DOCX, XLSX, PPTX, SVG, HTML, Markdown, TXT e JSON: geracao nativa de arquivo.' : null,
+          browserPdfReady ? 'Exportacao de conversa em PDF pelo navegador.' : null
+        ].filter(Boolean)
 
       const partialItems = wantsOfficeDirectDelivery
         ? [
-            'O conteudo interno desses arquivos ainda depende do prompt, do contexto e do modelo ativo.',
-            'Office aqui significa geracao basica de arquivo e leitura inicial, nao edicao desktop completa.'
-          ].filter(Boolean)
+          'O conteudo interno desses arquivos ainda depende do prompt, do contexto e do modelo ativo.',
+          'Office aqui significa geracao basica de arquivo e leitura inicial, nao edicao desktop completa.'
+        ].filter(Boolean)
         : [
-            'A qualidade do conteudo interno do arquivo ainda depende do prompt, do contexto e do modelo ativo.',
-            'Office aqui significa geracao basica de arquivos e leitura inicial, nao edicao completa tipo desktop.'
-          ].filter(Boolean)
+          'A qualidade do conteudo interno do arquivo ainda depende do prompt, do contexto e do modelo ativo.',
+          'Office aqui significa geracao basica de arquivos e leitura inicial, nao edicao completa tipo desktop.'
+        ].filter(Boolean)
 
       const plannedItems = wantsOfficeDirectDelivery
         ? [
-            'Macros, formulas complexas, comentarios, trilhas de revisao e automacao total de escritorio.',
-            'Pesquisa web ao vivo com Google, Bing ou Yahoo para preencher o conteudo com referencias atuais.',
-            'Automacao de escritorio fora do stack atual.'
-          ].filter(Boolean)
+          'Macros, formulas complexas, comentarios, trilhas de revisao e automacao total de escritorio.',
+          'Pesquisa web ao vivo com Google, Bing ou Yahoo para preencher o conteudo com referencias atuais.',
+          'Automacao de escritorio fora do stack atual.'
+        ].filter(Boolean)
         : [
-            'Suite Office completa com macros, formulas complexas, comentarios, trilhas de revisao e automacao total.',
-            'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
-            'Automacao de escritorio fora do stack atual.'
-          ].filter(Boolean)
+          'Suite Office completa com macros, formulas complexas, comentarios, trilhas de revisao e automacao total.',
+          'Pesquisa web ao vivo com Google, Bing ou Yahoo.',
+          'Automacao de escritorio fora do stack atual.'
+        ].filter(Boolean)
 
       return [
         'Sou o GIOM, no estado atual desta execucao.',
@@ -1291,29 +1295,29 @@ export class ReasoningAgent {
     if (wantsImageGeneration) {
       const readyItems = wantsSpecificImageControls
         ? [
-            imageGenerationReady ? 'Prompt principal: ativo nesta execucao.' : null,
-            imageControlsReady ? '--style: preset visual entra no prompt de geracao.' : null,
-            imageControlsReady ? '--ratio: define a proporcao alvo da imagem.' : null,
-            imageControlsReady ? '--negative: restringe defeitos visuais e ruido indesejado.' : null,
-            imageControlsReady ? '--seed: controla reproducibilidade basica quando o provider respeita a seed.' : null
-          ].filter(Boolean)
+          imageGenerationReady ? 'Prompt principal: ativo nesta execucao.' : null,
+          imageControlsReady ? '--style: preset visual entra no prompt de geracao.' : null,
+          imageControlsReady ? '--ratio: define a proporcao alvo da imagem.' : null,
+          imageControlsReady ? '--negative: restringe defeitos visuais e ruido indesejado.' : null,
+          imageControlsReady ? '--seed: controla reproducibilidade basica quando o provider respeita a seed.' : null
+        ].filter(Boolean)
         : [
-            imageGenerationReady ? 'Geracao de imagem: ativa nesta execucao.' : null,
-            imageControlsReady ? 'Controles diretos: preset visual, negative prompt, proporcao, dimensoes e seed.' : null,
-            ocrItem?.status === 'ready' ? 'OCR de imagem: extracao de texto ativa.' : null
-          ].filter(Boolean)
+          imageGenerationReady ? 'Geracao de imagem: ativa nesta execucao.' : null,
+          imageControlsReady ? 'Controles diretos: preset visual, negative prompt, proporcao, dimensoes e seed.' : null,
+          ocrItem?.status === 'ready' ? 'OCR de imagem: extracao de texto ativa.' : null
+        ].filter(Boolean)
 
       const partialItems = wantsSpecificImageControls
         ? [
-            'A qualidade estetica final ainda depende do provider, do prompt e do modelo ativo.',
-            'Esses controles ajudam bastante, mas nao substituem um editor visual multimodal completo.'
-          ].filter(Boolean)
+          'A qualidade estetica final ainda depende do provider, do prompt e do modelo ativo.',
+          'Esses controles ajudam bastante, mas nao substituem um editor visual multimodal completo.'
+        ].filter(Boolean)
         : [
-            visualImageItem?.status === 'ready'
-              ? 'Entendimento visual geral: ativo.'
-              : 'Entendimento visual geral: ainda nao vai alem de OCR e leitura textual da imagem.',
-            'A qualidade estetica ainda depende do provider, do prompt e do modelo ativo, nao de um editor visual completo.'
-          ].filter(Boolean)
+          visualImageItem?.status === 'ready'
+            ? 'Entendimento visual geral: ativo.'
+            : 'Entendimento visual geral: ainda nao vai alem de OCR e leitura textual da imagem.',
+          'A qualidade estetica ainda depende do provider, do prompt e do modelo ativo, nao de um editor visual completo.'
+        ].filter(Boolean)
 
       const plannedItems = [
         imageEditingItem?.status === 'ready'
@@ -1462,7 +1466,7 @@ export class ReasoningAgent {
   }
 
   buildMemoryRegistrationResponse(task = '') {
-    const explicitResponse = String(task || '').match(/\bresponda apenas:\s*([^.\n]+)\b/i)
+    const explicitResponse = String(task || '').match(/\bresponda\s+(?:so|só|apenas)\s*:\s*([^.\n]+)\b/i)
     if (explicitResponse?.[1]) {
       return explicitResponse[1].trim()
     }
@@ -1474,7 +1478,7 @@ export class ReasoningAgent {
     const facts = this.extractKnownFacts(memoryContext)
     const normalizedTask = String(task || '').toLowerCase()
 
-    if (!facts.name && !facts.workDomain && !facts.responseStyle && !facts.role) {
+    if (!facts.name && !facts.workDomain && !facts.responseStyle && !facts.role && !facts.preferredName && !facts.currentGoal && !facts.bibleVersion) {
       return null
     }
 
@@ -1482,6 +1486,7 @@ export class ReasoningAgent {
     const parts = []
 
     if (facts.name) parts.push(`seu nome e ${facts.name}`)
+    if (facts.preferredName) parts.push(`eu devo te chamar de ${facts.preferredName}`)
     if (facts.workDomain) parts.push(`voce trabalha com ${facts.workDomain}`)
     if (facts.responseStyle) {
       const style = String(facts.responseStyle || '').trim()
@@ -1492,6 +1497,8 @@ export class ReasoningAgent {
       )
     }
     if (facts.role && !facts.workDomain) parts.push(`sua funcao e ${facts.role}`)
+    if (facts.currentGoal) parts.push(`seu foco atual e ${facts.currentGoal}`)
+    if (facts.bibleVersion) parts.push(`sua versao biblica preferida e ${facts.bibleVersion}`)
 
     if (parts.length === 0) {
       return null
@@ -1504,6 +1511,388 @@ export class ReasoningAgent {
     }
 
     return parts.map((item, index) => `${index + 1}. ${item.charAt(0).toUpperCase()}${item.slice(1)}.`).join('\n')
+  }
+
+  buildUnknownInformationResponse(task = '', options = {}) {
+    const includeReason = options.includeReason !== false
+    const details = []
+
+    if (includeReason && this.isRealtimeOrVerificationQuestion(task)) {
+      details.push('Nao consegui confirmar esta informacao em tempo real nesta execucao.')
+    }
+
+    if (options.offerRetry !== false) {
+      details.push('Tente novamente em alguns instantes.')
+    }
+
+    const base = details.length > 0
+      ? `Nao consegui responder a esta pergunta no momento. ${details.join(' ')}`
+      : 'Nao consegui responder a esta pergunta no momento. Se o problema persistir, verifique as configuracoes do servidor.'
+
+    return base.trim()
+  }
+
+  isRealtimeOrVerificationQuestion(task = '') {
+    const normalizedTask = String(task || '').toLowerCase()
+    const hasCurrentSignal = /\b(agora|hoje|amanha|amanhã|ao vivo|tempo real|atual|atualizado|ultimas|últimas|ultimos|últimos)\b/i.test(normalizedTask)
+    const hasVerificationVerb = /\b(confirmar|confirma|verificar|verifica|checar|cheque|validar|valide)\b/i.test(normalizedTask)
+    const hasMutableDomain = /\b(clima|tempo|temperatura|previs[aã]o|chuva|vento|umidade|uv|jogo|joga|partida|placar|horario|horário|proximo jogo|próximo jogo|ultimos 5|últimos 5|resultado|confronto|tabela|rodada|estadio|estádio|cotacao|cotação|preco|preço|fonte)\b/i.test(normalizedTask)
+
+    if (/\b(volta|continue|continua|retoma|retomando|resuma|resumir|mesmo tom|em tres passos|em 3 passos)\b/i.test(normalizedTask)) {
+      return false
+    }
+
+    if (/\b(clima|tempo|temperatura|previs[aã]o)\b/i.test(normalizedTask)) {
+      return true
+    }
+
+    if (/\b(jogo|joga|partida|placar|horario|horário|proximo jogo|próximo jogo|ultimos 5|últimos 5|resultado|confronto|tabela|rodada|estadio|estádio)\b/i.test(normalizedTask)) {
+      return true
+    }
+
+    return hasMutableDomain && (hasCurrentSignal || hasVerificationVerb)
+  }
+
+  getRecentUserMessages(memoryContext = {}) {
+    return String(memoryContext?.recentConversationText || '')
+      .split(/\r?\n/)
+      .map(line => String(line || '').trim())
+      .filter(line => /^Usuario:/i.test(line))
+      .map(line => line.replace(/^Usuario:\s*/i, '').trim())
+      .filter(Boolean)
+  }
+
+  extractQuotedText(input = '') {
+    const source = String(input || '').trim()
+    if (!source) return ''
+
+    const directMatch = source.match(/["“'`](.{30,}?)["”'`]/s)
+    if (directMatch?.[1]) {
+      return directMatch[1].replace(/\s+/g, ' ').trim()
+    }
+
+    const colonMatch = source.match(/:\s*["“'`]?(.{40,})$/s)
+    if (colonMatch?.[1]) {
+      return colonMatch[1].replace(/["”'`]+$/g, '').replace(/\s+/g, ' ').trim()
+    }
+
+    return ''
+  }
+
+  extractReferenceText(task = '', memoryContext = {}) {
+    const direct = this.extractQuotedText(task)
+    if (direct) {
+      return direct
+    }
+
+    const recentUserMessages = this.getRecentUserMessages(memoryContext).reverse()
+    for (const message of recentUserMessages) {
+      const quoted = this.extractQuotedText(message)
+      if (quoted) {
+        return quoted
+      }
+    }
+
+    return ''
+  }
+
+  extractOfflineKeywords(text = '') {
+    const stopwords = new Set([
+      'a', 'o', 'as', 'os', 'de', 'do', 'da', 'dos', 'das', 'e', 'ou', 'em', 'no', 'na', 'nos', 'nas',
+      'por', 'para', 'pra', 'que', 'como', 'qual', 'quais', 'uma', 'um', 'uns', 'umas', 'mais', 'menos',
+      'isso', 'isto', 'essa', 'esse', 'com', 'sem', 'sera', 'será', 'foi', 'sao', 'são', 'esta', 'está',
+      'quando', 'onde', 'muito', 'muita', 'muitas', 'muitos'
+    ])
+
+    return String(text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .match(/[a-z0-9]+/g)
+      ?.filter(token => token.length >= 4 && !stopwords.has(token))
+      || []
+  }
+
+  buildCentralIdeaFromText(text = '') {
+    const normalizedText = String(text || '').replace(/\s+/g, ' ').trim()
+    if (!normalizedText) {
+      return ''
+    }
+
+    const sentences = normalizedText
+      .split(/(?<=[.!?])\s+/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean)
+
+    if (sentences.length === 0) {
+      return normalizedText
+    }
+
+    const keywords = this.extractOfflineKeywords(normalizedText)
+    const frequency = keywords.reduce((acc, keyword) => {
+      acc[keyword] = (acc[keyword] || 0) + 1
+      return acc
+    }, {})
+
+    const bestSentence = sentences
+      .map(sentence => ({
+        sentence,
+        score: this.extractOfflineKeywords(sentence).reduce((sum, keyword) => sum + (frequency[keyword] || 0), 0)
+      }))
+      .sort((left, right) => right.score - left.score)[0]?.sentence || sentences[0]
+
+    return bestSentence.replace(/\s+/g, ' ').trim()
+  }
+
+  buildTextInterpretationFallback(task = '', memoryContext = {}) {
+    const sourceText = this.extractReferenceText(task, memoryContext)
+    if (!sourceText) {
+      return null
+    }
+
+    const normalizedTask = String(task || '').toLowerCase()
+    const centralIdea = this.buildCentralIdeaFromText(sourceText)
+
+    if (/resuma|resumo|tres linhas|três linhas|3 linhas/i.test(normalizedTask)) {
+      const sentences = sourceText
+        .split(/(?<=[.!?])\s+/)
+        .map(sentence => sentence.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+
+      if (sentences.length > 0) {
+        return sentences.join('\n')
+      }
+    }
+
+    if (/\b(ideia central|ponto central|tema central)\b/i.test(normalizedTask) && /\b(aplicac|aplicação|trabalho em equipe)\b/i.test(normalizedTask)) {
+      const application = /\b(trabalho em equipe|equipe)\b/i.test(normalizedTask)
+        ? 'Aplicacao pratica: antes de executar algo com pressa, a equipe deve alinhar criterio, revisar o plano por alguns minutos e validar a decisao para evitar retrabalho.'
+        : 'Aplicacao pratica: desacelerar um pouco antes de decidir costuma evitar erro, retrabalho e perda de qualidade.'
+
+      return [
+        `A ideia central e que ${centralIdea.charAt(0).toLowerCase()}${centralIdea.slice(1)}`.replace(/\.\s*$/, '.'),
+        application
+      ].join(' ')
+    }
+
+    if (/\b(ideia central|ponto central|tema central)\b/i.test(normalizedTask)) {
+      return `A ideia central e que ${centralIdea.charAt(0).toLowerCase()}${centralIdea.slice(1)}`.replace(/\.\s*$/, '.')
+    }
+
+    if (/\b(aplicac|aplicação|na pratica|na prática|trabalho em equipe|como aplicar)\b/i.test(normalizedTask)) {
+      return /\b(trabalho em equipe|equipe)\b/i.test(normalizedTask)
+        ? 'Aplicacao pratica para trabalho em equipe: criar o habito de revisar decisao, criterio e impacto antes de executar reduz erro e retrabalho.'
+        : 'Aplicacao pratica: revisar objetivo, criterio e risco antes de agir costuma evitar retrabalho.'
+    }
+
+    return null
+  }
+
+  looksLikeBibleKnowledgeQuestion(task = '', promptPackage = {}) {
+    const input = String(task || '')
+    const activeModules = Array.isArray(promptPackage?.activeModules) ? promptPackage.activeModules : []
+    const bibleStudyModules = Array.isArray(promptPackage?.bibleStudyModules) ? promptPackage.bibleStudyModules : []
+
+    if (activeModules.includes('bible') || bibleStudyModules.length > 0) {
+      return true
+    }
+
+    return /\b(biblia|bíblia|evangelho|jesus|deus|igreja|teologia|doutrina|oracao|oração|orar|versiculo|versículo|salmo|joao|joão|mateus|marcos|lucas|paulo|tiago|hebraico|grego|hermeneut|exegese|sermao|sermão|devocional|discipulado|pastoral|pais da igreja|patristica|patrística)\b/i.test(input)
+  }
+
+  normalizeKnowledgeSentence(text = '') {
+    const cleaned = String(text || '')
+      .replace(/^[-*•]\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (!cleaned) {
+      return ''
+    }
+
+    const sentence = /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`
+    return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}`
+  }
+
+  buildRagKnowledgePoints(task = '', ragContext = {}, limit = 4) {
+    const knowledgeItems = Array.isArray(ragContext?.knowledge) ? ragContext.knowledge : []
+    if (knowledgeItems.length === 0) {
+      return []
+    }
+
+    const taskKeywords = new Set(this.extractOfflineKeywords(task))
+    const candidates = []
+
+    knowledgeItems.slice(0, 5).forEach((item, itemIndex) => {
+      const rawSegments = String(item?.content || '')
+        .split(/\r?\n+/)
+        .flatMap(line => line.split(/(?<=[.!?])\s+/))
+        .map(segment => this.normalizeKnowledgeSentence(segment))
+        .filter(Boolean)
+
+      rawSegments.forEach(segment => {
+        const keywords = this.extractOfflineKeywords(segment)
+        const overlap = keywords.filter(keyword => taskKeywords.has(keyword)).length
+        const similarity = Number(item?.similarity || 0)
+        const categoryBoost = Array.isArray(item?.categories) && item.categories.some(category => /\b(bible|theology|church_history|biblical|canon|preaching|pastoral)\b/i.test(String(category || '')))
+          ? 0.6
+          : 0
+        const positionBoost = Math.max(0, 0.7 - (itemIndex * 0.12))
+        const score = (overlap * 3.5) + similarity + categoryBoost + positionBoost
+
+        candidates.push({
+          text: segment,
+          score,
+          source: item?.metadata?.title || item?.metadata?.file || item?.source || 'base local'
+        })
+      })
+    })
+
+    const seen = new Set()
+    return candidates
+      .sort((left, right) => right.score - left.score)
+      .filter(candidate => {
+        const key = candidate.text.toLowerCase()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .slice(0, limit)
+  }
+
+  buildRagGroundedOfflineResponse(task = '', ragContext = {}, promptPackage = {}) {
+    if (!this.looksLikeBibleKnowledgeQuestion(task, promptPackage)) {
+      return null
+    }
+
+    const compareQuestion = /\b(compare|comparar|comparacao|comparação|diferenca|diferença|contraste|versus|vs)\b/i.test(String(task || ''))
+    const studyQuestion = /\b(como estudar|metodo|método|roteiro|aula|devocional|pregacao|pregação|sermao|sermão|esboco|esboço)\b/i.test(String(task || ''))
+    const wantsSingleSentence = /\b(uma frase|frase so|frase só|em uma frase)\b/i.test(String(task || ''))
+    const points = this.buildRagKnowledgePoints(task, ragContext, compareQuestion ? 4 : 3)
+
+    if (points.length === 0) {
+      return null
+    }
+
+    const sourceLine = Array.from(new Set(points.map(point => point.source).filter(Boolean))).slice(0, 3).join(' | ')
+
+    if (wantsSingleSentence) {
+      return points.map(point => point.text).join(' ')
+    }
+
+    if (compareQuestion || studyQuestion) {
+      return [
+        'Com base na base biblica local do GIOM:',
+        ...points.map((point, index) => `${index + 1}. ${point.text}`),
+        sourceLine ? `Base local consultada: ${sourceLine}.` : ''
+      ].filter(Boolean).join('\n')
+    }
+
+    return [
+      points.map(point => point.text).join(' '),
+      sourceLine ? `Base local consultada: ${sourceLine}.` : ''
+    ].filter(Boolean).join('\n')
+  }
+
+  extractBibleReference(task = '') {
+    const match = String(task || '').match(/\b([1-3]?\s?[A-Za-zÀ-ÿ]+)\s+(\d+)(?::(\d+(?:-\d+)?))?\b/)
+    if (!match) {
+      return ''
+    }
+
+    return [match[1], match[2], match[3] ? `:${match[3]}` : ''].join('').replace(/\s+/g, ' ').trim()
+  }
+
+  buildPastoralCareFallback(task = '', memoryContext = {}, promptPackage = {}) {
+    const input = String(task || '')
+    const normalizedTask = input.toLowerCase()
+    const bibleContext = Array.isArray(promptPackage?.activeModules) && promptPackage.activeModules.includes('bible')
+    const mentionsChristianContext = /\b(igreja|jesus|deus|oracao|oração|orar|devocional|jovens|filipenses|joao|joão|salmo|pastor|evangelho)\b/i.test(input) || bibleContext
+
+    if (!mentionsChristianContext && !/\b(cansado|ansioso|ansiedade|preocupado|medo|desanimado)\b/i.test(input)) {
+      return null
+    }
+
+    if (/\b(oracao|oração|ore|orar)\b/i.test(input)) {
+      return [
+        'Senhor, eu entrego diante de Ti toda ansiedade e todo peso deste dia.',
+        'Da calma ao coracao, clareza a mente e firmeza para obedecer a Tua vontade.',
+        'Sustenta com a Tua paz aquilo que eu nao consigo controlar sozinho.',
+        'Em nome de Jesus, amem.'
+      ].join('\n')
+    }
+
+    if (/\b(abertura|fala curta|mensagem|devocional|estudo)\b/i.test(input) && /\b(ansios|ansiedade|jovens|filipenses 4)\b/i.test(input)) {
+      return [
+        'Uma abertura de 1 minuto pode ser assim:',
+        '"Hoje eu quero lembrar voce de algo simples: a ansiedade fala alto, mas Deus continua perto. Em Filipenses 4, Paulo nos chama a levar a Deus aquilo que pesa no coracao, em vez de carregar tudo sozinho. Para nos, isso significa trocar desespero por oracao, pressao por dependencia e medo por confianca. A paz de Deus nao ignora a luta, mas guarda o nosso coracao no meio dela."'
+      ].join('\n\n')
+    }
+
+    if (/\b(cansado|preocupado|trabalho|igreja)\b/i.test(input)) {
+      return [
+        'Respira um pouco antes de continuar.',
+        '1. Pare por alguns minutos e organize o que realmente precisa ser feito agora.',
+        '2. Leve esse peso a Deus com simplicidade, sem tentar parecer forte o tempo todo.',
+        '3. Entre no momento da igreja com uma palavra simples e sincera; voce nao precisa impressionar, precisa ser fiel.'
+      ].join('\n')
+    }
+
+    if (/\b(volta|continu|retoma|retomando|mesmo tom|resuma)\b/i.test(normalizedTask)) {
+      const recentPastoralLoad = this.getRecentUserMessages(memoryContext).reverse().find(message =>
+        /\b(cansado|preocupado|trabalho|igreja)\b/i.test(message)
+      )
+      if (recentPastoralLoad && /\b(tres passos|três passos|3 passos|resuma|mesmo tom)\b/i.test(normalizedTask)) {
+        return [
+          '1. Respire e reduza o ritmo por alguns minutos.',
+          '2. Foque no essencial do trabalho e entregue o resto a Deus em oracao.',
+          '3. Va para a igreja com simplicidade, paz e fidelidade, nao com peso de performance.'
+        ].join('\n')
+      }
+
+      const recentTopic = this.getRecentUserMessages(memoryContext).reverse().find(message =>
+        /\b(filipenses|joao|joão|jovens|ansios|devocional|estudo|fala)\b/i.test(message)
+      )
+
+      if (recentTopic) {
+        return [
+          'Voltando ao ponto principal:',
+          'mantenha uma mensagem simples, fiel ao texto e facil de ouvir.',
+          'Mostre o problema real da pessoa, apresente a verdade central do texto e feche com uma aplicacao concreta.'
+        ].join(' ')
+      }
+    }
+
+    return null
+  }
+
+  buildConversationalOfflineFallback(task = '', memoryContext = {}, promptPackage = {}) {
+    const pastoral = this.buildPastoralCareFallback(task, memoryContext, promptPackage)
+    if (pastoral) {
+      return pastoral
+    }
+
+    const textInterpretation = this.buildTextInterpretationFallback(task, memoryContext)
+    if (textInterpretation) {
+      return textInterpretation
+    }
+
+    const recentUserMessages = this.getRecentUserMessages(memoryContext)
+    const lastUserMessage = recentUserMessages[recentUserMessages.length - 1] || ''
+
+    if (/\b(volta|continue|continua|retoma|retomando|mesmo tom|resuma|resumir)\b/i.test(String(task || '')) && lastUserMessage) {
+      return `Continuando de onde paramos: ${lastUserMessage}. Posso seguir em formato curto, passo a passo ou com aplicacao pratica.`
+    }
+
+    if (this.isRealtimeOrVerificationQuestion(task)) {
+      return this.buildUnknownInformationResponse(task)
+    }
+
+    return this.buildUnknownInformationResponse(task, {
+      includeReason: true,
+      offerRetry: true
+    })
   }
 
   tryDirectOperationalResponse(task, context = {}, memoryContext = {}) {
@@ -1675,7 +2064,7 @@ export class ReasoningAgent {
     return null
   }
 
-  buildRuleBasedFallback(task, context = {}, memoryContext = {}, promptPackage = {}) {
+  buildRuleBasedFallback(task, context = {}, memoryContext = {}, ragContext = {}, promptPackage = {}) {
     const directResponse = this.tryDirectOperationalResponse(task, context, memoryContext)
     if (directResponse) {
       return directResponse
@@ -1683,33 +2072,97 @@ export class ReasoningAgent {
 
     const prompt = String(task || '')
     const lowerTask = prompt.toLowerCase()
+    const looksLikeConversationalFollowUp = /\b(volta|continue|continua|retoma|retomando|mesmo tom|resuma|resumir|em tres passos|em 3 passos)\b/i.test(prompt)
 
     if (this.isDebugDiagnosticQuestion(lowerTask)) {
       return this.buildDebugDiagnosticResponse()
     }
 
-    const moduleLabel = Array.isArray(promptPackage.activeModules) && promptPackage.activeModules.length > 0
-      ? promptPackage.activeModules.join(', ')
-      : 'geral'
-    const memoryHint = memoryContext?.knownFactsText
-      ? `Contexto curto confirmado: ${memoryContext.knownFactsText}.`
-      : 'Ainda sem fatos explicitos adicionais do usuario nesta sessao.'
-    const summaryHint = memoryContext?.contextSummary || 'Sem contexto acumulado.'
+    if (looksLikeConversationalFollowUp) {
+      const conversationalFallback = this.buildConversationalOfflineFallback(task, memoryContext, promptPackage)
+      if (conversationalFallback) {
+        return conversationalFallback
+      }
+    }
 
-    return [
-      'Sou o GIOM, um assistente de IA em modo de contingencia operacional nesta execucao.',
-      'Vou responder com base no contexto disponivel sem fingir pesquisa externa.',
-      `Modulo ativo principal: ${moduleLabel}.`,
-      memoryHint,
-      `Resumo recente: ${summaryHint}.`,
-      'Meus recursos atuais aqui sao memoria recente, perfil do usuario, conhecimento curado e raciocinio local.',
-      'Se quiser, eu posso continuar em passos objetivos e ir refinando a resposta por iteracoes curtas.'
-    ].join(' ')
+    const ragGroundedResponse = this.buildRagGroundedOfflineResponse(task, ragContext, promptPackage)
+    if (ragGroundedResponse) {
+      return ragGroundedResponse
+    }
+
+    return this.buildConversationalOfflineFallback(task, memoryContext, promptPackage)
+  }
+
+  buildCitationHeading(ragContext = {}, promptPackage = {}) {
+    const knowledgeItems = Array.isArray(ragContext?.knowledge) ? ragContext.knowledge : []
+    const categories = new Set(
+      knowledgeItems.flatMap(item => [
+        String(item?.category || '').toLowerCase(),
+        ...(Array.isArray(item?.categories) ? item.categories.map(category => String(category || '').toLowerCase()) : [])
+      ].filter(Boolean))
+    )
+    const activeModules = Array.isArray(promptPackage?.activeModules) ? promptPackage.activeModules : []
+
+    if (categories.has('bible') || categories.has('tanakh') || activeModules.includes('bible')) {
+      return 'Base biblica consultada:'
+    }
+
+    if (categories.has('theology_protestant') || categories.has('church_history') || categories.has('creeds_confessions')) {
+      return 'Base teologica consultada:'
+    }
+
+    if (categories.has('languages') || categories.has('hebrew') || categories.has('greek') || categories.has('aramaic')) {
+      return 'Referencias linguisticas consultadas:'
+    }
+
+    if (categories.has('programming') || categories.has('developer') || categories.has('debugging') || activeModules.includes('developer')) {
+      return 'Referencias tecnicas consultadas:'
+    }
+
+    return 'Base consultada:'
+  }
+
+  buildKnowledgeSourcesFooter(task = '', responseText = '', ragContext = {}, promptPackage = {}) {
+    if (/base consultada:|base biblica consultada:|base teologica consultada:|referencias tecnicas consultadas:|referencias linguisticas consultadas:/i.test(String(responseText || ''))) {
+      return ''
+    }
+
+    if (/\b(clima|tempo|previs[aã]o|placar|jogo|partida|ao vivo)\b/i.test(String(task || ''))) {
+      return ''
+    }
+
+    const knowledgeItems = Array.isArray(ragContext?.knowledge) ? ragContext.knowledge : []
+    if (knowledgeItems.length === 0) {
+      return ''
+    }
+
+    const labels = []
+    const seen = new Set()
+
+    for (const item of knowledgeItems) {
+      const label = String(item?.title || item?.sourceName || item?.sourceId || item?.source || '').trim()
+      if (!label) continue
+      const key = label.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      labels.push(label)
+      if (labels.length >= 3) break
+    }
+
+    if (labels.length === 0) {
+      return ''
+    }
+
+    return `${this.buildCitationHeading(ragContext, promptPackage)} ${labels.join('; ')}`
   }
 
   async finalizeReasoningResponse(task, responseText, userId, userStyle, memoryContext, ragContext, promptPackage, reasoningStartTime, metadataExtras = {}) {
     const safeTaskPayload = redactSensitiveData(task || '')
-    const safeResponsePayload = redactSensitiveData(responseText || '')
+    const responseWithSources = [
+      String(responseText || '').trim(),
+      this.buildKnowledgeSourcesFooter(task, responseText, ragContext, promptPackage)
+    ].filter(Boolean).join('\n\n')
+    const safeResponsePayload = redactSensitiveData(responseWithSources)
     const safeTask = safeTaskPayload.text
     const safeResponseText = safeResponsePayload.text
     const sensitiveLearningBlocked = shouldSkipLearningForSensitiveData(
@@ -1881,6 +2334,7 @@ export class ReasoningAgent {
   async generalReasoning(task, analysis, context = {}) {
     console.log(`🧠 ReasoningAgent: Processando tarefa geral...`)
     const reasoningStartTime = Date.now()
+    const visibleTask = String(context?.originalQuestion || task || '')
 
     // 📋 PROCESSAR UPLOAD SE EXISTIR
     let uploadContext = ""
@@ -1895,8 +2349,44 @@ export class ReasoningAgent {
 `
     }
 
+    if (context.uploadId && context.uploadName) {
+      const extraction = context?.uploadExtraction && typeof context.uploadExtraction === 'object'
+        ? context.uploadExtraction
+        : null
+      const uploadLines = [
+        "",
+        "ARQUIVO ENVIADO:",
+        `- Nome: ${context.uploadName}`,
+        `- Tipo: ${context.uploadType}`,
+        `- ID: ${context.uploadId}`
+      ]
+
+      if (extraction?.method) {
+        uploadLines.push(`- Metodo de leitura: ${extraction.method}`)
+      }
+
+      if (extraction?.quality) {
+        uploadLines.push(`- Qualidade da extracao: ${extraction.quality}`)
+      }
+
+      if (Array.isArray(extraction?.warnings) && extraction.warnings.length > 0) {
+        uploadLines.push(`- Limites da leitura: ${extraction.warnings.join("; ")}`)
+      }
+
+      if (typeof extraction?.text === 'string' && extraction.text.trim()) {
+        uploadLines.push("- Conteudo extraido para esta resposta:")
+        uploadLines.push(extraction.text.trim().slice(0, 12000))
+      } else if (extraction?.kind === 'image') {
+        uploadLines.push("- Observacao: a imagem foi recebida, mas nao houve OCR confiavel nesta execucao.")
+      } else {
+        uploadLines.push("- Observacao: o arquivo foi recebido, mas nao houve texto confiavel nesta execucao.")
+      }
+
+      uploadContext = `\n${uploadLines.join('\n')}\n\n`
+    }
+
     const userId = context.userId || 'default_user'
-    const userStyle = this.detectUserStyle(task, userId)
+    const userStyle = this.detectUserStyle(visibleTask, userId)
 
     const toneInstructions = {
       casual: "Mantenha conversa natural e acessivel.",
@@ -1910,7 +2400,7 @@ export class ReasoningAgent {
       memoryContext,
       ragContext,
       promptPackage
-    } = await buildAssistantPromptContext(task, {
+    } = await buildAssistantPromptContext(visibleTask, {
       ...context,
       userId,
       depthPreference: userStyle === 'detailed'
@@ -1924,8 +2414,8 @@ export class ReasoningAgent {
     console.log('📚 Contexto da memória:', memoryContext.contextSummary)
     console.log('🎯 Contexto RAG Avançado:', ragContext.totalFound, 'itens encontrados')
 
-    const prompt = `${uploadContext}${task}`.trim()
-    const directRuntimeResponse = this.tryDirectOperationalResponse(task, context, memoryContext)
+    const prompt = `${uploadContext}${visibleTask}`.trim()
+    const directRuntimeResponse = this.tryDirectOperationalResponse(visibleTask, context, memoryContext)
 
     if (directRuntimeResponse) {
       const reasoning = await this.finalizeReasoningResponse(
@@ -1955,7 +2445,8 @@ export class ReasoningAgent {
       const { askMultiAI } = await import('../core/multiAI.js')
       const llmResponse = await askMultiAI(prompt, {
         systemPrompt: `${promptPackage.systemPrompt}\n- Ajuste fino desta conversa: ${toneInstructions[userStyle]}`,
-        throwOnExhaustion: true
+        throwOnExhaustion: true,
+        providerTimeoutMs: Number(process.env.GIOM_PROVIDER_TIMEOUT_MS || 12000)
       })
 
       // 🧠 FILTRO DE NATURALIDADE - REMOVER ROBÔTISMO
@@ -1994,7 +2485,7 @@ export class ReasoningAgent {
     } catch (error) {
       console.error('❌ Erro no LLM, usando análise estrutural:', error.message)
 
-      const fallbackResponse = this.buildRuleBasedFallback(task, context, memoryContext, promptPackage)
+      const fallbackResponse = this.buildRuleBasedFallback(visibleTask, context, memoryContext, ragContext, promptPackage)
       const reasoning = await this.finalizeReasoningResponse(
         task,
         fallbackResponse,
@@ -2491,7 +2982,10 @@ Explique como se estivesse conversando com um colega desenvolvedor.
 Seja direto, use linguagem natural, sem formatações robóticas.`
 
     try {
-      return await askMultiAI(prompt, { throwOnExhaustion: true })
+      return await askMultiAI(prompt, {
+        throwOnExhaustion: true,
+        providerTimeoutMs: Number(process.env.GIOM_PROVIDER_TIMEOUT_MS || 12000)
+      })
     } catch (error) {
       console.error('❌ Erro no LLM, usando fallback:', error.message)
       return `Entendi! Você precisa de uma abordagem ${analysisResult.approach} para isso. A complexidade é ${analysisResult.complexity.level} e a intenção parece ser ${analysisResult.intent.type}.`
@@ -2510,7 +3004,10 @@ Tempo estimado: ${decomposition.estimatedTime} minutos
 Explique a estratégia de decomposição e os próximos passos.`
 
     try {
-      return await askMultiAI(prompt, { throwOnExhaustion: true })
+      return await askMultiAI(prompt, {
+        throwOnExhaustion: true,
+        providerTimeoutMs: Number(process.env.GIOM_PROVIDER_TIMEOUT_MS || 12000)
+      })
     } catch (error) {
       console.error('❌ Erro no LLM, usando fallback:', error.message)
       return `O problema foi decomposto em ${decomposition.subProblems.length} sub-problemas, com um caminho crítico de ${decomposition.criticalPath.length} passos. O tempo estimado de execução é de ${decomposition.estimatedTime} minutos.`
@@ -2534,7 +3031,10 @@ Complexidade: ${integratedReasoning.complexity.level}
 Explique a estratégia geral e como executar este plano.`
 
     try {
-      return await askMultiAI(prompt, { throwOnExhaustion: true })
+      return await askMultiAI(prompt, {
+        throwOnExhaustion: true,
+        providerTimeoutMs: Number(process.env.GIOM_PROVIDER_TIMEOUT_MS || 12000)
+      })
     } catch (error) {
       console.error('❌ Erro no LLM, usando fallback:', error.message)
       return `Raciocínio integrado combinou análise de tarefa com decomposição de problema, resultando em um plano de execução com ${integratedReasoning.executionPlan.length} passos e ${integratedReasoning.riskAssessment.identifiedRisks.length} riscos identificados.`

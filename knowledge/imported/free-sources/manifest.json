@@ -1,0 +1,858 @@
+{
+  "version": 1,
+  "description": "Manifesto de fontes publicas e gratuitas para bootstrap do conhecimento do GIOM.",
+  "sources": [
+    {
+      "id": "github_repos",
+      "enabled": true,
+      "kind": "github_repository_search",
+      "name": "GitHub public repositories",
+      "apiBaseUrl": "https://api.github.com/search/repositories",
+      "license": "repository_specific",
+      "attributionRequired": true,
+      "category": "programming",
+      "categories": [
+        "programming",
+        "developer",
+        "frameworks"
+      ],
+      "modules": [
+        "research"
+      ],
+      "queries": [
+        {
+          "label": "typescript-ai",
+          "query": "language:TypeScript topic:ai stars:>500 archived:false"
+        },
+        {
+          "label": "python-ml",
+          "query": "language:Python topic:machine-learning stars:>1000 archived:false"
+        },
+        {
+          "label": "react-framework",
+          "query": "language:TypeScript react framework stars:>2000 archived:false"
+        }
+      ]
+    },
+    {
+      "id": "stackexchange_questions",
+      "enabled": true,
+      "kind": "stackexchange_questions",
+      "name": "Stack Exchange public questions",
+      "apiBaseUrl": "https://api.stackexchange.com/2.3/questions",
+      "license": "CC-BY-SA",
+      "attributionRequired": true,
+      "category": "programming",
+      "categories": [
+        "programming",
+        "developer",
+        "debugging"
+      ],
+      "modules": [
+        "research"
+      ],
+      "queries": [
+        {
+          "label": "javascript-node",
+          "tagged": "javascript;node.js",
+          "site": "stackoverflow"
+        },
+        {
+          "label": "python-django",
+          "tagged": "python;django",
+          "site": "stackoverflow"
+        },
+        {
+          "label": "react-typescript",
+          "tagged": "reactjs;typescript",
+          "site": "stackoverflow"
+        }
+      ]
+    },
+    {
+      "id": "wikipedia_topics",
+      "enabled": true,
+      "kind": "mediawiki_extracts",
+      "name": "Wikipedia topic extracts",
+      "wikiBaseUrl": "https://en.wikipedia.org/w/api.php",
+      "license": "CC-BY-SA-4.0",
+      "attributionRequired": true,
+      "category": "biblical_history",
+      "categories": [
+        "biblical_history",
+        "biblical_archaeology",
+        "church_history",
+        "theology_protestant"
+      ],
+      "modules": [
+        "bible",
+        "history_archaeology",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "biblical_archaeology",
+        "biblical_history",
+        "church_history"
+      ],
+      "pages": [
+        "Dead Sea Scrolls",
+        "Second Temple Judaism",
+        "Biblical archaeology",
+        "Church Fathers",
+        "Protestant theology",
+        "Reformation",
+        "First Council of Nicaea",
+        "Westminster Confession of Faith",
+        "Septuagint",
+        "Koine Greek",
+        "Biblical Hebrew"
+      ]
+    },
+    {
+      "id": "wiktionary_terms",
+      "enabled": true,
+      "kind": "mediawiki_extracts",
+      "name": "Wiktionary language extracts",
+      "wikiBaseUrl": "https://en.wiktionary.org/w/api.php",
+      "license": "CC-BY-SA-4.0",
+      "attributionRequired": true,
+      "category": "languages",
+      "categories": [
+        "languages",
+        "hebrew",
+        "aramaic",
+        "greek"
+      ],
+      "modules": [
+        "research",
+        "language_learning"
+      ],
+      "pages": [
+        "shalom",
+        "hesed",
+        "emet",
+        "torah",
+        "logos",
+        "agape",
+        "ekklesia",
+        "ruach",
+        "maranatha"
+      ]
+    },
+    {
+      "id": "wikisource_protestant_texts",
+      "enabled": true,
+      "kind": "mediawiki_extracts",
+      "name": "Wikisource Protestant texts",
+      "wikiBaseUrl": "https://en.wikisource.org/w/api.php",
+      "license": "page_specific_public_domain_or_cc",
+      "attributionRequired": true,
+      "category": "theology_protestant",
+      "categories": [
+        "theology_protestant",
+        "church_history",
+        "creeds_confessions"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "church_history"
+      ],
+      "pages": [
+        "Westminster Confession of Faith",
+        "Augsburg Confession",
+        "Thirty-Nine Articles",
+        "Heidelberg Catechism"
+      ]
+    },
+    {
+      "id": "sefaria_tanakh",
+      "enabled": true,
+      "kind": "sefaria_texts",
+      "name": "Sefaria Tanakh passages",
+      "apiBaseUrl": "https://www.sefaria.org/api/texts",
+      "license": "mixed_text_licenses",
+      "attributionRequired": true,
+      "category": "bible",
+      "categories": [
+        "bible",
+        "tanakh",
+        "biblical_hebrew",
+        "judaism"
+      ],
+      "modules": [
+        "bible",
+        "research",
+        "language_learning"
+      ],
+      "bibleStudyModules": [
+        "biblical_languages",
+        "biblical_history"
+      ],
+      "chunkSize": 8,
+      "references": [
+        "Genesis 1",
+        "Genesis 12",
+        "Exodus 20",
+        "Deuteronomy 6",
+        "Psalm 23",
+        "Psalm 119",
+        "Micah 6",
+        "Isaiah 53"
+      ]
+    },
+    {
+      "id": "openlibrary_subjects",
+      "enabled": true,
+      "kind": "openlibrary_subjects",
+      "name": "Open Library subject catalog",
+      "apiBaseUrl": "https://openlibrary.org",
+      "license": "Open Library data terms",
+      "attributionRequired": true,
+      "category": "theology",
+      "categories": [
+        "theology",
+        "church_history",
+        "archaeology",
+        "judaism"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "subjects": [
+        "biblical archaeology",
+        "church history",
+        "protestant theology",
+        "patristics",
+        "reformation",
+        "puritans",
+        "judaism, history"
+      ]
+    },
+    {
+      "id": "gutendex_catalog",
+      "enabled": true,
+      "kind": "gutendex_topics",
+      "name": "Gutendex public domain catalog",
+      "apiBaseUrl": "https://gutendex.com/books",
+      "license": "Project Gutenberg public domain metadata",
+      "attributionRequired": true,
+      "category": "public_domain_books",
+      "categories": [
+        "public_domain_books",
+        "history",
+        "theology",
+        "education"
+      ],
+      "modules": [
+        "research"
+      ],
+      "topics": [
+        "religion",
+        "history",
+        "archaeology",
+        "reformation",
+        "church",
+        "greece",
+        "hebrew"
+      ]
+    },
+    {
+      "id": "arxiv_preprints",
+      "enabled": true,
+      "kind": "arxiv_papers",
+      "name": "arXiv preprints",
+      "apiBaseUrl": "http://export.arxiv.org/api/query",
+      "license": "arXiv non-exclusive distribution rights",
+      "attributionRequired": true,
+      "category": "research_preprints",
+      "categories": [
+        "research_preprints",
+        "mathematics",
+        "computer_science",
+        "physics"
+      ],
+      "modules": [
+        "research"
+      ],
+      "queries": [
+        {
+          "label": "ai-machine-learning",
+          "query": "cat:cs.AI AND submittedDate:[202301010000 TO 202512312359]",
+          "maxResults": 50
+        },
+        {
+          "label": "nlp-computational-linguistics",
+          "query": "cat:cs.CL AND submittedDate:[202301010000 TO 202512312359]",
+          "maxResults": 50
+        },
+        {
+          "label": "mathematical-biology",
+          "query": "cat:q-bio.QM AND submittedDate:[202301010000 TO 202512312359]",
+          "maxResults": 40
+        }
+      ]
+    },
+    {
+      "id": "pubmed_articles",
+      "enabled": true,
+      "kind": "pubmed_eutils",
+      "name": "PubMed/NCBI biomedical literature",
+      "apiBaseUrl": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+      "license": "PubMed free to access and read",
+      "attributionRequired": true,
+      "category": "medical_research",
+      "categories": [
+        "medical_research",
+        "health_science",
+        "biology"
+      ],
+      "modules": [
+        "research"
+      ],
+      "queries": [
+        {
+          "label": "faith-healing-theology",
+          "query": "faith healing theology",
+          "retmax": 30
+        },
+        {
+          "label": "medical-ethics-christianity",
+          "query": "medical ethics Christianity",
+          "retmax": 30
+        },
+        {
+          "label": "neuroscience-consciousness",
+          "query": "neuroscience consciousness brain",
+          "retmax": 30
+        }
+      ]
+    },
+    {
+      "id": "doaj_journals",
+      "enabled": true,
+      "kind": "doaj_openaccess",
+      "name": "DOAJ open access journals",
+      "apiBaseUrl": "https://doaj.org/api/v3",
+      "license": "DOAJ metadata Creative Commons",
+      "attributionRequired": true,
+      "category": "open_access_journals",
+      "categories": [
+        "open_access_journals",
+        "theology",
+        "history",
+        "education"
+      ],
+      "modules": [
+        "research"
+      ],
+      "journals": [
+        "religious studies",
+        "theology",
+        "biblical studies",
+        "archaeology",
+        "history of christianity"
+      ]
+    },
+    {
+      "id": "openstreetmap_data",
+      "enabled": true,
+      "kind": "overpass_geospatial",
+      "name": "OpenStreetMap Overpass queries",
+      "apiBaseUrl": "https://overpass-api.de/api/interpreter",
+      "license": "OpenStreetMap data OpenDataCommons",
+      "attributionRequired": true,
+      "category": "geospatial_history",
+      "categories": [
+        "geospatial_history",
+        "biblical_archaeology",
+        "historical_geography"
+      ],
+      "modules": [
+        "history_archaeology"
+      ],
+      "locations": [
+        {
+          "name": "Jerusalem Old City",
+          "bbox": "31.7729,35.2304,31.7793,35.2424"
+        },
+        {
+          "name": "Athens Acropolis",
+          "bbox": "37.9710,23.7243,37.9746,23.7301"
+        },
+        {
+          "name": "Rome Historical Center",
+          "bbox": "41.8902,12.4822,41.9064,12.5073"
+        }
+      ]
+    },
+    {
+      "id": "apibible_passages",
+      "enabled": true,
+      "kind": "apibible_passages",
+      "name": "API.Bible licensed translations",
+      "apiBaseUrl": "https://api.scripture.api.bible/v1",
+      "license": "API.Bible terms of service",
+      "attributionRequired": true,
+      "category": "bible",
+      "categories": [
+        "bible",
+        "theology_protestant",
+        "biblical_languages"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "biblical_languages",
+        "theology"
+      ],
+      "apiKeyEnv": "APIBIBLE_KEY",
+      "bibleIds": [
+        {
+          "id": "de4e12af7f28f599-01",
+          "name": "King James Version"
+        },
+        {
+          "id": "06125adad2d5898a-01",
+          "name": "American Standard Version"
+        },
+        {
+          "id": "9879dbb7cfe39e4d-01",
+          "name": "World English Bible"
+        }
+      ],
+      "passages": [
+        "JHN.3.16-JHN.3.21",
+        "ROM.8.1-ROM.8.17",
+        "GEN.1.1-GEN.1.31",
+        "PSA.23.1-PSA.23.6",
+        "ISA.53.1-ISA.53.12",
+        "MAT.5.1-MAT.5.48",
+        "HEB.11.1-HEB.11.40",
+        "EPH.6.10-EPH.6.20",
+        "REV.21.1-REV.21.27"
+      ]
+    },
+    {
+      "id": "bibleapi_free",
+      "enabled": true,
+      "kind": "bibleapi_passages",
+      "name": "Bible API free passages",
+      "apiBaseUrl": "https://bible-api.com",
+      "license": "Public domain translations",
+      "attributionRequired": false,
+      "category": "bible",
+      "categories": [
+        "bible",
+        "theology_protestant"
+      ],
+      "modules": [
+        "bible"
+      ],
+      "bibleStudyModules": [
+        "theology"
+      ],
+      "translations": [
+        "kjv",
+        "web"
+      ],
+      "passages": [
+        "genesis 1",
+        "exodus 20",
+        "psalm 23",
+        "proverbs 3",
+        "isaiah 53",
+        "matthew 5",
+        "john 3:16-21",
+        "romans 8",
+        "1 corinthians 13",
+        "ephesians 6:10-18",
+        "revelation 21"
+      ]
+    },
+    {
+      "id": "canonapi_chapters",
+      "enabled": true,
+      "kind": "canonapi_chapters",
+      "name": "Canon API chapter data",
+      "apiBaseUrl": "https://www.canonapi.com/v1",
+      "license": "Public domain Bible text",
+      "attributionRequired": false,
+      "category": "bible",
+      "categories": [
+        "bible"
+      ],
+      "modules": [
+        "bible"
+      ],
+      "bibleStudyModules": [
+        "theology"
+      ],
+      "books": [
+        {
+          "book": "genesis",
+          "chapters": [
+            1,
+            2,
+            3,
+            12,
+            22
+          ]
+        },
+        {
+          "book": "exodus",
+          "chapters": [
+            1,
+            2,
+            3,
+            20
+          ]
+        },
+        {
+          "book": "psalms",
+          "chapters": [
+            1,
+            23,
+            51,
+            119
+          ]
+        },
+        {
+          "book": "isaiah",
+          "chapters": [
+            40,
+            53,
+            61
+          ]
+        },
+        {
+          "book": "matthew",
+          "chapters": [
+            5,
+            6,
+            7,
+            28
+          ]
+        },
+        {
+          "book": "john",
+          "chapters": [
+            1,
+            3,
+            14,
+            17
+          ]
+        },
+        {
+          "book": "romans",
+          "chapters": [
+            3,
+            5,
+            8,
+            12
+          ]
+        },
+        {
+          "book": "revelation",
+          "chapters": [
+            1,
+            21,
+            22
+          ]
+        }
+      ]
+    },
+    {
+      "id": "biblesdk_strongs",
+      "enabled": true,
+      "kind": "biblesdk_verses",
+      "name": "BibleSDK verses with Strong concordance",
+      "apiBaseUrl": "https://biblesdk.com",
+      "license": "BibleSDK terms",
+      "attributionRequired": true,
+      "category": "biblical_languages",
+      "categories": [
+        "biblical_languages",
+        "bible",
+        "hebrew",
+        "greek"
+      ],
+      "modules": [
+        "bible",
+        "language_learning"
+      ],
+      "bibleStudyModules": [
+        "biblical_languages"
+      ],
+      "queries": [
+        {
+          "book": "genesis",
+          "chapter": 1
+        },
+        {
+          "book": "psalm",
+          "chapter": 23
+        },
+        {
+          "book": "isaiah",
+          "chapter": 53
+        },
+        {
+          "book": "john",
+          "chapter": 1
+        },
+        {
+          "book": "romans",
+          "chapter": 8
+        }
+      ]
+    },
+    {
+      "id": "oshb_hebrew",
+      "enabled": true,
+      "kind": "github_raw_dataset",
+      "name": "Open Scriptures Hebrew Bible (OSHB)",
+      "dataRepo": "openscriptures/morphhb",
+      "license": "CC-BY-4.0",
+      "attributionRequired": true,
+      "category": "biblical_languages",
+      "categories": [
+        "biblical_languages",
+        "hebrew",
+        "tanakh"
+      ],
+      "modules": [
+        "bible",
+        "language_learning"
+      ],
+      "bibleStudyModules": [
+        "biblical_languages"
+      ],
+      "files": [
+        {
+          "book": "Genesis",
+          "path": "wlc/Gen.xml",
+          "format": "osis_xml"
+        },
+        {
+          "book": "Psalms",
+          "path": "wlc/Ps.xml",
+          "format": "osis_xml"
+        },
+        {
+          "book": "Isaiah",
+          "path": "wlc/Isa.xml",
+          "format": "osis_xml"
+        }
+      ]
+    },
+    {
+      "id": "morphgnt_greek",
+      "enabled": true,
+      "kind": "github_raw_dataset",
+      "name": "MorphGNT SBLGNT Greek New Testament",
+      "dataRepo": "morphgnt/sblgnt",
+      "license": "CC-BY-SA-3.0",
+      "attributionRequired": true,
+      "category": "biblical_languages",
+      "categories": [
+        "biblical_languages",
+        "greek",
+        "new_testament"
+      ],
+      "modules": [
+        "bible",
+        "language_learning"
+      ],
+      "bibleStudyModules": [
+        "biblical_languages"
+      ],
+      "files": [
+        {
+          "book": "Matthew",
+          "path": "61-Mt-morphgnt.txt",
+          "format": "morphgnt_tsv"
+        },
+        {
+          "book": "John",
+          "path": "64-Jn-morphgnt.txt",
+          "format": "morphgnt_tsv"
+        },
+        {
+          "book": "Romans",
+          "path": "66-Ro-morphgnt.txt",
+          "format": "morphgnt_tsv"
+        }
+      ]
+    },
+    {
+      "id": "ccel_patristics",
+      "enabled": true,
+      "kind": "ccel_texts",
+      "name": "CCEL Christian Classics Ethereal Library",
+      "apiBaseUrl": "https://www.ccel.org",
+      "license": "Various public domain / CC",
+      "attributionRequired": true,
+      "category": "church_history",
+      "categories": [
+        "church_history",
+        "theology_protestant",
+        "patristics"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "church_history"
+      ],
+      "texts": [
+        {
+          "path": "/ccel/calvin/institutes.i.html",
+          "title": "Institutes of the Christian Religion - Book 1",
+          "author": "John Calvin"
+        },
+        {
+          "path": "/ccel/augustine/confessions.i.html",
+          "title": "Confessions - Book 1",
+          "author": "Augustine of Hippo"
+        },
+        {
+          "path": "/ccel/bunyan/pilgrim.html",
+          "title": "Pilgrim's Progress",
+          "author": "John Bunyan"
+        },
+        {
+          "path": "/ccel/wesley/sermons.i.html",
+          "title": "Sermons on Several Occasions - Vol 1",
+          "author": "John Wesley"
+        }
+      ]
+    },
+    {
+      "id": "worldbank_indicators",
+      "enabled": true,
+      "kind": "worldbank_indicators",
+      "name": "World Bank Open Data",
+      "apiBaseUrl": "https://api.worldbank.org/v2",
+      "license": "CC-BY-4.0",
+      "attributionRequired": true,
+      "category": "economics",
+      "categories": [
+        "economics",
+        "finance",
+        "global_development"
+      ],
+      "modules": [
+        "research"
+      ],
+      "indicators": [
+        {
+          "code": "NY.GDP.MKTP.CD",
+          "name": "GDP (current US$)"
+        },
+        {
+          "code": "SP.POP.TOTL",
+          "name": "Population total"
+        },
+        {
+          "code": "SI.POV.GINI",
+          "name": "GINI index (World Bank)"
+        },
+        {
+          "code": "NY.GDP.PCAP.CD",
+          "name": "GDP per capita (current US$)"
+        },
+        {
+          "code": "SH.STA.MMRT",
+          "name": "Maternal mortality ratio"
+        }
+      ]
+    },
+    {
+      "id": "wikimedia_commons",
+      "enabled": true,
+      "kind": "wikimedia_commons",
+      "name": "Wikimedia Commons historical images",
+      "wikiBaseUrl": "https://commons.wikimedia.org/w/api.php",
+      "license": "Various CC licenses (per file)",
+      "attributionRequired": true,
+      "category": "biblical_archaeology",
+      "categories": [
+        "biblical_archaeology",
+        "historical_geography",
+        "church_history"
+      ],
+      "modules": [
+        "history_archaeology",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "biblical_archaeology",
+        "biblical_history"
+      ],
+      "categories_to_fetch": [
+        "Biblical archaeology",
+        "Ancient Israel",
+        "Christian manuscripts",
+        "Dead Sea Scrolls"
+      ]
+    },
+    {
+      "id": "wikisource_pt",
+      "enabled": true,
+      "kind": "mediawiki_extracts",
+      "name": "Wikisource Português - textos protestantes",
+      "wikiBaseUrl": "https://pt.wikisource.org/w/api.php",
+      "license": "CC-BY-SA-4.0",
+      "attributionRequired": true,
+      "category": "theology_protestant",
+      "categories": [
+        "theology_protestant",
+        "church_history",
+        "bible"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "church_history"
+      ],
+      "pages": [
+        "Bíblia",
+        "Tradução Brasileira da Bíblia/Apocalipse",
+        "Tradução Brasileira da Bíblia/Jó"
+      ]
+    },
+    {
+      "id": "oeis_math",
+      "enabled": true,
+      "kind": "oeis_search",
+      "name": "OEIS Encyclopedia of Integer Sequences",
+      "apiBaseUrl": "https://oeis.org",
+      "license": "Creative Commons Attribution Non-Commercial",
+      "attributionRequired": true,
+      "category": "mathematics",
+      "categories": [
+        "mathematics",
+        "research"
+      ],
+      "modules": [
+        "research"
+      ],
+      "queries": [
+        "fibonacci",
+        "prime numbers",
+        "golden ratio",
+        "pascal triangle",
+        "geometric series"
+      ]
+    }
+  ]
+}
