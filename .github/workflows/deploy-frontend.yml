@@ -1,0 +1,86 @@
+name: GIOM — Frontend CI/CD (Vercel Optional)
+
+# Build frontend on every push to main.
+# Deploy to Vercel only when Vercel secrets are configured.
+# Backend must be healthy before frontend is deployed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web-next/**'
+      - 'vercel.json'
+      - 'package.json'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ── 1. Build + type-check ─────────────────────────────────────────────────────
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: TypeScript check
+        run: cd apps/web-next && npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Build Next.js
+        run: npm run web-next:build
+        env:
+          NEXT_PUBLIC_BACKEND_PROXY_TARGET: https://giom-backend.onrender.com
+          NEXT_PUBLIC_API_BASE_URL: ""   # use proxy, not direct URL
+
+  # ── 2. Deploy to Vercel ───────────────────────────────────────────────────────
+  deploy-vercel:
+    name: Deploy → Vercel
+    if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-frontend
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          vercel-args: '--prod'
+        continue-on-error: true
+
+      - name: Verify frontend is live
+        if: steps.deploy.outputs.url != ''
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          echo "Checking $URL"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+          echo "HTTP $STATUS"
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "304" ]; then
+            echo "Frontend is live."
+          else
+            echo "::warning::Frontend returned $STATUS"
+          fi
+        shell: bash

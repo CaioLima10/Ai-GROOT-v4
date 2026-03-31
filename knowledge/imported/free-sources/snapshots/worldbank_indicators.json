@@ -1,0 +1,86 @@
+[
+  {
+    "title": "World Bank: GDP (current US$)",
+    "content": "Indicator: GDP (current US$)\nCode: NY.GDP.MKTP.CD\nSource: World Bank Open Data\n\nGlobal (undefined): undefined",
+    "category": "economics",
+    "categories": [
+      "economics",
+      "finance",
+      "global_development"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://data.worldbank.org/indicator/NY.GDP.MKTP.CD",
+    "license": "CC-BY-4.0",
+    "tags": [
+      "NY.GDP.MKTP.CD",
+      "worldbank",
+      "economics"
+    ],
+    "fetchedAt": "2026-03-31T07:46:51.206Z",
+    "sourceId": "worldbank_indicators",
+    "sourceName": "World Bank Open Data",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "World Bank: GDP (current US$)"
+  },
+  {
+    "title": "World Bank: Population total",
+    "content": "Indicator: Population total\nCode: SP.POP.TOTL\nSource: World Bank Open Data\n\nGlobal (undefined): undefined",
+    "category": "economics",
+    "categories": [
+      "economics",
+      "finance",
+      "global_development"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://data.worldbank.org/indicator/SP.POP.TOTL",
+    "license": "CC-BY-4.0",
+    "tags": [
+      "SP.POP.TOTL",
+      "worldbank",
+      "economics"
+    ],
+    "fetchedAt": "2026-03-31T07:46:51.367Z",
+    "sourceId": "worldbank_indicators",
+    "sourceName": "World Bank Open Data",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "World Bank: Population total"
+  },
+  {
+    "title": "World Bank: GINI index (World Bank)",
+    "content": "Indicator: GINI index (World Bank)\nCode: SI.POV.GINI\nSource: World Bank Open Data\n\nGlobal (undefined): undefined",
+    "category": "economics",
+    "categories": [
+      "economics",
+      "finance",
+      "global_development"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://data.worldbank.org/indicator/SI.POV.GINI",
+    "license": "CC-BY-4.0",
+    "tags": [
+      "SI.POV.GINI",
+      "worldbank",
+      "economics"
+    ],
+    "fetchedAt": "2026-03-31T07:46:51.531Z",
+    "sourceId": "worldbank_indicators",
+    "sourceName": "World Bank Open Data",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "World Bank: GINI index (World Bank)"
+  }
+]

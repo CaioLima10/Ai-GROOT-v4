@@ -1,0 +1,622 @@
+{
+  "id": "snap-2026-03-27T05-21-05-189Z",
+  "createdAt": "2026-03-27T05:21:05.193Z",
+  "files": [
+    {
+      "source": ".groot-memory",
+      "rel": "episodic.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "source": ".groot-memory",
+      "rel": "knowledge.json",
+      "bytes": 3794,
+      "sha256": "0ee64a4e9a8138b681bdd1747bc049ea769c0628adafcabddacf0f6c06c50e26"
+    },
+    {
+      "source": ".groot-memory",
+      "rel": "long-term.json",
+      "bytes": 2483,
+      "sha256": "05dda6501e0bb0b7afadbb37a50b6f0d26c43ec57c0f3cece8d8a395aa8e76a9"
+    },
+    {
+      "source": ".groot-memory",
+      "rel": "profile.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "source": "memory",
+      "rel": "supabaseMemory-fixed.js",
+      "bytes": 4282,
+      "sha256": "7f5c1b9d5ecaa85c42d2d20b1fb28c29fdbc6165c0bc53d488fa7ab262046f53"
+    },
+    {
+      "source": "memory",
+      "rel": "supabaseMemory.js",
+      "bytes": 3419,
+      "sha256": "819148b1be063b72da4849e9838a79849419aded6de1aa5aeccd17bb2c946da9"
+    },
+    {
+      "source": "vectorMemory",
+      "rel": "semanticSearch.js",
+      "bytes": 7043,
+      "sha256": "19d53f035f19035ca2784f1f4208a80061c862c54454775846a73c5d5e463823"
+    },
+    {
+      "source": "experience",
+      "rel": "experienceStore.js",
+      "bytes": 11175,
+      "sha256": "e816c8b0a840917dbf7ccaa22222f8ed19d8395f17a8e1aaa3198f4b4b9db106"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-dispatch-drying-bottlenecks.md",
+      "bytes": 896,
+      "sha256": "47e6e200578e1d447573341375ff4642aee74b1505be2ca040292d6b84cd7ba0"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-gps-telematics-and-precision.md",
+      "bytes": 748,
+      "sha256": "b0af5cb2482fababc7618161a95b4982286571d67abbf3a4fb7bc3fb12a54c3a"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-harvest-dispatch-and-bottlenecks.md",
+      "bytes": 2070,
+      "sha256": "f4eaf83993687e4d2480f220639c819bbf46299487d4a453c29edd0c0678d762"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-operations-framework.md",
+      "bytes": 435,
+      "sha256": "bf9c636b9d9e1ed25fe3ad4099aa9bf9e4a6b230ce87bab9af559b10212151db"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-precision-harvest-and-logistics.md",
+      "bytes": 868,
+      "sha256": "310dfca12a52f2c970d6ee981986aefe9380e82a464c3d6f7d6c58f7b4b5ad36"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-weather-runtime-operations.md",
+      "bytes": 891,
+      "sha256": "51d8dca7ffebce2b769628e49ba1f8e7ee5578e98f0191b0b60ea75e4dccb6b9"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\agro-weather-window-and-field-operations.md",
+      "bytes": 715,
+      "sha256": "94a768115903d71a327ccfe0d210034318c2aff33ada9fe3ea84da94d221f075"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\ai-research-constitution.md",
+      "bytes": 964,
+      "sha256": "c48005b55c3a1ca4d52fcdba44a543c2a25d46385eeba88c4567944a1eae516f"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\architecture.md",
+      "bytes": 323,
+      "sha256": "88f9295a76a88a97f1198cba2b548634630a4a1787e92593714ef1bd0a6028b7"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-atlas-chronology-reference.md",
+      "bytes": 2683,
+      "sha256": "ab7f5d9f3d5e32e1bf0a25bd23b74648e3f8e1371ace802badff0d780bbb9202"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-canon-traditions.md",
+      "bytes": 798,
+      "sha256": "4fee6b16017db387e06d7e9a02e9955dd1f37de58ea53562524c092c6dcc3715"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-expository-outlines-and-sunday-school.md",
+      "bytes": 1118,
+      "sha256": "53fe4ce694ceebb8895b237756808fc9a97ea284bc7333c4c97401c5af3d8b12"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-geography-kingdoms-and-periods.md",
+      "bytes": 1013,
+      "sha256": "d03417bb8c01b8b0bcb1e65fa3205fef834201538e66ce9545866ee9517cb422"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-original-languages.md",
+      "bytes": 695,
+      "sha256": "bea664f904e427f4e8023a124a6b5f14f6d32108163c58926eecf2f877127b2b"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-patristics-and-church-fathers.md",
+      "bytes": 1093,
+      "sha256": "ae196ee2094ff1e90953b0ace1b2759607be0025936d78465a1e9ed8f0d4eec9"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-protestant-confessional-lines.md",
+      "bytes": 1175,
+      "sha256": "1d22b3ac40527916926480b1cf349c78c5a8d3fa29d98eb21820aa3075b5cf26"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-study-bibles-protestant-sermons.md",
+      "bytes": 1549,
+      "sha256": "75238c5ee0c05b1f9ec43637e10d709f350d45524f8cfabbe088a94996577c1f"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-study-framework.md",
+      "bytes": 579,
+      "sha256": "931bb1269018dfcd58f1b9a9225284747a4419caa7793832d5b69bb7b9c01bbf"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\bible-youversion.md",
+      "bytes": 487,
+      "sha256": "c97172d5f8f8b8e3877253e7c68857aa052f81480aa9bed88b5b166fa4e83be5"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\biblical-archaeology-overview.md",
+      "bytes": 736,
+      "sha256": "a37d2add62654d4af5bd513cc0e41610bf2722594269890d030b6b71b32af799"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\biblical-history-timeline.md",
+      "bytes": 721,
+      "sha256": "aea9de1bfab7ba4a2384bdc1e21655e20d7bd6b43d1d4a9302d1d9c0d595a611"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\church-history-primer.md",
+      "bytes": 685,
+      "sha256": "7e58f0e9b3fb9108793db848b51e9aa2c04a3f7d2a54c4a482f62e7dd4104663"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\ci-cd.md",
+      "bytes": 275,
+      "sha256": "f27f0cdf512a0ceb3126d4e516493e887cb5cedfe54a48cc6ab2f2d21231fcd7"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\community-qa.md",
+      "bytes": 348,
+      "sha256": "752dd8b05fc3bfd4fefd6e177fd353551b3d4fc579b69bedd1346f1e8ec9bbe3"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\cpp.md",
+      "bytes": 318,
+      "sha256": "7bc58e7f5efc1da7e99e9fb6629b648f612f452857ad62d98841d9d37b1192a2"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\csharp.md",
+      "bytes": 282,
+      "sha256": "23f36522118910d8ebad97a029206fd27ff6918b752d46ae0bbe79f617a8bc46"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\css.md",
+      "bytes": 384,
+      "sha256": "8a2d3ba8535bff438467259724ad1fdaeb64cd90ce351a3bdf071c12512c440b"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\cybersecurity-defense-framework.md",
+      "bytes": 868,
+      "sha256": "063d128ade71a5979a3e9d0652c0e16eb5ecd65ab8f8e7b6fbd50785b2c8e368"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\databases.md",
+      "bytes": 353,
+      "sha256": "41bf4880a61a8dd2d58088bed8ecce663a80ceb9339d11fa683e43be21e701ee"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\dev-communication-modes.md",
+      "bytes": 558,
+      "sha256": "57531fcb3725aed775307deb5f25fdae3df86b9ff2c8667369a8ebf7716d6079"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\devops-ci.md",
+      "bytes": 338,
+      "sha256": "2fc92d0f5450e64cb48b1b4cf9095b437ac141972eeb000966f2785e3cddaf65"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\docker.md",
+      "bytes": 370,
+      "sha256": "bec7739a0003db0e916bcb0718633d923c30d69661cf38589bea3412f49845f9"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\docs-map.md",
+      "bytes": 701,
+      "sha256": "4e5bde7756eef1654c6a484bb57d434071c20be43b79ceb0cd1de3baedcba443"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\express.md",
+      "bytes": 345,
+      "sha256": "f3825595d01630345b5db44a6c448e968c812f23c6d6ba72738f6f6a786968f0"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-bank-transfers.md",
+      "bytes": 357,
+      "sha256": "98b025bcccdc1f337ed458e025b9e562ecc944e5eb56a3b07c7f7871bb8854c1"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-decision-framework.md",
+      "bytes": 419,
+      "sha256": "fa30950c8f367e232470ea52bd52f9baefe18c72fcac9f8c633710495741a685"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-ledgering.md",
+      "bytes": 387,
+      "sha256": "df5323e187976688f9f6965a71c5d97aaed148291e19dcfb46c3e2313ca8b19b"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-marketplaces.md",
+      "bytes": 330,
+      "sha256": "0cf493a3ce474bb08a436848fa7f6d3052bbe97516191b9fe567f230985b9b84"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-payments-core.md",
+      "bytes": 383,
+      "sha256": "21b6f481535ca4ce67198b3ebeb36fb148a130aefcb934142425f8d24689c534"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-providers.md",
+      "bytes": 319,
+      "sha256": "cbeec463ca4c0850fd15f66b2db2d03f3372abf9e67b244e41b5b8748663f810"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\finance-security-compliance.md",
+      "bytes": 395,
+      "sha256": "30626f4dbe8669438875183e9289be0e85d6b9efdf580193f7442ed3c15f66fa"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\games-logic-training.md",
+      "bytes": 371,
+      "sha256": "bc6ea4b1650200ab8c1c2bcafe5828e55df833c9083e87053dccdc18727ab9a5"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\git.md",
+      "bytes": 343,
+      "sha256": "707134571728b8849100fc33e240a92745fe53d9eb52cff23a69aee8a303f919"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\github-bug-triage.md",
+      "bytes": 551,
+      "sha256": "ebdd25d5fc7c6d73298b097f4a12d4c5b759a8dba65d3e9f7b9f00c0b9460162"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\go.md",
+      "bytes": 306,
+      "sha256": "57a9aadd85e44904e4481c0953b7feb8c86e11c697705c6932980632ee7fce9a"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\graphql.md",
+      "bytes": 318,
+      "sha256": "dfde10cf9e0a35967bcace3cc3f793057dd0eb5c1a9899ceeb3602c3e3b52417"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\guia-interno.md",
+      "bytes": 498,
+      "sha256": "bcc309792d3b9aa3e6380fe31dd6f9a153579ff1b66be66127621dd8c74b505d"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\historical-method-archaeology.md",
+      "bytes": 884,
+      "sha256": "133f5c72032790f1079561f7d26b2714895060ff8db46d8bf81d0b1963a61e99"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\html.md",
+      "bytes": 425,
+      "sha256": "6c62a1bb5fdfda134d72d4c232aa52a13c1b2111d34f85136b1d059895f37204"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\http-rest.md",
+      "bytes": 329,
+      "sha256": "750bc7899a7b6209b129375c47c414297aca8d3e09cac38ddb512c8094ab0f50"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\java.md",
+      "bytes": 316,
+      "sha256": "47373a272ba1d89f40b08fb7f6cd3036cdd18bc334f75b9d1c0542dcd1fcd047"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\javascript.md",
+      "bytes": 384,
+      "sha256": "8eeda0c4b4c3accec2db78d329a52cc3be06f186537ebcd4d46968ffb655ac99"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\linux.md",
+      "bytes": 287,
+      "sha256": "90b3f5495203c402831f3277154ffc77b588e0193b260cb37d7d2c45a5b6ffcf"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\macos.md",
+      "bytes": 282,
+      "sha256": "4369a818aec2354157b811a63685ba193a43267e64799be3bb5aeebe24e631bc"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\math-science-framework.md",
+      "bytes": 393,
+      "sha256": "30c47b45eaa87eed7ab53b897ceffbe2cd71e05b1b6b90702cfeed0330e6e557"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\mobile.md",
+      "bytes": 321,
+      "sha256": "1ce65bc42333e7c81e5e02c5d0f950190243c8d61ddec0125e842feea9b57d8d"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\nextjs.md",
+      "bytes": 380,
+      "sha256": "ed78f54ff41ccc65e22e3557f1fcc9f463cf6840bcc74c1d5a912c2a724c6d6d"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\nodejs.md",
+      "bytes": 495,
+      "sha256": "97207ba6c81a3892f40b5852f137b56d98e20fe14c10bb9b0af0798c3357faf5"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\npm-ecosystem.md",
+      "bytes": 337,
+      "sha256": "a6d4818b4e6e50d9701595963146d7a51025ea295e9f5040473704348ec95bdf"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\oauth-jwt.md",
+      "bytes": 364,
+      "sha256": "655e828da33fb791806f7ef5bdf2916a953dbec30360a8cf7652dc44eade1576"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\observability.md",
+      "bytes": 303,
+      "sha256": "343678402a415c72902fd3d59e30a31caa0ec36e730b0dc69945eae4fea808f3"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\performance.md",
+      "bytes": 318,
+      "sha256": "d6347ace720147a4b137016e023b480a6a3ed58006e16b840b2017d359745fbc"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\platform-safety-and-prevention.md",
+      "bytes": 2165,
+      "sha256": "d0ccd44c29716e56f8c0dacad25a77c45d32f1217fb945c122954a8c9f409a5d"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\postgresql.md",
+      "bytes": 376,
+      "sha256": "2a84e5ed8b8f2eea7dbb3bda1c42c9ec9f320760bc67b8d79ad7036ef42b85cc"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\professional-prompt-patterns.md",
+      "bytes": 2703,
+      "sha256": "38c3213f0fbb28fe8e8fdaa192403537fd121a155a200d67b211f21243719da1"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\python.md",
+      "bytes": 366,
+      "sha256": "775db639968d4cbb353e978f793031553bbaeb82393fa2475c3aa96870136fcb"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\react.md",
+      "bytes": 414,
+      "sha256": "fa45d5dba22a5d619e348b894cc3656d50fb12bde7e1e1ab1f3bf473c421f2aa"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\README.md",
+      "bytes": 471,
+      "sha256": "59fae18720c19ab3df6307141f10a5614ed49f8c244dd8d680caad6383445d94"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\rust.md",
+      "bytes": 313,
+      "sha256": "f07bba6ae93230608e5178d899838ad7bba7d4ff1bb553743c89c9fbc87378a9"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\safety-support.md",
+      "bytes": 398,
+      "sha256": "7bf36b346e410e0cfb2228808c8724bbd83049390c2e3ff9c0f2b023c23a81e3"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\scalability.md",
+      "bytes": 275,
+      "sha256": "bece5452505e5883611b45bd6b6e37a8af4a071297ecb147f004377236343ac7"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\scientific-method-advanced.md",
+      "bytes": 810,
+      "sha256": "185bd25f858e3a14f7e2f9f027e149c68e9bca52614dd050de276a004020cc99"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\security-defensive.md",
+      "bytes": 306,
+      "sha256": "401a7e7b8bc5cfbbb56b5897207ab055846984d4ab6819ba85e4fada06f13a85"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\security-offensive.md",
+      "bytes": 329,
+      "sha256": "5f606a7f5e848fdfa8499aeabbf5302c6c714153348f9a3416d5d7ffc50d49bc"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\security-owasp.md",
+      "bytes": 361,
+      "sha256": "b48449385d393e366b3b2381ec681b2184a055626fd1231f1c64935bd91278c3"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\sources.json",
+      "bytes": 1229,
+      "sha256": "5249a0f9ce638462168794e843a1a832f6cff78f9c75ec79c7695ae4ee33601a"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\systematic-theology-basics.md",
+      "bytes": 680,
+      "sha256": "8a22458abda9faca8cdfc15e6788c5ba9bc4cacb326cbf23ed3084b538d3c62a"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\testing.md",
+      "bytes": 310,
+      "sha256": "f00fa867da68d622d9b905a5d014c9f7a476b046800bd46ee0df43792b2f07d0"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\typescript.md",
+      "bytes": 388,
+      "sha256": "4753e2bab283e2dfc8d4d7f8b7cce9a2a376265c8d19f1c5e509f8d09744f266"
+    },
+    {
+      "source": "knowledge",
+      "rel": "curated\\windows.md",
+      "bytes": 340,
+      "sha256": "5f4177d0966b887cf82a0fd57e03882e49bffb55acf77a883ceb9177bc0b4aea"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\api-integrations.md",
+      "bytes": 659,
+      "sha256": "6d87c9642d46e57434467e556965ecb0098578e9c05b59681659913e523bb748"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\dev-support.md",
+      "bytes": 465,
+      "sha256": "b8c9dcb1c1c41a772b72545799af29c1034bec160f7ceb83c66c4820d8642ad3"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\faith-jesus.md",
+      "bytes": 449,
+      "sha256": "d0362d5d16599147ba35e9d05935828cad7aa690aeedc0ea620a62cd8dc47d8f"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\languages-frameworks.md",
+      "bytes": 725,
+      "sha256": "df570860800bf0070a3816078ebfb3e193f7674941868ace39b1c17fcf3fda10"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\mental-health-support.md",
+      "bytes": 649,
+      "sha256": "3a1a948ed1426c16ea51f39f48f88a7a92b2751cd46936b572d3ff353e008d4e"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\programming-index.md",
+      "bytes": 733,
+      "sha256": "340dd825bf2f0f82f44ec788694c7c6f644004cdadf798cbc450a2df4af95733"
+    },
+    {
+      "source": "knowledge",
+      "rel": "seed\\security-basics.md",
+      "bytes": 761,
+      "sha256": "77664baa390537904743711b8f0fc43fae94e230928d79c59f73f9a56babe4b8"
+    },
+    {
+      "source": "knowledge",
+      "rel": "sources.json",
+      "bytes": 338,
+      "sha256": "939ad69a877e1d303858bbe32e144b42060849492737cea1e896118bd352396f"
+    },
+    {
+      "source": "learning",
+      "rel": "aiLearner.js",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "learning",
+      "rel": "autoLearner.js",
+      "bytes": 9404,
+      "sha256": "82f17cf2a2df860f46290c8f1d18a32f07abf2de6f25dfa2bcb2dfd2f3483009"
+    },
+    {
+      "source": "learning",
+      "rel": "docLearner.js",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "learning",
+      "rel": "ragEngine.js",
+      "bytes": 3138,
+      "sha256": "6f0f8390c3ec06b2efec0f03a30d2c30427c99c37e5b30ebc79e948842483c68"
+    },
+    {
+      "source": "learning",
+      "rel": "vectorMemory.js",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "sources": [
+    ".groot-memory",
+    "memory",
+    "vectorMemory",
+    "experience",
+    "knowledge",
+    "learning"
+  ],
+  "totalFiles": 101,
+  "totalBytes": 98932
+}

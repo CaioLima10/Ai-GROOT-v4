@@ -3,16 +3,18 @@
 ## 📋 OPÇÕES 100% GRATUITAS
 
 ### 🥇 RENDER (RECOMENDADO)
-- **URL**: https://render.com
+
+- **URL**: <https://render.com>
 - **Plano**: Free Tier
-- **Limites**: 
+- **Limites**:
   - 750 horas/mês (suficiente)
   - 1GB RAM
   - Banco PostgreSQL gratuito
 - **Deploy**: Git integration
 
 ### 🥈 RAILWAY
-- **URL**: https://railway.app
+
+- **URL**: <https://railway.app>
 - **Plano**: Free Tier
 - **Limites**:
   - 500 horas/mês
@@ -20,7 +22,8 @@
   - $5 créditos/mês
 
 ### 🥉 VERCEL
-- **URL**: https://vercel.com
+
+- **URL**: <https://vercel.com>
 - **Plano**: Free Tier
 - **Limites**:
   - Serverless functions
@@ -32,6 +35,7 @@
 ## 🚀 DEPLOY PASSO A PASSO (RENDER)
 
 ### 1️⃣ PREPARAR PROJETO
+
 ```bash
 # Criar arquivo render.yaml
 echo "
@@ -41,7 +45,7 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node server-definitivo.js
+    startCommand: node apps/api/src/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -51,7 +55,9 @@ services:
 ```
 
 ### 2️⃣ CONFIGURAR VARIÁVEIS
+
 No painel do Render:
+
 - **Environment Variables**
 - Adicionar todas as variáveis do .env:
   - `GROQ_API_KEY`
@@ -60,6 +66,7 @@ No painel do Render:
   - `JWT_SECRET`
 
 ### 3️⃣ DEPLOY
+
 1. Conectar repositório GitHub
 2. Automatic build e deploy
 3. URL: `https://groot-ai.onrender.com`
@@ -69,15 +76,18 @@ No painel do Render:
 ## 🌐 Interface Web (SITE)
 
 ### 📋 O QUE É INTERFACE WEB?
+
 Frontend para interagir com GROOT:
+
 - **Chat interface** (como ChatGPT)
 - **Login/cadastro**
 - **Histórico de conversas**
 - **Dashboard de analytics**
 
-### 🎯 OPÇÕES GRÁTITAS:
+### 🎯 OPÇÕES GRÁTITAS
 
 #### **VITE + TAILWIND (RECOMENDADO)**
+
 ```bash
 # Criar frontend
 npm create vite@latest groot-frontend -- --template react
@@ -87,12 +97,14 @@ npx tailwindcss init -p
 ```
 
 #### **BOOTSTRAP (SIMPLES)**
+
 ```bash
 # HTML simples com Bootstrap
-# Já tem ui/index.html - pode usar como base
+# Frontend oficial ja existe em apps/web-next - use esse app como base
 ```
 
 #### **STREAMLIT (PYTHON - RÁPIDO)**
+
 ```python
 import streamlit as st
 import requests
@@ -110,12 +122,14 @@ if user_input:
 
 ## 🎯 RECOMENDAÇÃO FINAL
 
-### 📋 MÍNIMO PARA FUNCIONAR:
+### 📋 MÍNIMO PARA FUNCIONAR
+
 1. **Deploy**: Render (grátis)
 2. **Frontend**: HTML simples (já existe)
 3. **Backend**: Node.js atual
 
-### 📋 COMPLETO PROFISSIONAL:
+### 📋 COMPLETO PROFISSIONAL
+
 1. **Deploy**: Render + domínio custom
 2. **Frontend**: React + Tailwind
 3. **Backend**: Node.js + Supabase
@@ -125,17 +139,20 @@ if user_input:
 
 ## 🚨 O QUE PRECISA FAZER AGORA
 
-### 🔴 IMEDIATO (HOJE):
+### 🔴 IMEDIATO (HOJE)
+
 1. **Testar embeddings gratuitos**
 2. **Criar GitHub token** (opcional)
 3. **Preparar para deploy**
 
-### 🟡 CURTO PRAZO (AMANHÃ):
+### 🟡 CURTO PRAZO (AMANHÃ)
+
 1. **Criar conta Render**
 2. **Fazer primeiro deploy**
 3. **Testar online**
 
-### 🟢 MÉDIO PRAZO (ESTA SEMANA):
+### 🟢 MÉDIO PRAZO (ESTA SEMANA)
+
 1. **Criar frontend bonito**
 2. **Adicionar analytics**
 3. **Promover GROOT**

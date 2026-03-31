@@ -1,0 +1,355 @@
+import { resolveCompatModel } from "../../../packages/shared-config/src/index.js"
+
+export function getCompatContext(modelId, extras = {}) {
+  const preset = resolveCompatModel(modelId)
+  return {
+    assistantProfile: preset.profile,
+    activeModules: preset.modules,
+    bibleStudyModules: preset.bibleStudyModules || [],
+    ...extras
+  }
+}
+
+export function resolveDeterministicFixtureResponseCore(question = "", context = {}, deps = {}) {
+  const {
+    runtimeIsFixtureCardPreferred,
+    buildFixtureCardResponse,
+    buildFixtureIntentFallback
+  } = deps
+
+  if (!runtimeIsFixtureCardPreferred(question, context)) {
+    return null
+  }
+
+  const fixtureCard = buildFixtureCardResponse(context)
+  if (fixtureCard) {
+    return fixtureCard
+  }
+
+  return buildFixtureIntentFallback(question, context)
+}
+
+export function resolveDeterministicWeatherResponseCore(question = "", context = {}, deps = {}) {
+  const {
+    runtimeIsWeatherCardPreferred,
+    runtimeBuildWeatherCardResponse,
+    runtimeBuildWeatherIntentFallback
+  } = deps
+
+  const preferredVariant = String(context?.preferredResponseVariant || "").trim().toLowerCase()
+  if (preferredVariant !== "weather" && !runtimeIsWeatherCardPreferred(question, context)) {
+    return null
+  }
+
+  const weatherCard = runtimeBuildWeatherCardResponse(question, context)
+  if (weatherCard) {
+    return weatherCard
+  }
+
+  return runtimeBuildWeatherIntentFallback(context)
+}
+
+export function requiresVerifiedFreshDataCore(question = "", context = {}, deps = {}) {
+  const {
+    runtimeIsWeatherQuestion,
+    runtimeIsFixtureQuestion
+  } = deps
+
+  const normalizedQuestion = String(question || "").trim()
+  if (!normalizedQuestion) {
+    return false
+  }
+
+  if (runtimeIsWeatherQuestion(normalizedQuestion) || runtimeIsFixtureQuestion(normalizedQuestion)) {
+    return true
+  }
+
+  if (String(context?.preferredResponseVariant || "").trim()) {
+    return true
+  }
+
+  return /\b(agora|ao vivo|tempo real|ultim[oa]s?|atualizad[oa]|confirm[ea]|fonte|horario exato|horário exato|placar exato|preco|preço|cotacao|cotação|noticia|notícia)\b/i.test(normalizedQuestion)
+}
+
+export function buildUnknownInformationResponseCore(question = "", context = {}, options = {}, deps = {}) {
+  const includeReason = options.includeReason !== false
+  const details = []
+
+  if (includeReason && requiresVerifiedFreshDataCore(question, context, deps)) {
+    details.push("Nao consegui confirmar esta informacao em tempo real nesta execucao.")
+  }
+
+  if (options.offerRetry !== false) {
+    details.push("Tente novamente em alguns instantes.")
+  }
+
+  const base = details.length > 0
+    ? `Nao consegui responder a esta pergunta no momento. ${details.join(" ")}`
+    : "Nao consegui responder a esta pergunta no momento. Se o problema persistir, verifique as configuracoes do servidor."
+
+  return base.trim()
+}
+
+function buildCompactKnowledgeSourceLabel(item = {}) {
+  const title = String(item?.title || item?.sourceId || item?.source || "").trim()
+  if (!title) return ""
+
+  return title
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/[_/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function buildKnowledgeSourcesFooter(context = {}) {
+  const sources = Array.isArray(context?.ragSources) ? context.ragSources : []
+  if (sources.length === 0) {
+    return ""
+  }
+
+  const unique = []
+  const seen = new Set()
+
+  for (const source of sources) {
+    const label = buildCompactKnowledgeSourceLabel(source)
+    if (!label) continue
+    const key = label.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(label)
+    if (unique.length >= 3) break
+  }
+
+  if (unique.length === 0) {
+    return ""
+  }
+
+  return `Base consultada: ${unique.join("; ")}`
+}
+
+function shouldAppendKnowledgeSources(question = "", context = {}, text = "") {
+  if (!Array.isArray(context?.ragSources) || context.ragSources.length === 0) {
+    return false
+  }
+
+  if (/^\s*\{[\s\S]*\}\s*$/m.test(String(text || ""))) {
+    return false
+  }
+
+  if (/base consultada:/i.test(String(text || ""))) {
+    return false
+  }
+
+  if (/\b(clima|tempo|previs[aã]o|placar|jogo|partida|ao vivo)\b/i.test(String(question || ""))) {
+    return false
+  }
+
+  return true
+}
+
+export function postProcessAssistantResponseCore(question = "", responseText = "", context = {}, deps = {}) {
+  const {
+    detectGreetingSignals,
+    buildGreetingResponse,
+    shouldKeepIdentityPreamble,
+    buildGospelCoreFallback,
+    resolveDeterministicUploadResponseRuntime,
+    deterministicUploadResponseDeps,
+    resolveDeterministicBibleGuidanceResponse,
+    isPromptCardPreferred,
+    buildPromptCardResponse,
+    resolveDeterministicWeatherResponse,
+    runtimeIsWeatherCardPreferred,
+    runtimeBuildWeatherCardResponse,
+    runtimeBuildWeatherIntentFallback,
+    resolveDeterministicFixtureResponse,
+    isInterpretiveBibleQuestion,
+    refineBibleInterpretiveResponse,
+    buildGreetingLead
+  } = deps
+
+  let text = String(responseText || "").trim()
+  if (!text) {
+    return text
+  }
+
+  // Interceptar vazamento de dados internos de memoria/contexto ANTES de qualquer outro processamento
+  const INTERNAL_CONTEXT_LEAK_PATTERN = /\b(com o contexto que eu tenho agora|ponto principal e este|topicos recentes|t[oó]picos recentes|[uú]ltimo pedido|ultimo pedido|se quiser, eu continuo a partir daqui|ainda nao tenho essa informacao|pergunte denovo|validacao da solucao|valida[cç][aã]o da solu[cç][aã]o|no estado atual desta execucao|limite operacional)\b/i
+  if (INTERNAL_CONTEXT_LEAK_PATTERN.test(text)) {
+    const greetingSignals2 = detectGreetingSignals(question)
+    if (greetingSignals2.isGreetingOnly) {
+      return buildGreetingResponse(question, context)
+    }
+    const gospelFallback = buildGospelCoreFallback(question, context)
+    if (gospelFallback) return gospelFallback
+
+    const uploadResponseClean = resolveDeterministicUploadResponseRuntime(question, context, deterministicUploadResponseDeps)
+    if (uploadResponseClean) return uploadResponseClean
+
+    const bibleFallback = resolveDeterministicBibleGuidanceResponse(question, context)
+    if (bibleFallback) return bibleFallback
+
+    return "Nao consegui processar sua pergunta neste momento. Tente novamente em alguns instantes."
+  }
+
+  const greetingSignals = detectGreetingSignals(question)
+  if (greetingSignals.isGreetingOnly) {
+    return buildGreetingResponse(question, context)
+  }
+
+  if (shouldKeepIdentityPreamble(question)) {
+    return text
+  }
+
+  const gospelCoreFallback = buildGospelCoreFallback(question, context)
+  if (gospelCoreFallback && /\b(com o contexto que eu tenho agora|ponto principal e este|se quiser, eu continuo a partir daqui)\b/i.test(text)) {
+    return gospelCoreFallback
+  }
+
+  const deterministicUploadResponse = resolveDeterministicUploadResponseRuntime(question, context, deterministicUploadResponseDeps)
+  if (
+    deterministicUploadResponse
+    && /\b(validacao da solucao|valida[cç][aã]o da solu[cç][aã]o|no estado atual desta execucao|limite operacional|com o contexto que eu tenho agora|ponto principal e este|topicos recentes|t[oó]picos recentes)\b/i.test(text)
+  ) {
+    return deterministicUploadResponse
+  }
+
+  const deterministicBibleGuidance = resolveDeterministicBibleGuidanceResponse(question, context)
+  if (
+    deterministicBibleGuidance
+    && /\b(com o contexto que eu tenho agora|ponto principal e este|se quiser, eu continuo a partir daqui|topicos recentes|tópicos recentes|base local consultada)\b/i.test(text)
+  ) {
+    return deterministicBibleGuidance
+  }
+
+  if (isPromptCardPreferred(context)) {
+    const promptCard = buildPromptCardResponse(text)
+    if (promptCard) {
+      return promptCard
+    }
+  }
+
+  const deterministicWeatherResponse = resolveDeterministicWeatherResponse(question, context)
+  if (deterministicWeatherResponse) {
+    return deterministicWeatherResponse
+  }
+
+  if (runtimeIsWeatherCardPreferred(question, context)) {
+    const weatherCard = runtimeBuildWeatherCardResponse(question, context)
+    if (weatherCard) {
+      return weatherCard
+    }
+
+    if (/(nao tenho acesso|não tenho acesso|tempo real|pesquisa ao vivo|clima ao vivo|clima em tempo real)/i.test(text)) {
+      return runtimeBuildWeatherIntentFallback(context)
+    }
+  }
+
+  const deterministicFixtureResponse = resolveDeterministicFixtureResponse(question, context)
+  if (deterministicFixtureResponse) {
+    return deterministicFixtureResponse
+  }
+
+  if (context?.biblePassage?.content && isInterpretiveBibleQuestion(question)) {
+    text = refineBibleInterpretiveResponse(question, text, context)
+  }
+
+  text = text
+    .replace(/^(?:shalom[!,.:\s-]*)?(?:ol[aá][!,.:\s-]*)?(?:eu\s+sou|sou)\s+(?:o\s+)?giom(?:\s*,\s*|\s+)(?:um\s+assistente(?:\s+de\s+ia)?|assistente(?:\s+de\s+ia)?|uma\s+ia|uma\s+intelig[eê]ncia\s+artificial)?[!,.:\s-]*/i, "")
+    .replace(/^(?:shalom|ol[aá])[!,.:\s-]+/i, "")
+    .replace(/^(?:prazer|muito prazer)[!,.:\s-]*/i, "")
+    .replace(/^[-:,\s]+/i, "")
+    .trim()
+
+  if (greetingSignals.hasGreeting && !/^(ol[aá]|oi|bom dia|boa tarde|boa noite|shalom)\b/i.test(text)) {
+    text = `${buildGreetingLead(question, context)} ${text}`.trim()
+  }
+
+  if (shouldAppendKnowledgeSources(question, context, text)) {
+    const sourcesFooter = buildKnowledgeSourcesFooter(context)
+    if (sourcesFooter) {
+      text = `${text}\n\n${sourcesFooter}`.trim()
+    }
+  }
+
+  return text
+}
+
+export function buildOperationalContingencyResponseCore(question = "", context = {}, reason = "", deps = {}) {
+  const {
+    resolveDeterministicUploadResponseRuntime,
+    deterministicUploadResponseDeps,
+    resolveDeterministicBibleGuidanceResponse,
+    resolveDeterministicWeatherResponse,
+    resolveDeterministicFixtureResponse,
+    runtimeIsWeatherQuestion,
+    runtimeBuildWeatherIntentFallback,
+    runtimeIsFixtureQuestion,
+    buildFixtureIntentFallback,
+    buildUnknownInformationResponse
+  } = deps
+
+  const deterministicUploadResponse = resolveDeterministicUploadResponseRuntime(question, context, deterministicUploadResponseDeps)
+  if (deterministicUploadResponse) {
+    return deterministicUploadResponse
+  }
+
+  const deterministicBibleGuidance = resolveDeterministicBibleGuidanceResponse(question, context)
+  if (deterministicBibleGuidance) {
+    return deterministicBibleGuidance
+  }
+
+  const deterministicWeatherResponse = resolveDeterministicWeatherResponse(question, context)
+  if (deterministicWeatherResponse) {
+    return deterministicWeatherResponse
+  }
+
+  const deterministicFixtureResponse = resolveDeterministicFixtureResponse(question, context)
+  if (deterministicFixtureResponse) {
+    return deterministicFixtureResponse
+  }
+
+  if (runtimeIsWeatherQuestion(question)) {
+    return runtimeBuildWeatherIntentFallback(context)
+  }
+
+  if (runtimeIsFixtureQuestion(question, context)) {
+    const fixtureFallback = buildFixtureIntentFallback(question, context)
+    if (fixtureFallback) {
+      return fixtureFallback
+    }
+  }
+
+  return buildUnknownInformationResponse(question, context, {
+    includeReason: Boolean(String(reason || "").trim()),
+    offerRetry: true
+  })
+}
+
+export function resolveSafetyChatPayloadCore(question, context = {}, deps = {}) {
+  const {
+    detectSafetyRisk,
+    buildSafetyResponse
+  } = deps
+
+  const safety = detectSafetyRisk(question)
+  if (!safety?.triggered && !safety?.advisory) {
+    return null
+  }
+
+  return {
+    safety,
+    responseText: buildSafetyResponse(safety, {
+      locale: context?.locale || context?.language || "pt-BR",
+      promptText: question
+    })
+  }
+}
+
+export function isAgroWeatherRelevantCore(question = "", context = {}, deps = {}) {
+  const { runtimeIsAgroWeatherRelevant } = deps
+  const input = String(question || "")
+  return runtimeIsAgroWeatherRelevant(input, context)
+}
+

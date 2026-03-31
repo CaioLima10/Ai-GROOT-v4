@@ -3,17 +3,20 @@
 ## ✅ VERIFICAÇÕES FINAIS
 
 ### 📋 1. ARQUIVOS ESSENCIAIS
-- [x] `server-definitivo.js` - Servidor principal
+
+- [x] `apps/api/src/server.js` - Servidor principal oficial
 - [x] `public/index.html` - Interface web
 - [x] `package.json` - Dependências
 - [x] `.env` - Variáveis de ambiente
 
 ### 📋 2. DEPENDÊNCIAS INSTALADAS
+
 ```bash
 npm install express cors dotenv @huggingface/inference jsonwebtoken bcryptjs
 ```
 
 ### 📋 3. VARIÁVEIS DE AMBIENTE (.env)
+
 ```env
 # OBRIGATÓRIAS
 GROQ_API_KEY=sua_groq_api_key_aqui
@@ -29,6 +32,7 @@ PORT=3000
 ```
 
 ### 📋 4. DATABASE SUPABASE
+
 - [x] Tabelas criadas (4 partes executadas)
 - [x] pgvector ativado
 - [x] Funções de busca criadas
@@ -36,8 +40,9 @@ PORT=3000
 - [x] Dados base inseridos
 
 ### 📋 5. TESTE LOCAL
+
 - [x] Servidor inicia sem erros
-- [x] Frontend carrega em http://localhost:3000
+- [x] Frontend carrega em <http://localhost:3000>
 - [x] API responde em POST /ask
 - [x] Memória persistente funcionando
 - [x] Embeddings avançados ativos
@@ -47,32 +52,37 @@ PORT=3000
 ## 🚀 LINKS DIRETOS PARA DEPLOY
 
 ### 🥇 RENDER (RECOMENDADO)
-- **Cadastro**: https://render.com/register
-- **Dashboard**: https://dashboard.render.com
+
+- **Cadastro**: <https://render.com/register>
+- **Dashboard**: <https://dashboard.render.com>
 - **Guia**: `docs/DEPLOY-RENDER-GUIDE.md`
 
 ### 🥈 RAILWAY (ALTERNATIVA)
-- **Cadastro**: https://railway.app/signup
-- **Dashboard**: https://railway.app/dashboard
+
+- **Cadastro**: <https://railway.app/signup>
+- **Dashboard**: <https://railway.app/dashboard>
 - **Guia**: `docs/DEPLOY-RAILWAY-GUIDE.md`
 
 ### 🥉 VERCEL (TERCEIRA OPÇÃO)
-- **Cadastro**: https://vercel.com/signup
-- **Dashboard**: https://vercel.com/dashboard
+
+- **Cadastro**: <https://vercel.com/signup>
+- **Dashboard**: <https://vercel.com/dashboard>
 - **Guia**: `docs/DEPLOY-VERCEL-GUIDE.md`
 
 ---
 
 ## 📋 O QUE ACONTECE DEPOIS DO DEPLOY
 
-### ✅ AUTOMÁTICO:
+### ✅ AUTOMÁTICO
+
 1. **Build** do código
 2. **Instalação** de dependências
 3. **Início** do servidor
 4. **Health checks** automáticos
 5. **SSL** configurado
 
-### 🌐 URL FINAL ESPERADA:
+### 🌐 URL FINAL ESPERADA
+
 - **Render**: `https://groot-ai.onrender.com`
 - **Railway**: `https://groot-ai-production.up.railway.app`
 - **Vercel**: `https://groot-ai.vercel.app`
@@ -82,12 +92,14 @@ PORT=3000
 ## 🎯 RECOMENDAÇÃO FINAL
 
 ### 🥇 **MELHOR OPÇÃO**: Render
+
 - ✅ Servidor 24/7
 - ✅ PostgreSQL integrado
 - ✅ Fácil configuração
 - ✅ Suporte a Node.js completo
 
-### 📋 POR QUÊ RENDER:
+### 📋 POR QUÊ RENDER
+
 - **Compatível** com servidor Node.js tradicional
 - **Sem limitações** de serverless
 - **Banco de dados** gratuito
@@ -120,17 +132,20 @@ PORT=3000
 
 ## 💡 DICAS FINAIS
 
-### 📋 ANTES DO DEPLOY:
+### 📋 ANTES DO DEPLOY
+
 - Teste tudo localmente
 - Verifique variáveis .env
 - Confirme database OK
 
-### 📋 DEPOIS DO DEPLOY:
+### 📋 DEPOIS DO DEPLOY
+
 - Monitore logs iniciais
 - Teste interface online
 - Compartilhe URL
 
-### 📋 MANUTENÇÃO:
+### 📋 MANUTENÇÃO
+
 - Atualize via GitHub
 - Monitore analytics
 - Backup do Supabase

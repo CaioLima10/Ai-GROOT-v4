@@ -1,0 +1,1 @@
+Resumo do ZIP: o sistema deve responder com base no arquivo certo.

@@ -28,6 +28,7 @@ Este documento descreve as camadas atuais e recomendacoes para endurecer o ambie
 - OCR depende de `UPLOAD_OCR_ENABLED=true`
 - Pesquisa web ao vivo ainda nao esta integrada
 - `DOCX`, `XLSX` e `PPTX` possuem extracao basica, e o GIOM agora gera `PDF`, `DOCX`, `XLSX`, `PPTX`, `SVG`, `HTML`, `Markdown`, `TXT` e `JSON` como arquivo nativo
+- Geracao de imagem hoje e por prompt, com preset visual, negative prompt, proporcao, dimensoes e seed, mas ainda sem edicao visual multimodal completa
 - Mesmo com isso, Office completo, macros, automacao de escritorio e binarios arbitrarios ainda nao estao totalmente cobertos
 
 ## Boas praticas recomendadas

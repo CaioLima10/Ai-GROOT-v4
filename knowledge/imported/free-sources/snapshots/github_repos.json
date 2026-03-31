@@ -1,0 +1,245 @@
+[
+  {
+    "title": "GitHub Repo: openclaw/openclaw",
+    "content": "Repository: openclaw/openclaw\nQuery label: typescript-ai\nDescription: Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 \nPrimary language: TypeScript\nStars: 342134\nTopics: ai, assistant, crustacean, molty, openclaw, own-your-data, personal\nUpdated at: 2026-03-31T05:49:59Z\nLicense: MIT\nURL: https://github.com/openclaw/openclaw",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/openclaw/openclaw",
+    "license": "MIT",
+    "tags": [
+      "typescript-ai",
+      "TypeScript"
+    ],
+    "fetchedAt": "2026-03-31T05:50:43.530Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "Your own personal AI assistant. Any OS. Any Platform. The lobster way. 🦞 "
+  },
+  {
+    "title": "GitHub Repo: n8n-io/n8n",
+    "content": "Repository: n8n-io/n8n\nQuery label: typescript-ai\nDescription: Fair-code workflow automation platform with native AI capabilities. Combine visual building with custom code, self-host or cloud, 400+ integrations.\nPrimary language: TypeScript\nStars: 181798\nTopics: ai, apis, automation, cli, data-flow, development, integration-framework, integrations, ipaas, low-code, low-code-platform, mcp, mcp-client, mcp-server, n8n, no-code, self-hosted, typescript, workflow, workflow-automation\nUpdated at: 2026-03-31T05:47:45Z\nLicense: NOASSERTION\nURL: https://github.com/n8n-io/n8n",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/n8n-io/n8n",
+    "license": "NOASSERTION",
+    "tags": [
+      "typescript-ai",
+      "TypeScript"
+    ],
+    "fetchedAt": "2026-03-31T05:50:43.535Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "Fair-code workflow automation platform with native AI capabilities. Combine visual building with custom code, self-host or cloud, 400+ integrations."
+  },
+  {
+    "title": "GitHub Repo: langgenius/dify",
+    "content": "Repository: langgenius/dify\nQuery label: typescript-ai\nDescription: Production-ready platform for agentic workflow development.\nPrimary language: TypeScript\nStars: 135086\nTopics: agent, agentic-ai, agentic-framework, agentic-workflow, ai, automation, gemini, genai, gpt, gpt-4, llm, low-code, mcp, nextjs, no-code, openai, orchestration, python, rag, workflow\nUpdated at: 2026-03-31T05:42:53Z\nLicense: NOASSERTION\nURL: https://github.com/langgenius/dify",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/langgenius/dify",
+    "license": "NOASSERTION",
+    "tags": [
+      "typescript-ai",
+      "TypeScript"
+    ],
+    "fetchedAt": "2026-03-31T05:50:43.535Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "Production-ready platform for agentic workflow development."
+  },
+  {
+    "title": "GitHub Repo: huggingface/transformers",
+    "content": "Repository: huggingface/transformers\nQuery label: python-ml\nDescription: 🤗 Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training. \nPrimary language: Python\nStars: 158571\nTopics: audio, deep-learning, deepseek, gemma, glm, hacktoberfest, llm, machine-learning, model-hub, natural-language-processing, nlp, pretrained-models, python, pytorch, pytorch-transformers, qwen, speech-recognition, transformer, vlm\nUpdated at: 2026-03-31T05:34:48Z\nLicense: Apache-2.0\nURL: https://github.com/huggingface/transformers",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/huggingface/transformers",
+    "license": "Apache-2.0",
+    "tags": [
+      "python-ml",
+      "Python"
+    ],
+    "fetchedAt": "2026-03-31T05:50:43.887Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "🤗 Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training. "
+  },
+  {
+    "title": "GitHub Repo: pytorch/pytorch",
+    "content": "Repository: pytorch/pytorch\nQuery label: python-ml\nDescription: Tensors and Dynamic neural networks in Python with strong GPU acceleration\nPrimary language: Python\nStars: 98669\nTopics: autograd, deep-learning, gpu, machine-learning, neural-network, numpy, python, tensor\nUpdated at: 2026-03-31T05:43:40Z\nLicense: NOASSERTION\nURL: https://github.com/pytorch/pytorch",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/pytorch/pytorch",
+    "license": "NOASSERTION",
+    "tags": [
+      "python-ml",
+      "Python"
+    ],
+    "fetchedAt": "2026-03-31T05:50:43.887Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
+  },
+  {
+    "title": "GitHub Repo: d2l-ai/d2l-zh",
+    "content": "Repository: d2l-ai/d2l-zh\nQuery label: python-ml\nDescription: 《动手学深度学习》：面向中文读者、能运行、可讨论。中英文版被70多个国家的500多所大学用于教学。\nPrimary language: Python\nStars: 76629\nTopics: book, chinese, computer-vision, deep-learning, machine-learning, natural-language-processing, notebook, python\nUpdated at: 2026-03-31T05:32:01Z\nLicense: Apache-2.0\nURL: https://github.com/d2l-ai/d2l-zh",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/d2l-ai/d2l-zh",
+    "license": "Apache-2.0",
+    "tags": [
+      "python-ml",
+      "Python"
+    ],
+    "fetchedAt": "2026-03-31T05:50:43.887Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "《动手学深度学习》：面向中文读者、能运行、可讨论。中英文版被70多个国家的500多所大学用于教学。"
+  },
+  {
+    "title": "GitHub Repo: shadcn-ui/ui",
+    "content": "Repository: shadcn-ui/ui\nQuery label: react-framework\nDescription: A set of beautifully-designed, accessible components and a code distribution platform. Works with your favorite frameworks. Open Source. Open Code.\nPrimary language: TypeScript\nStars: 111095\nTopics: base-ui, components, laravel, nextjs, radix-ui, react, shadcn, tailwindcss, tanstack, ui, vite\nUpdated at: 2026-03-31T05:49:22Z\nLicense: MIT\nURL: https://github.com/shadcn-ui/ui",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/shadcn-ui/ui",
+    "license": "MIT",
+    "tags": [
+      "react-framework",
+      "TypeScript"
+    ],
+    "fetchedAt": "2026-03-31T05:50:44.248Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "A set of beautifully-designed, accessible components and a code distribution platform. Works with your favorite frameworks. Open Source. Open Code."
+  },
+  {
+    "title": "GitHub Repo: ionic-team/ionic-framework",
+    "content": "Repository: ionic-team/ionic-framework\nQuery label: react-framework\nDescription: A powerful cross-platform UI toolkit for building native-quality iOS, Android, and Progressive Web Apps with HTML, CSS, and JavaScript.\nPrimary language: TypeScript\nStars: 52426\nTopics: angular, capacitor, framework, frontend, ionic, ios, javascript, material-design, mobile, pwa, react, stencil, stenciljs, typescript, ui-components, vue, web, webcomponents\nUpdated at: 2026-03-31T03:35:08Z\nLicense: MIT\nURL: https://github.com/ionic-team/ionic-framework",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/ionic-team/ionic-framework",
+    "license": "MIT",
+    "tags": [
+      "react-framework",
+      "TypeScript"
+    ],
+    "fetchedAt": "2026-03-31T05:50:44.248Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "A powerful cross-platform UI toolkit for building native-quality iOS, Android, and Progressive Web Apps with HTML, CSS, and JavaScript."
+  },
+  {
+    "title": "GitHub Repo: expo/expo",
+    "content": "Repository: expo/expo\nQuery label: react-framework\nDescription: An open-source framework for making universal native apps with React. Expo runs on Android, iOS, and the web.\nPrimary language: TypeScript\nStars: 48372\nTopics: android, app-framework, expo, framework, frontend, ios, javascript, mobile, native, native-apps, react, react-native, typescript, universal, web, web-framework\nUpdated at: 2026-03-31T05:22:05Z\nLicense: MIT\nURL: https://github.com/expo/expo",
+    "category": "programming",
+    "categories": [
+      "programming",
+      "developer",
+      "frameworks"
+    ],
+    "modules": [
+      "research"
+    ],
+    "bibleStudyModules": [],
+    "language": "en",
+    "source": "https://github.com/expo/expo",
+    "license": "MIT",
+    "tags": [
+      "react-framework",
+      "TypeScript"
+    ],
+    "fetchedAt": "2026-03-31T05:50:44.248Z",
+    "sourceId": "github_repos",
+    "sourceName": "GitHub public repositories",
+    "attributionRequired": true,
+    "author": null,
+    "summary": "An open-source framework for making universal native apps with React. Expo runs on Android, iOS, and the web."
+  }
+]

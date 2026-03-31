@@ -1,0 +1,604 @@
+{
+  "generatedAt": "2026-03-31T00:45:09.549Z",
+  "config": {
+    "baseUrl": "http://localhost:3010",
+    "totalRequests": 6,
+    "concurrency": 3,
+    "streamRatio": 0.35,
+    "requestTimeoutMs": 90000,
+    "slo": {
+      "retrievalP95BudgetMs": 250,
+      "totalP95BudgetMs": 900,
+      "totalP99MaxBudgetMs": 1800
+    }
+  },
+  "execution": {
+    "totalMs": 15118,
+    "successCount": 6,
+    "failureCount": 0,
+    "successRate": 1,
+    "requestLatencyMs": {
+      "p50": 4099,
+      "p75": 11129,
+      "p95": 11136,
+      "p99": 11136
+    }
+  },
+  "sloValidation": {
+    "retrievalP95": 4864,
+    "totalP95": 4870,
+    "totalP99": 4870,
+    "violations": [
+      {
+        "metric": "retrievalMs.p95",
+        "value": 4864,
+        "budget": 250
+      },
+      {
+        "metric": "totalMs.p95",
+        "value": 4870,
+        "budget": 900
+      },
+      {
+        "metric": "totalMs.p99",
+        "value": 4870,
+        "budget": 1800
+      }
+    ],
+    "passed": false
+  },
+  "metricsSnapshot": {
+    "success": true,
+    "distributed": true,
+    "nodeId": "node_22732",
+    "memoryContext": {
+      "node": {
+        "nodeId": "node_22732"
+      },
+      "samples": 6,
+      "latency": {
+        "retrievalMs": {
+          "p50": 321,
+          "p75": 4682,
+          "p95": 4864,
+          "p99": 4864,
+          "mean": 2508.1666666666665,
+          "histogram": {
+            "10": 0,
+            "25": 0,
+            "50": 0,
+            "75": 0,
+            "100": 0,
+            "150": 0,
+            "200": 0,
+            "300": 2,
+            "500": 1,
+            "800": 0,
+            "1200": 0,
+            "1800": 0,
+            "2500": 0,
+            "+Inf": 3
+          }
+        },
+        "semanticMs": {
+          "p50": 5,
+          "p75": 8,
+          "p95": 17,
+          "p99": 17,
+          "mean": 7.166666666666667,
+          "histogram": {
+            "10": 5,
+            "25": 1,
+            "50": 0,
+            "75": 0,
+            "100": 0,
+            "150": 0,
+            "200": 0,
+            "300": 0,
+            "500": 0,
+            "800": 0,
+            "1200": 0,
+            "1800": 0,
+            "2500": 0,
+            "+Inf": 0
+          }
+        },
+        "enrichMs": {
+          "p50": 3,
+          "p75": 13,
+          "p95": 44,
+          "p99": 44,
+          "mean": 11.166666666666666,
+          "histogram": {
+            "10": 4,
+            "25": 1,
+            "50": 1,
+            "75": 0,
+            "100": 0,
+            "150": 0,
+            "200": 0,
+            "300": 0,
+            "500": 0,
+            "800": 0,
+            "1200": 0,
+            "1800": 0,
+            "2500": 0,
+            "+Inf": 0
+          }
+        },
+        "totalMs": {
+          "p50": 329,
+          "p75": 4700,
+          "p95": 4870,
+          "p99": 4870,
+          "mean": 2523.6666666666665,
+          "histogram": {
+            "10": 0,
+            "25": 0,
+            "50": 0,
+            "75": 0,
+            "100": 0,
+            "150": 0,
+            "200": 0,
+            "300": 2,
+            "500": 1,
+            "800": 0,
+            "1200": 0,
+            "1800": 0,
+            "2500": 0,
+            "+Inf": 3
+          }
+        }
+      },
+      "quality": {
+        "semanticScore": {
+          "mean": 0.6286262404514057,
+          "p95": 1
+        },
+        "retrievalAccuracyProxy": {
+          "mean": 0.6286262404514057,
+          "p95": 1
+        }
+      },
+      "throughput": {
+        "candidateCountAvg": 45.666666666666664,
+        "dedupedCountAvg": 7.5,
+        "selectedTurnsAvg": 6.5,
+        "contextTokensAvg": 1866.8333333333333,
+        "cacheHitRate": 0,
+        "fallbackRate": 1
+      },
+      "slo": {
+        "budgets": {
+          "retrievalP95BudgetMs": 250,
+          "totalP95BudgetMs": 900,
+          "totalP99MaxBudgetMs": 1800
+        },
+        "state": "violation",
+        "alarms": [
+          {
+            "metric": "retrievalMs.p95",
+            "value": 4864,
+            "budget": 250,
+            "severity": "high"
+          },
+          {
+            "metric": "totalMs.p95",
+            "value": 4870,
+            "budget": 900,
+            "severity": "high"
+          },
+          {
+            "metric": "totalMs.p99",
+            "value": 4870,
+            "budget": 1800,
+            "severity": "critical"
+          }
+        ],
+        "compliance": {
+          "totalWithinP95BudgetRate": 0.5
+        }
+      },
+      "byRoute": {
+        "ask": {
+          "count": 5,
+          "p95TotalMs": 4870,
+          "p99TotalMs": 4870
+        },
+        "ask_stream": {
+          "count": 1,
+          "p95TotalMs": 295,
+          "p99TotalMs": 295
+        }
+      },
+      "recentTraces": [
+        {
+          "ts": 1774917899342,
+          "route": "ask",
+          "requestId": "api_1774917894631_v8nurv68w",
+          "sessionId": "",
+          "payloadId": "api_1774917894631_v8nurv68w",
+          "handlerId": "fallbackAIHandler",
+          "totalMs": 4664,
+          "retrievalMs": 4614,
+          "semanticMs": 17,
+          "candidateCount": 43,
+          "dedupedCount": 7,
+          "selectedTurns": 6,
+          "semanticScoreMean": 0.5799770219167223,
+          "retrievalAccuracyProxy": 0.5799770219167223,
+          "contextTokens": 1868,
+          "appliedFallback": true
+        },
+        {
+          "ts": 1774917899431,
+          "route": "ask",
+          "requestId": "api_1774917894720_xhu974c3f",
+          "sessionId": "",
+          "payloadId": "api_1774917894720_xhu974c3f",
+          "handlerId": "fallbackAIHandler",
+          "totalMs": 4700,
+          "retrievalMs": 4682,
+          "semanticMs": 5,
+          "candidateCount": 41,
+          "dedupedCount": 7,
+          "selectedTurns": 6,
+          "semanticScoreMean": 1,
+          "retrievalAccuracyProxy": 1,
+          "contextTokens": 1864,
+          "appliedFallback": true
+        },
+        {
+          "ts": 1774917899579,
+          "route": "ask",
+          "requestId": "api_1774917894696_vbphzmgi4",
+          "sessionId": "",
+          "payloadId": "api_1774917894696_vbphzmgi4",
+          "handlerId": "fallbackAIHandler",
+          "totalMs": 4870,
+          "retrievalMs": 4864,
+          "semanticMs": 4,
+          "candidateCount": 42,
+          "dedupedCount": 7,
+          "selectedTurns": 6,
+          "semanticScoreMean": 0.6118033988749895,
+          "retrievalAccuracyProxy": 0.6118033988749895,
+          "contextTokens": 1882,
+          "appliedFallback": true
+        },
+        {
+          "ts": 1774917905214,
+          "route": "ask_stream",
+          "requestId": "stream_1774917904904_ci9qgcrpc",
+          "sessionId": "",
+          "payloadId": "stream_1774917904904_ci9qgcrpc",
+          "handlerId": "fallbackAIHandler",
+          "totalMs": 295,
+          "retrievalMs": 290,
+          "semanticMs": 4,
+          "candidateCount": 45,
+          "dedupedCount": 8,
+          "selectedTurns": 7,
+          "semanticScoreMean": 1,
+          "retrievalAccuracyProxy": 1,
+          "contextTokens": 1859,
+          "appliedFallback": true
+        },
+        {
+          "ts": 1774917905863,
+          "route": "ask",
+          "requestId": "api_1774917905567_83gpyc7iy",
+          "sessionId": "",
+          "payloadId": "api_1774917905567_83gpyc7iy",
+          "handlerId": "fallbackAIHandler",
+          "totalMs": 284,
+          "retrievalMs": 278,
+          "semanticMs": 5,
+          "candidateCount": 48,
+          "dedupedCount": 8,
+          "selectedTurns": 7,
+          "semanticScoreMean": 0,
+          "retrievalAccuracyProxy": 0,
+          "contextTokens": 1862,
+          "appliedFallback": true
+        },
+        {
+          "ts": 1774917905994,
+          "route": "ask",
+          "requestId": "api_1774917905651_xusx9ubi4",
+          "sessionId": "",
+          "payloadId": "api_1774917905651_xusx9ubi4",
+          "handlerId": "fallbackAIHandler",
+          "totalMs": 329,
+          "retrievalMs": 321,
+          "semanticMs": 8,
+          "candidateCount": 55,
+          "dedupedCount": 8,
+          "selectedTurns": 7,
+          "semanticScoreMean": 0.5799770219167223,
+          "retrievalAccuracyProxy": 0.5799770219167223,
+          "contextTokens": 1866,
+          "appliedFallback": true
+        }
+      ],
+      "cluster": {
+        "enabled": false,
+        "reason": "distributed_client_unavailable",
+        "nodes": {
+          "node_22732": {
+            "node": {
+              "nodeId": "node_22732"
+            },
+            "samples": 6,
+            "latency": {
+              "retrievalMs": {
+                "p50": 321,
+                "p75": 4682,
+                "p95": 4864,
+                "p99": 4864,
+                "mean": 2508.1666666666665,
+                "histogram": {
+                  "10": 0,
+                  "25": 0,
+                  "50": 0,
+                  "75": 0,
+                  "100": 0,
+                  "150": 0,
+                  "200": 0,
+                  "300": 2,
+                  "500": 1,
+                  "800": 0,
+                  "1200": 0,
+                  "1800": 0,
+                  "2500": 0,
+                  "+Inf": 3
+                }
+              },
+              "semanticMs": {
+                "p50": 5,
+                "p75": 8,
+                "p95": 17,
+                "p99": 17,
+                "mean": 7.166666666666667,
+                "histogram": {
+                  "10": 5,
+                  "25": 1,
+                  "50": 0,
+                  "75": 0,
+                  "100": 0,
+                  "150": 0,
+                  "200": 0,
+                  "300": 0,
+                  "500": 0,
+                  "800": 0,
+                  "1200": 0,
+                  "1800": 0,
+                  "2500": 0,
+                  "+Inf": 0
+                }
+              },
+              "enrichMs": {
+                "p50": 3,
+                "p75": 13,
+                "p95": 44,
+                "p99": 44,
+                "mean": 11.166666666666666,
+                "histogram": {
+                  "10": 4,
+                  "25": 1,
+                  "50": 1,
+                  "75": 0,
+                  "100": 0,
+                  "150": 0,
+                  "200": 0,
+                  "300": 0,
+                  "500": 0,
+                  "800": 0,
+                  "1200": 0,
+                  "1800": 0,
+                  "2500": 0,
+                  "+Inf": 0
+                }
+              },
+              "totalMs": {
+                "p50": 329,
+                "p75": 4700,
+                "p95": 4870,
+                "p99": 4870,
+                "mean": 2523.6666666666665,
+                "histogram": {
+                  "10": 0,
+                  "25": 0,
+                  "50": 0,
+                  "75": 0,
+                  "100": 0,
+                  "150": 0,
+                  "200": 0,
+                  "300": 2,
+                  "500": 1,
+                  "800": 0,
+                  "1200": 0,
+                  "1800": 0,
+                  "2500": 0,
+                  "+Inf": 3
+                }
+              }
+            },
+            "quality": {
+              "semanticScore": {
+                "mean": 0.6286262404514057,
+                "p95": 1
+              },
+              "retrievalAccuracyProxy": {
+                "mean": 0.6286262404514057,
+                "p95": 1
+              }
+            },
+            "throughput": {
+              "candidateCountAvg": 45.666666666666664,
+              "dedupedCountAvg": 7.5,
+              "selectedTurnsAvg": 6.5,
+              "contextTokensAvg": 1866.8333333333333,
+              "cacheHitRate": 0,
+              "fallbackRate": 1
+            },
+            "slo": {
+              "budgets": {
+                "retrievalP95BudgetMs": 250,
+                "totalP95BudgetMs": 900,
+                "totalP99MaxBudgetMs": 1800
+              },
+              "state": "violation",
+              "alarms": [
+                {
+                  "metric": "retrievalMs.p95",
+                  "value": 4864,
+                  "budget": 250,
+                  "severity": "high"
+                },
+                {
+                  "metric": "totalMs.p95",
+                  "value": 4870,
+                  "budget": 900,
+                  "severity": "high"
+                },
+                {
+                  "metric": "totalMs.p99",
+                  "value": 4870,
+                  "budget": 1800,
+                  "severity": "critical"
+                }
+              ],
+              "compliance": {
+                "totalWithinP95BudgetRate": 0.5
+              }
+            },
+            "byRoute": {
+              "ask": {
+                "count": 5,
+                "p95TotalMs": 4870,
+                "p99TotalMs": 4870
+              },
+              "ask_stream": {
+                "count": 1,
+                "p95TotalMs": 295,
+                "p99TotalMs": 295
+              }
+            },
+            "recentTraces": [
+              {
+                "ts": 1774917899342,
+                "route": "ask",
+                "requestId": "api_1774917894631_v8nurv68w",
+                "sessionId": "",
+                "payloadId": "api_1774917894631_v8nurv68w",
+                "handlerId": "fallbackAIHandler",
+                "totalMs": 4664,
+                "retrievalMs": 4614,
+                "semanticMs": 17,
+                "candidateCount": 43,
+                "dedupedCount": 7,
+                "selectedTurns": 6,
+                "semanticScoreMean": 0.5799770219167223,
+                "retrievalAccuracyProxy": 0.5799770219167223,
+                "contextTokens": 1868,
+                "appliedFallback": true
+              },
+              {
+                "ts": 1774917899431,
+                "route": "ask",
+                "requestId": "api_1774917894720_xhu974c3f",
+                "sessionId": "",
+                "payloadId": "api_1774917894720_xhu974c3f",
+                "handlerId": "fallbackAIHandler",
+                "totalMs": 4700,
+                "retrievalMs": 4682,
+                "semanticMs": 5,
+                "candidateCount": 41,
+                "dedupedCount": 7,
+                "selectedTurns": 6,
+                "semanticScoreMean": 1,
+                "retrievalAccuracyProxy": 1,
+                "contextTokens": 1864,
+                "appliedFallback": true
+              },
+              {
+                "ts": 1774917899579,
+                "route": "ask",
+                "requestId": "api_1774917894696_vbphzmgi4",
+                "sessionId": "",
+                "payloadId": "api_1774917894696_vbphzmgi4",
+                "handlerId": "fallbackAIHandler",
+                "totalMs": 4870,
+                "retrievalMs": 4864,
+                "semanticMs": 4,
+                "candidateCount": 42,
+                "dedupedCount": 7,
+                "selectedTurns": 6,
+                "semanticScoreMean": 0.6118033988749895,
+                "retrievalAccuracyProxy": 0.6118033988749895,
+                "contextTokens": 1882,
+                "appliedFallback": true
+              },
+              {
+                "ts": 1774917905214,
+                "route": "ask_stream",
+                "requestId": "stream_1774917904904_ci9qgcrpc",
+                "sessionId": "",
+                "payloadId": "stream_1774917904904_ci9qgcrpc",
+                "handlerId": "fallbackAIHandler",
+                "totalMs": 295,
+                "retrievalMs": 290,
+                "semanticMs": 4,
+                "candidateCount": 45,
+                "dedupedCount": 8,
+                "selectedTurns": 7,
+                "semanticScoreMean": 1,
+                "retrievalAccuracyProxy": 1,
+                "contextTokens": 1859,
+                "appliedFallback": true
+              },
+              {
+                "ts": 1774917905863,
+                "route": "ask",
+                "requestId": "api_1774917905567_83gpyc7iy",
+                "sessionId": "",
+                "payloadId": "api_1774917905567_83gpyc7iy",
+                "handlerId": "fallbackAIHandler",
+                "totalMs": 284,
+                "retrievalMs": 278,
+                "semanticMs": 5,
+                "candidateCount": 48,
+                "dedupedCount": 8,
+                "selectedTurns": 7,
+                "semanticScoreMean": 0,
+                "retrievalAccuracyProxy": 0,
+                "contextTokens": 1862,
+                "appliedFallback": true
+              },
+              {
+                "ts": 1774917905994,
+                "route": "ask",
+                "requestId": "api_1774917905651_xusx9ubi4",
+                "sessionId": "",
+                "payloadId": "api_1774917905651_xusx9ubi4",
+                "handlerId": "fallbackAIHandler",
+                "totalMs": 329,
+                "retrievalMs": 321,
+                "semanticMs": 8,
+                "candidateCount": 55,
+                "dedupedCount": 8,
+                "selectedTurns": 7,
+                "semanticScoreMean": 0.5799770219167223,
+                "retrievalAccuracyProxy": 0.5799770219167223,
+                "contextTokens": 1866,
+                "appliedFallback": true
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "failures": []
+}

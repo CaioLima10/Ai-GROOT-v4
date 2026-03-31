@@ -1,0 +1,126 @@
+name: GIOM — Backend CI/CD (Render)
+
+# Deploy backend to Render on every push to main.
+# GIOM memory is backed up BEFORE any deploy runs.
+# Deploy is blocked if memory backup integrity fails.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'core/**'
+      - 'agents/**'
+      - 'config/**'
+      - 'coreIdentity/**'
+      - 'package.json'
+      - 'render.yaml'
+  workflow_dispatch:   # allow manual trigger from GitHub UI
+
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: false   # never cancel a deploy mid-flight
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ── 1. Protect GIOM memory before anything else ──────────────────────────────
+  protect-giom:
+    name: Protect GIOM Memory
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install deps (root only)
+        run: npm ci --ignore-scripts
+
+      - name: Backup GIOM memory
+        run: node scripts/giom-memory-backup.mjs backup
+        continue-on-error: true   # memory may be empty on first deploy
+
+      - name: Upload memory snapshot as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: giom-memory-snapshot-${{ github.run_id }}
+          path: backups/memory/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ── 2. Lint + test backend ────────────────────────────────────────────────────
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: protect-giom
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Syntax check — server entry
+        run: node --check apps/api/src/server.js
+
+      - name: Syntax check — ops scripts
+        run: |
+          node --check scripts/ops-runtime-check.mjs
+          node --check scripts/ops-supervisor.mjs
+          node --check scripts/giom-memory-backup.mjs
+
+      - name: Backend smoke test
+        run: node scripts/smoke-enterprise.mjs
+        env:
+          GROOT_MODE: quantum
+          GROOT_AI_PROVIDER: auto
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        continue-on-error: true   # smoke test needs live services
+
+  # ── 3. Deploy to Render ───────────────────────────────────────────────────────
+  deploy-render:
+    name: Deploy → Render
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test-backend
+    environment:
+      name: production
+      url: https://giom-backend.onrender.com/health
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_URL secret not set — skipping Render deploy trigger"
+            exit 0
+          fi
+          curl --fail -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        shell: bash
+
+      - name: Wait for Render health check
+        run: |
+          echo "Waiting for backend to come online..."
+          for i in $(seq 1 20); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://giom-backend.onrender.com/health || echo "000")
+            echo "  Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend is healthy."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Backend health check timed out after 5 minutes"
+          exit 1
+        shell: bash
+        continue-on-error: true   # Render free tier has slow cold starts

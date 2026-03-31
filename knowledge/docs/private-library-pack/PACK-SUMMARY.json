@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-03-30T01:03:14.250Z",
+  "documents": 100,
+  "articles": 20,
+  "pdfs": 20,
+  "baseDir": "C:\\Users\\GabeG\\Desktop\\Ai-GROOT\\knowledge\\docs\\private-library-pack",
+  "themes": [
+    {
+      "id": "native_languages_and_slang",
+      "title": "Native languages, slang, dialects, internet abbreviations and emojis"
+    },
+    {
+      "id": "christian_jewish_hebraic_archaeology",
+      "title": "Christian, Jewish and Hebraic archaeology"
+    },
+    {
+      "id": "protestant_books_and_authors",
+      "title": "Protestant books, theologians and authors"
+    },
+    {
+      "id": "protestant_preachers_classic_modern",
+      "title": "Classic and modern Protestant preachers"
+    },
+    {
+      "id": "protestant_devotionals_and_christian_life",
+      "title": "Devotionals and Christian life"
+    },
+    {
+      "id": "christian_science_dialogue",
+      "title": "Christian worldview and science dialogue"
+    },
+    {
+      "id": "stem_and_languages_bundle",
+      "title": "Biology, chemistry, physics, mathematics, Portuguese, English, Hebrew, Aramaic, Latin, Greek"
+    },
+    {
+      "id": "logic_games_training",
+      "title": "Chess, dominoes, tic-tac-toe, sudoku, minesweeper, Rubik cube"
+    },
+    {
+      "id": "eschatology_tribulation_views",
+      "title": "Eschatology and pre/mid/post tribulation views"
+    },
+    {
+      "id": "church_fathers_and_patristics",
+      "title": "Church fathers and patristics"
+    },
+    {
+      "id": "pentecostal_testimonies_and_practice",
+      "title": "Pentecostal testimonies and practical ministry"
+    },
+    {
+      "id": "christian_women_and_children",
+      "title": "Christian women and Christian children discipleship"
+    },
+    {
+      "id": "christian_thinkers_and_books",
+      "title": "Christian thinkers and their books"
+    },
+    {
+      "id": "astronomy_satellites_gps",
+      "title": "Astronomy, satellites and GPS"
+    },
+    {
+      "id": "angiology_foundations",
+      "title": "Angiology foundations and study support"
+    }
+  ]
+}

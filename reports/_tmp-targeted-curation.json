@@ -1,0 +1,197 @@
+{
+  "generatedAt": "2026-03-30T04:12:27.799Z",
+  "inputDir": "C:\\Users\\GabeG\\Desktop\\Ai-GROOT\\knowledge\\docs\\_tmp-targeted-smoke",
+  "thresholds": {
+    "minChars": 850,
+    "maxNoiseRatio": 0.14,
+    "minScore": 76
+  },
+  "totals": {
+    "scanned": 4,
+    "accepted": 3,
+    "rejected": 1,
+    "acceptanceRate": 0.75
+  },
+  "acceptedTop100": [
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/bible-900001-contexto-historico-canonico-preparacao-de-classe.md",
+      "decision": "accept",
+      "score": 100,
+      "metrics": {
+        "score": 100,
+        "chars": 2283,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.6044,
+        "sentences": 24,
+        "reasons": []
+      },
+      "metadata": {
+        "title": "BIBLE Knowledge 900001 - contexto historico-canonico",
+        "category": "bible",
+        "language": "pt",
+        "source": "local.generated.bible.bible-900001-contexto-historico-canonico-preparacao-de-classe",
+        "rights": "user_generated_internal",
+        "categories": "bible,theology,church_history,biblical_languages,study_bibles_resources",
+        "modules": "bible,theology,church_history,study_bibles_resources,research",
+        "updatedAt": "2026-03-30"
+      }
+    },
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/bible-900002-exegese-e-hermeneutica-aconselhamento-pastoral.md",
+      "decision": "accept",
+      "score": 100,
+      "metrics": {
+        "score": 100,
+        "chars": 2272,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.6102,
+        "sentences": 24,
+        "reasons": []
+      },
+      "metadata": {
+        "title": "BIBLE Knowledge 900002 - exegese e hermeneutica",
+        "category": "bible",
+        "language": "pt",
+        "source": "local.generated.bible.bible-900002-exegese-e-hermeneutica-aconselhamento-pastoral",
+        "rights": "user_generated_internal",
+        "categories": "bible,theology,church_history,biblical_languages,study_bibles_resources",
+        "modules": "bible,theology,church_history,study_bibles_resources,research",
+        "updatedAt": "2026-03-30"
+      }
+    },
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/bible-900003-sintese-doutrinaria-resposta-apologetica.md",
+      "decision": "accept",
+      "score": 100,
+      "metrics": {
+        "score": 100,
+        "chars": 2251,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.6149,
+        "sentences": 24,
+        "reasons": []
+      },
+      "metadata": {
+        "title": "BIBLE Knowledge 900003 - sintese doutrinaria",
+        "category": "bible",
+        "language": "pt",
+        "source": "local.generated.bible.bible-900003-sintese-doutrinaria-resposta-apologetica",
+        "rights": "user_generated_internal",
+        "categories": "bible,theology,church_history,biblical_languages,study_bibles_resources",
+        "modules": "bible,theology,church_history,study_bibles_resources,research",
+        "updatedAt": "2026-03-30"
+      }
+    }
+  ],
+  "rejectedTop100": [
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/PACK-SUMMARY.json",
+      "decision": "reject",
+      "score": 45,
+      "metrics": {
+        "score": 45,
+        "chars": 218,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.963,
+        "sentences": 2,
+        "reasons": [
+          "texto curto (218 chars)",
+          "poucas sentencas (2)",
+          "direitos/licenca ausentes"
+        ]
+      },
+      "metadata": {}
+    }
+  ],
+  "acceptedAll": [
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/bible-900001-contexto-historico-canonico-preparacao-de-classe.md",
+      "decision": "accept",
+      "score": 100,
+      "metrics": {
+        "score": 100,
+        "chars": 2283,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.6044,
+        "sentences": 24,
+        "reasons": []
+      },
+      "metadata": {
+        "title": "BIBLE Knowledge 900001 - contexto historico-canonico",
+        "category": "bible",
+        "language": "pt",
+        "source": "local.generated.bible.bible-900001-contexto-historico-canonico-preparacao-de-classe",
+        "rights": "user_generated_internal",
+        "categories": "bible,theology,church_history,biblical_languages,study_bibles_resources",
+        "modules": "bible,theology,church_history,study_bibles_resources,research",
+        "updatedAt": "2026-03-30"
+      }
+    },
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/bible-900002-exegese-e-hermeneutica-aconselhamento-pastoral.md",
+      "decision": "accept",
+      "score": 100,
+      "metrics": {
+        "score": 100,
+        "chars": 2272,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.6102,
+        "sentences": 24,
+        "reasons": []
+      },
+      "metadata": {
+        "title": "BIBLE Knowledge 900002 - exegese e hermeneutica",
+        "category": "bible",
+        "language": "pt",
+        "source": "local.generated.bible.bible-900002-exegese-e-hermeneutica-aconselhamento-pastoral",
+        "rights": "user_generated_internal",
+        "categories": "bible,theology,church_history,biblical_languages,study_bibles_resources",
+        "modules": "bible,theology,church_history,study_bibles_resources,research",
+        "updatedAt": "2026-03-30"
+      }
+    },
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/bible-900003-sintese-doutrinaria-resposta-apologetica.md",
+      "decision": "accept",
+      "score": 100,
+      "metrics": {
+        "score": 100,
+        "chars": 2251,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.6149,
+        "sentences": 24,
+        "reasons": []
+      },
+      "metadata": {
+        "title": "BIBLE Knowledge 900003 - sintese doutrinaria",
+        "category": "bible",
+        "language": "pt",
+        "source": "local.generated.bible.bible-900003-sintese-doutrinaria-resposta-apologetica",
+        "rights": "user_generated_internal",
+        "categories": "bible,theology,church_history,biblical_languages,study_bibles_resources",
+        "modules": "bible,theology,church_history,study_bibles_resources,research",
+        "updatedAt": "2026-03-30"
+      }
+    }
+  ],
+  "rejectedAll": [
+    {
+      "file": "knowledge/docs/_tmp-targeted-smoke/PACK-SUMMARY.json",
+      "decision": "reject",
+      "score": 45,
+      "metrics": {
+        "score": 45,
+        "chars": 218,
+        "noiseRatio": 0,
+        "lexicalDiversity": 0.963,
+        "sentences": 2,
+        "reasons": [
+          "texto curto (218 chars)",
+          "poucas sentencas (2)",
+          "direitos/licenca ausentes"
+        ]
+      },
+      "metadata": {}
+    }
+  ]
+}

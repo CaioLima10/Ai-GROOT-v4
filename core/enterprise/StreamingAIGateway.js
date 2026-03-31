@@ -40,6 +40,27 @@ export class StreamingAIGateway {
 
       return await this.askSimulatedStreaming(question, options, onChunk, onComplete, onError)
     } catch (error) {
+      if (provider !== "simulated") {
+        try {
+          return await this.askSimulatedStreaming(
+            question,
+            {
+              ...options,
+              streamingFallbackFrom: provider
+            },
+            onChunk,
+            onComplete,
+            onError
+          )
+        } catch (fallbackError) {
+          onError({
+            id: this.createStreamId(),
+            error: fallbackError.message
+          })
+          return
+        }
+      }
+
       onError({
         id: this.createStreamId(),
         error: error.message
@@ -72,7 +93,7 @@ export class StreamingAIGateway {
       onComplete({
         id: streamId,
         fullText: currentText,
-        provider: "simulated",
+        provider: options?.streamingFallbackFrom ? `simulated:${options.streamingFallbackFrom}` : "simulated",
         tokens: words.length,
         duration: Date.now() - parseInt(streamId.split("_")[1], 10)
       })

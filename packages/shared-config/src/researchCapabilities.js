@@ -6,6 +6,12 @@ function resolveFlag(value, fallback = false) {
   return fallback
 }
 
+function hasGoogleSearchRuntimeKeys() {
+  const apiKey = process.env.GOOGLE_SEARCH_API_KEY || process.env.GOOGLE_CSE_API_KEY || process.env.GOOGLE_API_KEY
+  const engineId = process.env.GOOGLE_SEARCH_ENGINE_ID || process.env.GOOGLE_CSE_CX || process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID
+  return Boolean(apiKey && engineId)
+}
+
 export function getResearchCapabilities(overrides = {}) {
   const merged = {
     liveWeb: resolveFlag(overrides.liveWeb, resolveFlag(process.env.RESEARCH_WEB_ENABLED, false)),
@@ -13,12 +19,14 @@ export function getResearchCapabilities(overrides = {}) {
       overrides.browserAutomation,
       resolveFlag(process.env.BROWSER_AUTOMATION_ENABLED, false)
     ),
-    google: resolveFlag(overrides.google, resolveFlag(process.env.RESEARCH_GOOGLE_ENABLED, false)),
+    google: resolveFlag(overrides.google, resolveFlag(process.env.RESEARCH_GOOGLE_ENABLED, hasGoogleSearchRuntimeKeys())),
     bing: resolveFlag(overrides.bing, resolveFlag(process.env.RESEARCH_BING_ENABLED, false)),
     yahoo: resolveFlag(overrides.yahoo, resolveFlag(process.env.RESEARCH_YAHOO_ENABLED, false)),
     scholar: resolveFlag(overrides.scholar, resolveFlag(process.env.RESEARCH_SCHOLAR_ENABLED, false)),
     news: resolveFlag(overrides.news, resolveFlag(process.env.RESEARCH_NEWS_ENABLED, false)),
     codeSearch: resolveFlag(overrides.codeSearch, resolveFlag(process.env.RESEARCH_CODE_ENABLED, false)),
+    weatherForecast: resolveFlag(overrides.weatherForecast, resolveFlag(process.env.RESEARCH_WEATHER_ENABLED, true)),
+    sportsSchedule: resolveFlag(overrides.sportsSchedule, resolveFlag(process.env.RESEARCH_SPORTS_ENABLED, true)),
     documentation: true,
     rag: true,
     memory: true
@@ -31,6 +39,8 @@ export function getResearchCapabilities(overrides = {}) {
   if (merged.scholar) liveSources.push("Google Scholar")
   if (merged.news) liveSources.push("News")
   if (merged.codeSearch) liveSources.push("Code Search")
+  if (merged.weatherForecast) liveSources.push("Weather")
+  if (merged.sportsSchedule) liveSources.push("Sports")
   if (merged.browserAutomation) liveSources.push("Browser")
 
   return {
@@ -55,6 +65,18 @@ export function describeResearchCapabilities(capabilities = {}) {
   } else {
     lines.push("Pesquisa web ao vivo nao confirmada nesta execucao.")
     lines.push("Se o usuario pedir fatos atuais, deixe a limitacao explicita e nao invente que navegou.")
+  }
+
+  if (resolved.weatherForecast) {
+    lines.push("Dados de clima e previsao operacional podem ser usados quando a integracao meteorologica estiver ativa nesta execucao.")
+  } else {
+    lines.push("Clima ao vivo nao esta confirmado nesta execucao; planos agro devem admitir quando falta dado meteorologico real.")
+  }
+
+  if (resolved.sportsSchedule) {
+    lines.push("Agenda esportiva atual pode ser consultada quando a integracao esportiva estiver ativa nesta execucao.")
+  } else {
+    lines.push("Agenda esportiva ao vivo nao esta confirmada nesta execucao.")
   }
 
   return {

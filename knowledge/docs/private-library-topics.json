@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "description": "Topicos para classificar livros, PDFs e documentos privados no GIOM.",
+  "topics": [
+    {
+      "id": "languages_native_slang_dialects",
+      "category": "languages",
+      "categories": [
+        "languages",
+        "sociolinguistics"
+      ],
+      "modules": [
+        "research",
+        "math_science"
+      ],
+      "bibleStudyModules": [],
+      "keywords": [
+        "lingua nativa",
+        "linguas nativas",
+        "girias",
+        "giria",
+        "dialeto",
+        "dialetos",
+        "abreviacao de internet",
+        "abreviacoes de internet",
+        "emoji",
+        "emojis",
+        "internet slang",
+        "coloquial"
+      ]
+    },
+    {
+      "id": "christian_jewish_hebraic_archaeology",
+      "category": "church_history",
+      "categories": [
+        "church_history",
+        "biblical_archaeology",
+        "judaism"
+      ],
+      "modules": [
+        "bible",
+        "history_archaeology",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "biblical_archaeology",
+        "church_history",
+        "biblical_history"
+      ],
+      "keywords": [
+        "arqueologia crista",
+        "arqueologias cristas",
+        "arqueologia judaica",
+        "arqueologia hebraica",
+        "qumran",
+        "mar morto",
+        "israel antigo",
+        "templo",
+        "jerusalem"
+      ]
+    },
+    {
+      "id": "protestant_knowledge_books",
+      "category": "theology_protestant",
+      "categories": [
+        "theology_protestant",
+        "bible",
+        "pastoral_theology"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "systematic_theology",
+        "pastoral_theology",
+        "study_methods_hermeneutics"
+      ],
+      "keywords": [
+        "teologia protestante",
+        "livros protestantes",
+        "conhecimento cristao protestante",
+        "doutrina reformada",
+        "teologia biblica",
+        "hermeneutica"
+      ]
+    },
+    {
+      "id": "protestant_preachers_and_modern_preachers",
+      "category": "preaching",
+      "categories": [
+        "preaching",
+        "theology_protestant",
+        "church_history"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "homiletics_preaching",
+        "protestant_preaching_traditions",
+        "church_history"
+      ],
+      "keywords": [
+        "pregadores protestantes",
+        "pregador protestante",
+        "pregadores modernos",
+        "pregadores modernos protestantes",
+        "sermao",
+        "sermoes",
+        "esboco",
+        "esbocos"
+      ]
+    },
+    {
+      "id": "protestant_devotionals_and_christian_life",
+      "category": "pastoral_theology",
+      "categories": [
+        "pastoral_theology",
+        "theology_protestant",
+        "family_ministry"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "devotional_practice",
+        "pastoral_theology",
+        "sunday_school_curriculum"
+      ],
+      "keywords": [
+        "devocional",
+        "devocionais",
+        "vida crista",
+        "mulher crista",
+        "vida da mulher crista",
+        "crianca crista",
+        "testemunho pentecostal",
+        "testemunhos pentecostais",
+        "discipulado"
+      ]
+    },
+    {
+      "id": "church_fathers",
+      "category": "church_history",
+      "categories": [
+        "church_history",
+        "patristics",
+        "theology"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "church_history",
+        "patristics_sources"
+      ],
+      "keywords": [
+        "pais da igreja",
+        "patristica",
+        "patristicos",
+        "agostinho",
+        "ireneu",
+        "atanasio",
+        "tertuliano",
+        "origenes"
+      ]
+    },
+    {
+      "id": "christian_authors_and_thinkers",
+      "category": "theology_protestant",
+      "categories": [
+        "theology_protestant",
+        "church_history",
+        "christian_thought"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "church_history",
+        "systematic_theology"
+      ],
+      "keywords": [
+        "autores cristaos",
+        "pensadores cristaos",
+        "livros de autores cristaos",
+        "literatura crista",
+        "cosmovisao crista"
+      ]
+    },
+    {
+      "id": "tribulation_views_and_eschatology",
+      "category": "theology_protestant",
+      "categories": [
+        "theology_protestant",
+        "eschatology"
+      ],
+      "modules": [
+        "bible",
+        "research"
+      ],
+      "bibleStudyModules": [
+        "systematic_theology",
+        "biblical_periods"
+      ],
+      "keywords": [
+        "escatologia",
+        "pre tribulacionista",
+        "meso tribulacionista",
+        "pos tribulacionista",
+        "amilenista",
+        "premilenista",
+        "dispensacionalismo"
+      ]
+    },
+    {
+      "id": "christian_science",
+      "category": "science",
+      "categories": [
+        "science",
+        "christian_thought",
+        "apologetics"
+      ],
+      "modules": [
+        "math_science",
+        "research"
+      ],
+      "bibleStudyModules": [],
+      "keywords": [
+        "ciencia crista",
+        "ciencia e fe",
+        "apologetica",
+        "criacionismo",
+        "design inteligente"
+      ]
+    },
+    {
+      "id": "core_sciences_and_languages",
+      "category": "science",
+      "categories": [
+        "science",
+        "languages",
+        "education"
+      ],
+      "modules": [
+        "math_science",
+        "research"
+      ],
+      "bibleStudyModules": [],
+      "keywords": [
+        "biologia",
+        "quimica",
+        "fisica",
+        "matematica",
+        "portugues",
+        "ingles",
+        "hebraico",
+        "aramaico",
+        "latim",
+        "grego",
+        "linguas antigas",
+        "periodo biblico"
+      ]
+    },
+    {
+      "id": "games_logic",
+      "category": "games_logic",
+      "categories": [
+        "games_logic",
+        "education",
+        "reasoning"
+      ],
+      "modules": [
+        "research",
+        "math_science"
+      ],
+      "bibleStudyModules": [],
+      "keywords": [
+        "xadrez",
+        "domino",
+        "jogo da velha",
+        "sudoku",
+        "campo minado",
+        "cubo magico",
+        "cubo magico 3x3"
+      ]
+    },
+    {
+      "id": "astronomy_satellites_gps",
+      "category": "astronomy",
+      "categories": [
+        "astronomy",
+        "gps_satellites",
+        "science"
+      ],
+      "modules": [
+        "math_science",
+        "research"
+      ],
+      "bibleStudyModules": [],
+      "keywords": [
+        "astronomia",
+        "satelite",
+        "satelites",
+        "gps",
+        "geodesia",
+        "navegacao",
+        "gnss"
+      ]
+    }
+  ]
+}

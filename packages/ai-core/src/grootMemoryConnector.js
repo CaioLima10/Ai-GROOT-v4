@@ -22,6 +22,33 @@ const supabaseKey =
 const hasSupabaseConfig = !!(supabaseUrl && supabaseKey)
 const usingServiceKey = !!process.env.SUPABASE_SERVICE_KEY
 
+const CONTEXT_STOPWORDS = new Set([
+  "a", "o", "as", "os", "de", "do", "da", "dos", "das", "e", "ou", "em", "no", "na", "nos", "nas",
+  "por", "para", "pra", "pro", "um", "uma", "uns", "umas", "com", "sem", "que", "como", "qual",
+  "quais", "quando", "onde", "porque", "porquê", "ser", "esta", "está", "estou", "vou", "quero",
+  "queria", "preciso", "sobre", "isso", "isto", "essa", "esse", "dessa", "desse", "mais", "menos",
+  "muito", "muita", "muitas", "muitos", "hoje", "amanha", "amanhã", "agora", "depois", "antes",
+  "ja", "já", "ainda", "tambem", "também", "me", "te", "se", "eu", "voce", "você", "ele", "ela",
+  "eles", "elas", "meu", "minha", "meus", "minhas", "seu", "sua", "seus", "suas", "nosso", "nossa",
+  "nossos", "nossas", "resposta", "respostas", "giom"
+])
+
+const CONVERSATION_INTENT_PATTERNS = [
+  { label: "pedido de explicacao", regex: /\b(explique|explica|ensine|como funciona|o que significa)\b/i },
+  { label: "pedido pratico", regex: /\b(monte|crie|faca|faça|estruture|me de|me dê|passo a passo|plano)\b/i },
+  { label: "comparacao", regex: /\b(compare|comparar|diferenca|diferença|versus|\bvs\b|melhor)\b/i },
+  { label: "interpretacao de texto", regex: /\b(resuma|interprete|interpretacao|interpretação|o que entendeu|analise este texto|analise o texto)\b/i },
+  { label: "acompanhamento continuo", regex: /\b(continuando|voltando|retomando|sobre isso|sobre aquilo|agora|e depois)\b/i },
+  { label: "cuidado pastoral", regex: /\b(oracao|oração|devocional|conselho pastoral|ore por mim|estou triste|estou com medo|duvida com deus|dúvida com deus)\b/i }
+]
+
+const CONVERSATION_DOMAIN_PATTERNS = [
+  { label: "biblia", regex: /\b(biblia|bíblia|evangelho|jesus|deus|oracao|oração|versiculo|versículo|igreja|devocional|sermao|sermão|teologia|pastor)\b/i },
+  { label: "clima", regex: /\b(clima|tempo|chuva|temperatura|previs[aã]o|sensa[cç][aã]o termica|sensa[cç][aã]o térmica|uv)\b/i },
+  { label: "futebol", regex: /\b(jogo|partida|futebol|time|clube|sele[cç][aã]o|campeonato|rodada|escalacao|escalação)\b/i },
+  { label: "codigo", regex: /\b(codigo|código|api|node|next|erro|bug|deploy|teste|prompt)\b/i }
+]
+
 const FACT_PATTERNS = [
   {
     key: "name",
@@ -36,12 +63,27 @@ const FACT_PATTERNS = [
   {
     key: "responseStyle",
     label: "Preferencia de resposta",
-    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu\s+)?prefiro respostas?\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu\s+)?(?:prefiro|gosto de|quero)\s+(?:respostas?|explica(?:c|ç)(?:o|õ)es?)\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
   },
   {
     key: "role",
     label: "Funcao",
     regex: /(?:^|[.!?,]\s*|\se\s+)eu sou (?:um|uma)\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+  },
+  {
+    key: "preferredName",
+    label: "Como chamar",
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:pode me chamar de|me chame de|quero que me chame de)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40})(?=[,.!?]|$)/i
+  },
+  {
+    key: "bibleVersion",
+    label: "Biblia preferida",
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:prefiro|uso|costumo usar)\s+(?:a\s+)?(?:biblia|bíblia|vers[aã]o)\s+([^.,\n]{2,40}?)(?=[.,\n]|$)/i
+  },
+  {
+    key: "currentGoal",
+    label: "Objetivo atual",
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:estou estudando|estou aprendendo|quero estudar|quero aprender)\s+([^.,\n]{3,80}?)(?=[.,\n]|$)/i
   }
 ]
 
@@ -194,6 +236,50 @@ function extractKnownFactsFromHistory(history = []) {
     if (entry?.role !== "user") return acc
     return mergeKnownFacts(acc, extractFactsFromText(entry.content || ""))
   }, {})
+}
+
+function uniqueValues(values = []) {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
+function normalizeTopicToken(token = "") {
+  return String(token || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-]/g, "")
+    .trim()
+}
+
+function extractTopicKeywords(text = "", limit = 4) {
+  const tokens = String(text || "").match(/[a-z0-9\u00c0-\u017f-]+/gi) || []
+  return uniqueValues(
+    tokens
+      .map(normalizeTopicToken)
+      .filter(token => token.length >= 3 && !CONTEXT_STOPWORDS.has(token))
+  ).slice(0, limit)
+}
+
+function detectConversationIntent(text = "") {
+  const input = String(text || "")
+  const match = CONVERSATION_INTENT_PATTERNS.find(pattern => pattern.regex.test(input))
+  return match?.label || ""
+}
+
+function detectConversationDomains(text = "") {
+  const input = String(text || "")
+  return CONVERSATION_DOMAIN_PATTERNS
+    .filter(pattern => pattern.regex.test(input))
+    .map(pattern => pattern.label)
+}
+
+function truncateSummaryText(text = "", maxLength = 140) {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim()
+  if (normalized.length <= maxLength) {
+    return normalized
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trim()}...`
 }
 
 function buildRecentConversationText(history = [], limit = 6) {
@@ -589,7 +675,6 @@ export class GrootMemoryConnector {
     return data
       .filter(entry => matchesSelections(entry.metadata, options.activeModules, options.bibleStudyModules))
       .slice(-options.limit)
-      .reverse()
       .map(item => sanitizeConversationRow(item))
   }
 
@@ -691,9 +776,10 @@ export class GrootMemoryConnector {
 
   async getContextForPrompt(userId = "default_user", options = {}) {
     try {
+      const historyLimit = Number(options.limit || 8)
       const [history, profile, summary, patterns] = await Promise.all([
         this.getRecentHistory(userId, {
-          limit: options.limit || 5,
+          limit: historyLimit,
           activeModules: options.activeModules || [],
           bibleStudyModules: options.bibleStudyModules || []
         }),
@@ -719,7 +805,7 @@ export class GrootMemoryConnector {
           timestamp: item.created_at
         })),
         conversationTurns: mergedTurns,
-        recentConversationText: buildRecentConversationText(mergedTurns, options.limit || 6),
+        recentConversationText: buildRecentConversationText(mergedTurns, Math.max(historyLimit, 8)),
         userProfile: profile.preferences,
         contextSummary: this.generateContextSummary(history, options, mergedTurns),
         learningSummary: summarizeLearningPatterns(patterns),
@@ -748,26 +834,53 @@ export class GrootMemoryConnector {
       ? mergedTurns.filter(entry => entry.role === "user").map(entry => ({ user_message: entry.content }))
       : history
 
-    if (sourceTurns.length === 0) return "Início de conversa"
+    if (sourceTurns.length === 0) return "Inicio de conversa"
 
-    const topics = sourceTurns.map(item => {
-      const keywords = item.user_message
-        .toLowerCase()
-        .split(" ")
-        .filter(word => word.length > 3)
-        .slice(0, 3)
+    const recentUserMessages = sourceTurns
+      .slice(-6)
+      .map(item => String(item?.user_message || "").trim())
+      .filter(Boolean)
 
-      return keywords.join(", ")
-    }).filter(Boolean)
+    const topics = uniqueValues(
+      recentUserMessages.flatMap(message => extractTopicKeywords(message, 4))
+    ).slice(0, 6)
 
-    const moduleSummary = Array.isArray(options.activeModules) && options.activeModules.length > 0
-      ? ` | Módulos: ${options.activeModules.join(", ")}`
-      : ""
-    const bibleSummary = Array.isArray(options.bibleStudyModules) && options.bibleStudyModules.length > 0
-      ? ` | Bíblia: ${options.bibleStudyModules.join(", ")}`
-      : ""
+    const intents = uniqueValues(
+      recentUserMessages.map(message => detectConversationIntent(message))
+    ).slice(0, 2)
 
-    return `Tópicos discutidos: ${topics.slice(0, 5).join(" | ")}${moduleSummary}${bibleSummary}`
+    const domains = uniqueValues(
+      recentUserMessages.flatMap(message => detectConversationDomains(message))
+    ).slice(0, 3)
+
+    const lastMessage = truncateSummaryText(recentUserMessages[recentUserMessages.length - 1] || "")
+    const parts = []
+
+    if (topics.length > 0) {
+      parts.push(`Topicos recentes: ${topics.join(", ")}`)
+    }
+
+    if (domains.length > 0) {
+      parts.push(`Dominios em foco: ${domains.join(", ")}`)
+    }
+
+    if (intents.length > 0) {
+      parts.push(`Intencao recente: ${intents.join(" -> ")}`)
+    }
+
+    if (lastMessage) {
+      parts.push(`Ultimo pedido: ${lastMessage}`)
+    }
+
+    if (Array.isArray(options.activeModules) && options.activeModules.length > 0) {
+      parts.push(`Modulos: ${options.activeModules.join(", ")}`)
+    }
+
+    if (Array.isArray(options.bibleStudyModules) && options.bibleStudyModules.length > 0) {
+      parts.push(`Biblia: ${options.bibleStudyModules.join(", ")}`)
+    }
+
+    return parts.join(" | ") || "Inicio de conversa"
   }
 }
 

@@ -1,32 +1,60 @@
 # Dependencies
 node_modules
+**/node_modules
 npm-debug.log*
 
-# Runtime data
+# Runtime data / OS
 pids
 *.pid
 *.seed
 *.pid.lock
+.DS_Store
+Thumbs.db
 
-# Coverage directory
+# Coverage / test
 coverage
+*.test.js
+tests/
+test-*.js
 
 # Logs
-logs
+logs/
 *.log
 
-# Environment variables
+# Environment variables — NEVER copy secrets into image
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+
+# Dev / build artifacts
+.next/
+apps/web-next/.next/
+apps/web-next/node_modules/
+dist/
+build/
+
+# Backups — not needed in container (use named volume)
+backups/
+
+# Git
+.git/
+.github/
+
+# Docs / READMEs (reduce image size)
+docs/
+*.md
+!README.md
 
 # IDE
-.vscode
-.idea
+.vscode/
+.idea/
 *.swp
 *.swo
+
+# Temporary
+tmp_uploads/
+tmp/
+reports/
 
 # OS
 .DS_Store

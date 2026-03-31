@@ -1,0 +1,10 @@
+{
+  "generatedAt": "2026-03-30T04:41:16.287Z",
+  "reportFile": "C:\\Users\\GabeG\\Desktop\\Ai-GROOT\\reports\\knowledge-health-report.json",
+  "outDir": "C:\\Users\\GabeG\\Desktop\\Ai-GROOT\\knowledge\\docs\\robust-real-all-b4",
+  "perModule": 12,
+  "moduleCount": 163,
+  "docsGenerated": 1956,
+  "modulesCovered": 163,
+  "submodulesCovered": 95
+}

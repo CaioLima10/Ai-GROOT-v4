@@ -1,0 +1,271 @@
+{
+  "generatedAt": "2026-03-30T02:35:14.947Z",
+  "summary": {
+    "totalChecks": 7,
+    "okChecks": 6,
+    "failedChecks": 1,
+    "readinessPercent": 86,
+    "failedServices": [
+      {
+        "id": "fasttext_local",
+        "label": "fastText local model",
+        "error": "Modelo fastText lid.176 nao encontrado nos caminhos padrao"
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "dictionary_api",
+      "label": "DictionaryAPI.dev",
+      "status": "ok",
+      "latencyMs": 874,
+      "details": {
+        "endpoint": "https://api.dictionaryapi.dev/api/v2/entries/en/{word}",
+        "entries": 1,
+        "sampleWord": "example"
+      }
+    },
+    {
+      "id": "datamuse",
+      "label": "Datamuse API",
+      "status": "ok",
+      "latencyMs": 480,
+      "details": {
+        "endpoint": "https://api.datamuse.com/words",
+        "suggestions": [
+          "speech",
+          "nomenclature",
+          "terminology",
+          "lyric",
+          "words"
+        ]
+      }
+    },
+    {
+      "id": "wiktionary_mediawiki",
+      "label": "Wiktionary via MediaWiki",
+      "status": "ok",
+      "latencyMs": 436,
+      "details": {
+        "endpoint": "https://{wiki}/w/api.php",
+        "hasExtract": true,
+        "extractPreview": "\n== English ==\n\n\n=== Pronunciation ===\n(without æ-raising) IPA(key): /ˈlæŋ.ɡwɪd͡ʒ/\n(æ-raising) IPA(key): /ˈleɪ̯ŋ.ɡwɪd͡ʒ/"
+      }
+    },
+    {
+      "id": "languagetool",
+      "label": "LanguageTool Public API",
+      "status": "ok",
+      "latencyMs": 824,
+      "details": {
+        "endpoint": "https://api.languagetool.org/v2/check",
+        "matches": 2,
+        "detectedLanguage": "English (US)"
+      }
+    },
+    {
+      "id": "mymemory",
+      "label": "MyMemory Translation API",
+      "status": "ok",
+      "latencyMs": 1293,
+      "details": {
+        "endpoint": "https://api.mymemory.translated.net/get",
+        "translatedText": "by",
+        "match": 0.99
+      }
+    },
+    {
+      "id": "libretranslate",
+      "label": "LibreTranslate Public",
+      "status": "ok",
+      "latencyMs": 940,
+      "details": {
+        "endpoint": "https://libretranslate.com/languages",
+        "languagesCount": 50,
+        "sample": [
+          {
+            "code": "en",
+            "name": "English",
+            "targets": [
+              "ar",
+              "az",
+              "bg",
+              "bn",
+              "ca",
+              "cs",
+              "da",
+              "de",
+              "el",
+              "en",
+              "eo",
+              "es",
+              "et",
+              "eu",
+              "fa",
+              "fi",
+              "fr",
+              "ga",
+              "gl",
+              "he",
+              "hi",
+              "hu",
+              "id",
+              "it",
+              "ja",
+              "ko",
+              "ky",
+              "lt",
+              "lv",
+              "ms",
+              "nb",
+              "nl",
+              "pt-BR",
+              "pl",
+              "pt",
+              "ro",
+              "ru",
+              "sk",
+              "sl",
+              "sq",
+              "sr",
+              "sv",
+              "th",
+              "tl",
+              "tr",
+              "uk",
+              "ur",
+              "vi",
+              "zh-Hans",
+              "zh-Hant"
+            ]
+          },
+          {
+            "code": "sq",
+            "name": "Albanian",
+            "targets": [
+              "ar",
+              "az",
+              "bg",
+              "bn",
+              "ca",
+              "cs",
+              "da",
+              "de",
+              "el",
+              "en",
+              "eo",
+              "es",
+              "et",
+              "eu",
+              "fa",
+              "fi",
+              "fr",
+              "ga",
+              "gl",
+              "he",
+              "hi",
+              "hu",
+              "id",
+              "it",
+              "ja",
+              "ko",
+              "ky",
+              "lt",
+              "lv",
+              "ms",
+              "nb",
+              "nl",
+              "pt-BR",
+              "pl",
+              "pt",
+              "ro",
+              "ru",
+              "sk",
+              "sl",
+              "sq",
+              "sr",
+              "sv",
+              "th",
+              "tl",
+              "tr",
+              "uk",
+              "ur",
+              "vi",
+              "zh-Hans",
+              "zh-Hant"
+            ]
+          },
+          {
+            "code": "ar",
+            "name": "Arabic",
+            "targets": [
+              "ar",
+              "az",
+              "bg",
+              "bn",
+              "ca",
+              "cs",
+              "da",
+              "de",
+              "el",
+              "en",
+              "eo",
+              "es",
+              "et",
+              "eu",
+              "fa",
+              "fi",
+              "fr",
+              "ga",
+              "gl",
+              "he",
+              "hi",
+              "hu",
+              "id",
+              "it",
+              "ja",
+              "ko",
+              "ky",
+              "lt",
+              "lv",
+              "ms",
+              "nb",
+              "nl",
+              "pt-BR",
+              "pl",
+              "pt",
+              "ro",
+              "ru",
+              "sk",
+              "sl",
+              "sq",
+              "sr",
+              "sv",
+              "th",
+              "tl",
+              "tr",
+              "uk",
+              "ur",
+              "vi",
+              "zh-Hans",
+              "zh-Hant"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "fasttext_local",
+      "label": "fastText local model",
+      "status": "error",
+      "latencyMs": 2,
+      "error": "Modelo fastText lid.176 nao encontrado nos caminhos padrao"
+    }
+  ],
+  "recommendations": [
+    "Ativar cache local para APIs publicas com TTL por idioma e termo.",
+    "Self-host de LanguageTool e LibreTranslate se virarem caminho critico.",
+    "Baixar e versionar fastText lid.176 para roteamento de idioma offline.",
+    "Registrar fallback por servico para evitar falha total de pipeline."
+  ]
+}

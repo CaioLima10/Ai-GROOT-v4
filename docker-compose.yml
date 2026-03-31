@@ -1,43 +1,97 @@
-version: '3.8'
+version: '3.9'
+
+# ─── GIOM Enterprise Docker Compose ───────────────────────────────────────────
+# Usage:
+#   docker-compose up -d              → start all services
+#   docker-compose logs -f giom       → stream backend logs
+#   docker-compose ps                 → check health status
+#   docker-compose down               → stop gracefully
 
 services:
-  ai-groot:
-    build: .
+  # ── GIOM Backend ─────────────────────────────────────────────────────────────
+  giom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: giom-backend:latest
+    container_name: giom-backend
+    restart: always # always restart — production SLA
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
-    restart: unless-stopped
+      NODE_ENV: production
+      PORT: "3000"
+      GROOT_MODE: ${GROOT_MODE:-quantum}
+      GROOT_AI_PROVIDER: ${GROOT_AI_PROVIDER:-auto}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      OPENROUTER_KEY: ${OPENROUTER_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY}
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test: [ "CMD", "node", "-e", "require('http').get({hostname:'localhost',port:3000,path:'/health',timeout:8000},(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))" ]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
       start_period: 40s
     volumes:
-      - ./logs:/app/logs
+      - giom_memory:/app/.groot-memory # ← GIOM's brain — never delete this
+      - giom_logs:/app/logs
+      - giom_reports:/app/reports
     networks:
-      - ai-groot-network
+      - giom-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "10"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
 
-  # Redis para cache (opcional)
+  # ── Redis — response cache & session store ────────────────────────────────────
   redis:
     image: redis:7-alpine
+    container_name: giom-redis
+    restart: always
     ports:
-      - "6379:6379"
-    restart: unless-stopped
+      - "127.0.0.1:6379:6379" # bind to localhost only — security
+    command: >
+      redis-server
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --save 60 1
+        --appendonly yes
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     networks:
-      - ai-groot-network
+      - giom-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
 
 networks:
-  ai-groot-network:
+  giom-net:
     driver: bridge
 
 volumes:
+  giom_memory: # GIOM's learned memory — persistent across all restarts
+  giom_logs:
+  giom_reports:
   redis_data:

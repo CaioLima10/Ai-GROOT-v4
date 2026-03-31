@@ -1,0 +1,6 @@
+Projeto: bateria documental do GIOM.
+Objetivo principal: validar leitura fiel de anexos no runtime.
+Prioridades:
+1. Clareza de resposta.
+2. Memoria de follow-up.
+3. Honestidade quando a leitura vier parcial.

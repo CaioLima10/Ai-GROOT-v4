@@ -9,6 +9,10 @@ const KNOWLEDGE_DIRS = [
   path.resolve(process.cwd(), "knowledge", "curated")
 ]
 
+const SNAPSHOT_DIRS = [
+  path.resolve(process.cwd(), "knowledge", "imported", "free-sources", "snapshots")
+]
+
 function parseFrontMatter(text) {
   const match = String(text || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/i)
   if (!match) {
@@ -156,6 +160,187 @@ function buildKnowledgePayload(content, metadata = {}) {
   }
 }
 
+function buildRequestedCount(limit = 5) {
+  const normalizedLimit = Number(limit || 5)
+  return Math.max(normalizedLimit * 4, 12)
+}
+
+function detectKnowledgeDomains(query = "", categories = []) {
+  const text = String(query || "").toLowerCase()
+  const normalizedCategories = Array.isArray(categories)
+    ? categories.map(category => String(category || "").toLowerCase())
+    : []
+  const domains = new Set()
+
+  const theologySignals = [
+    "biblia", "bíblia", "bible", "tanakh", "torah", "hebrew", "hebraico", "greek", "grego",
+    "theology", "teologia", "protestant", "reformada", "reformation", "reforma", "confession",
+    "catechism", "catecismo", "church history", "historia da igreja", "história da igreja",
+    "archaeology", "arqueologia", "septuagint", "exegese", "hermeneutica", "hermenêutica"
+  ]
+  const developerSignals = [
+    "javascript", "typescript", "node", "react", "python", "django", "sql", "postgres", "docker",
+    "api", "backend", "frontend", "bug", "erro", "debug", "framework", "database", "banco de dados"
+  ]
+  const languageSignals = [
+    "hebrew", "hebraico", "aramaic", "aramaico", "greek", "grego", "koine", "lexico", "léxico",
+    "termo", "word study", "vocabulario", "vocabulário"
+  ]
+
+  if (theologySignals.some(signal => text.includes(signal))) domains.add("theology")
+  if (developerSignals.some(signal => text.includes(signal))) domains.add("developer")
+  if (languageSignals.some(signal => text.includes(signal))) domains.add("languages")
+
+  normalizedCategories.forEach(category => {
+    if (["bible", "tanakh", "theology", "theology_protestant", "church_history", "biblical_history", "biblical_archaeology", "judaism", "creeds_confessions"].includes(category)) {
+      domains.add("theology")
+    }
+    if (["languages", "hebrew", "aramaic", "greek", "biblical_hebrew"].includes(category)) {
+      domains.add("languages")
+    }
+    if (["developer", "programming", "frameworks", "debugging", "database", "backend", "frontend", "code"].includes(category)) {
+      domains.add("developer")
+    }
+  })
+
+  return domains
+}
+
+function resolveDomainScopedCategories(queryDomains, fallbackCategories = []) {
+  const theologyCategories = [
+    "bible", "tanakh", "theology", "theology_protestant", "church_history",
+    "biblical_history", "biblical_archaeology", "judaism", "creeds_confessions"
+  ]
+  const languageCategories = ["languages", "hebrew", "aramaic", "greek", "biblical_hebrew"]
+  const developerCategories = [
+    "developer", "programming", "frameworks", "debugging", "database", "backend", "frontend", "code"
+  ]
+
+  const scoped = new Set()
+
+  if (queryDomains.has("theology")) {
+    theologyCategories.forEach(category => scoped.add(category))
+  }
+  if (queryDomains.has("languages")) {
+    languageCategories.forEach(category => scoped.add(category))
+  }
+  if (queryDomains.has("developer")) {
+    developerCategories.forEach(category => scoped.add(category))
+  }
+
+  if (!scoped.size) {
+    return Array.isArray(fallbackCategories) ? fallbackCategories : []
+  }
+
+  return Array.from(scoped)
+}
+
+function getRecordCategorySet(record) {
+  return new Set([
+    String(record.category || "").toLowerCase(),
+    ...(Array.isArray(record.categories) ? record.categories.map(category => String(category || "").toLowerCase()) : []),
+    ...(Array.isArray(record.metadata?.categories) ? record.metadata.categories.map(category => String(category || "").toLowerCase()) : []),
+    ...(Array.isArray(record.metadata?.bibleStudyModules) ? record.metadata.bibleStudyModules.map(category => String(category || "").toLowerCase()) : [])
+  ].filter(Boolean))
+}
+
+function computeKnowledgeBoost(record, queryDomains) {
+  const sourceId = String(record.sourceId || record.metadata?.sourceId || "").toLowerCase()
+  const source = String(record.source || "").toLowerCase()
+  const categories = getRecordCategorySet(record)
+  let boost = 0
+
+  const hasTheologyCategory = Array.from(categories).some(category => [
+    "bible", "tanakh", "theology", "theology_protestant", "church_history", "biblical_history",
+    "biblical_archaeology", "judaism", "creeds_confessions"
+  ].includes(category))
+  const hasLanguageCategory = Array.from(categories).some(category => [
+    "languages", "hebrew", "aramaic", "greek", "biblical_hebrew"
+  ].includes(category))
+  const hasDeveloperCategory = Array.from(categories).some(category => [
+    "developer", "programming", "frameworks", "debugging", "database", "backend", "frontend", "code"
+  ].includes(category))
+
+  if (queryDomains.has("theology") && hasTheologyCategory) boost += 0.16
+  if (queryDomains.has("languages") && hasLanguageCategory) boost += 0.12
+  if (queryDomains.has("developer") && hasDeveloperCategory) boost += 0.14
+
+  // When the query clearly points to one domain, strongly penalize knowledge from conflicting domains
+  // so broad default modules do not leak irrelevant context into the final prompt.
+  if (queryDomains.has("theology") && hasDeveloperCategory && !hasTheologyCategory && !hasLanguageCategory) {
+    boost -= 0.28
+  }
+  if (queryDomains.has("developer") && hasTheologyCategory && !hasDeveloperCategory) {
+    boost -= 0.24
+  }
+  if (queryDomains.has("languages") && hasDeveloperCategory && !hasLanguageCategory) {
+    boost -= 0.2
+  }
+  if (queryDomains.has("languages") && hasTheologyCategory && !hasLanguageCategory) {
+    boost -= 0.08
+  }
+
+  if (queryDomains.has("theology")) {
+    if (sourceId === "sefaria_tanakh") boost += 0.2
+    if (sourceId === "wikisource_protestant_texts") boost += 0.18
+    if (sourceId === "wikipedia_topics") boost += 0.1
+    if (sourceId === "openlibrary_subjects") boost += 0.06
+    if (sourceId === "gutendex_catalog") boost += 0.04
+    if (source.includes("sefaria.org")) boost += 0.12
+  }
+
+  if (queryDomains.has("languages")) {
+    if (sourceId === "wiktionary_terms") boost += 0.18
+    if (sourceId === "sefaria_tanakh") boost += 0.06
+  }
+
+  if (queryDomains.has("developer")) {
+    if (sourceId === "github_repos") boost += 0.16
+    if (sourceId === "stackexchange_questions") boost += 0.18
+  }
+
+  if (source.startsWith("interaction")) boost -= 0.03
+
+  return boost
+}
+
+function rerankKnowledgeResults(records, query, options) {
+  const queryDomains = detectKnowledgeDomains(query, options.categories)
+  return records
+    .map(record => {
+      const similarity = Number(record.similarity || 0)
+      const boost = computeKnowledgeBoost(record, queryDomains)
+      return {
+        ...record,
+        rankingScore: similarity + boost,
+        rankingSignals: {
+          similarity,
+          boost,
+          queryDomains: Array.from(queryDomains)
+        }
+      }
+    })
+    .sort((a, b) => {
+      if ((b.rankingScore || 0) !== (a.rankingScore || 0)) {
+        return (b.rankingScore || 0) - (a.rankingScore || 0)
+      }
+      return (b.similarity || 0) - (a.similarity || 0)
+    })
+}
+
+function resolveKnowledgeThresholds(options = {}) {
+  const domains = detectKnowledgeDomains("", options.categories)
+  if (domains.has("theology") || domains.has("languages")) {
+    return [0.24, 0.18]
+  }
+
+  if (domains.has("developer")) {
+    return [0.28, 0.22]
+  }
+
+  return [0.3, 0.24]
+}
+
 function shouldSkipLearning(userMessage = "", aiResponse = "", metadata = {}) {
   const userSafety = detectSafetyRisk(userMessage)
   const responseSafety = detectSafetyRisk(aiResponse)
@@ -171,6 +356,7 @@ function shouldSkipLearning(userMessage = "", aiResponse = "", metadata = {}) {
   const text = String(aiResponse || "").toLowerCase()
   if (
     text.includes("modo de contingencia") ||
+    text.includes("ainda nao tenho essa informacao") ||
     text.includes("tente novamente em alguns instantes") ||
     text.includes("resposta vazia")
   ) {
@@ -224,6 +410,61 @@ export class GrootAdvancedRAG {
     }
   }
 
+  async listSnapshotFiles(dir) {
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+      const files = []
+
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          files.push(...await this.listSnapshotFiles(full))
+          continue
+        }
+
+        if (/\.json$/i.test(entry.name)) {
+          files.push(full)
+        }
+      }
+
+      return files
+    } catch {
+      return []
+    }
+  }
+
+  async pushSnapshotDocument(document, file) {
+    const content = String(document?.content || "").trim()
+    if (!content) return
+
+    const embedding = await this.embeddings.generateEmbedding(content)
+    const category = document.category || document.categories?.[0] || "general"
+    this.localKnowledge.push({
+      id: `snapshot_${this.localKnowledge.length + 1}`,
+      title: document.title || null,
+      content,
+      source: document.source || `snapshot:${path.basename(file)}`,
+      sourceId: document.sourceId || path.basename(file, ".json"),
+      sourceName: document.sourceName || null,
+      category,
+      categories: Array.isArray(document.categories) && document.categories.length > 0
+        ? document.categories
+        : [category],
+      modules: Array.isArray(document.modules) ? document.modules : [],
+      bibleStudyModules: Array.isArray(document.bibleStudyModules) ? document.bibleStudyModules : [],
+      language: document.language || "en",
+      license: document.license || "unknown",
+      tags: Array.isArray(document.tags) ? document.tags : [],
+      metadata: {
+        ...document,
+        file: path.basename(file),
+        local: true,
+        importedSnapshot: true
+      },
+      embedding
+    })
+  }
+
   async bootstrapLocalKnowledge() {
     try {
       const files = []
@@ -258,6 +499,21 @@ export class GrootAdvancedRAG {
           })
         }
       }
+
+      const snapshotFiles = []
+      for (const dir of SNAPSHOT_DIRS) {
+        snapshotFiles.push(...await this.listSnapshotFiles(dir))
+      }
+
+      for (const file of snapshotFiles) {
+        const raw = await fs.readFile(file, "utf8")
+        const documents = JSON.parse(raw)
+        if (!Array.isArray(documents)) continue
+
+        for (const document of documents) {
+          await this.pushSnapshotDocument(document, file)
+        }
+      }
     } catch (error) {
       console.warn("⚠️ Falha ao carregar base local curada:", error.message)
     }
@@ -272,19 +528,29 @@ export class GrootAdvancedRAG {
     if (!this.enabled || !this.supabase) return []
 
     try {
-      const requestedCount = Math.max(options.limit * 4, 12)
-      const { data, error } = await this.supabase.rpc("search_knowledge", {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.3,
-        match_count: requestedCount
-      })
+      const requestedCount = buildRequestedCount(options.limit)
+      const thresholds = resolveKnowledgeThresholds(options)
 
-      if (error) throw error
+      for (const threshold of thresholds) {
+        const { data, error } = await this.supabase.rpc("search_knowledge", {
+          query_embedding: queryEmbedding,
+          match_threshold: threshold,
+          match_count: requestedCount
+        })
 
-      return (data || [])
-        .filter(item => recordMatchesLanguage(item, options.language))
-        .filter(item => recordMatchesCategories(item, options.categories))
-        .slice(0, options.limit)
+        if (error) throw error
+
+        const filtered = (data || [])
+          .filter(item => recordMatchesLanguage(item, options.language))
+          .filter(item => recordMatchesCategories(item, options.categories))
+          .slice(0, requestedCount)
+
+        if (filtered.length > 0) {
+          return filtered
+        }
+      }
+
+      return []
     } catch (error) {
       console.error("❌ Erro na busca semântica remota:", error)
       return []
@@ -314,18 +580,28 @@ export class GrootAdvancedRAG {
 
   async searchLocalKnowledge(queryEmbedding, options) {
     await this.ensureBootstrap()
+    const requestedCount = buildRequestedCount(options.limit)
+    const thresholds = resolveKnowledgeThresholds(options)
 
-    return this.localKnowledge
-      .filter(record => recordMatchesCategories(record, options.categories))
-      .filter(record => recordMatchesLanguage(record, options.language))
-      .map(record => ({
-        ...record,
-        similarity: similarityScore(queryEmbedding, record.embedding)
-      }))
-      .filter(record => record.similarity > 0.26)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, options.limit)
-      .map(({ embedding, ...record }) => record)
+    for (const threshold of thresholds) {
+      const matches = this.localKnowledge
+        .filter(record => recordMatchesCategories(record, options.categories))
+        .filter(record => recordMatchesLanguage(record, options.language))
+        .map(record => ({
+          ...record,
+          similarity: similarityScore(queryEmbedding, record.embedding)
+        }))
+        .filter(record => record.similarity > threshold)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, requestedCount)
+        .map(({ embedding, ...record }) => record)
+
+      if (matches.length > 0) {
+        return matches
+      }
+    }
+
+    return []
   }
 
   async searchLocalBugs(queryEmbedding, options) {
@@ -349,19 +625,22 @@ export class GrootAdvancedRAG {
     const options = normalizeSearchOptions(languageOrOptions, limit)
     const moduleCategories = resolveCategoriesFromModules(options.modules, options.bibleStudyModules)
     const mergedCategories = Array.from(new Set([...(options.categories || []), ...moduleCategories]))
+    const queryDomains = detectKnowledgeDomains(query, mergedCategories)
+    const scopedCategories = resolveDomainScopedCategories(queryDomains, mergedCategories)
     const normalizedOptions = {
       ...options,
-      categories: mergedCategories
+      categories: scopedCategories
     }
 
     try {
       const queryEmbedding = await this.embeddings.generateEmbedding(query)
+      const shouldSearchBugs = normalizedOptions.includeBugs && queryDomains.has("developer")
 
       const [remoteKnowledge, remoteBugs, localKnowledge, localBugs] = await Promise.all([
         this.searchRemoteKnowledge(queryEmbedding, normalizedOptions),
-        this.searchRemoteBugs(queryEmbedding, normalizedOptions),
+        shouldSearchBugs ? this.searchRemoteBugs(queryEmbedding, normalizedOptions) : Promise.resolve([]),
         this.searchLocalKnowledge(queryEmbedding, normalizedOptions),
-        this.searchLocalBugs(queryEmbedding, normalizedOptions)
+        shouldSearchBugs ? this.searchLocalBugs(queryEmbedding, normalizedOptions) : Promise.resolve([])
       ])
 
       const knowledge = [...remoteKnowledge]
@@ -369,7 +648,7 @@ export class GrootAdvancedRAG {
         const exists = knowledge.some(existing => existing.content === item.content)
         if (!exists) knowledge.push(item)
       })
-      knowledge.sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
+      const rerankedKnowledge = rerankKnowledgeResults(knowledge, query, normalizedOptions)
 
       const bugs = [...remoteBugs]
       localBugs.forEach(item => {
@@ -378,10 +657,10 @@ export class GrootAdvancedRAG {
       })
 
       return {
-        knowledge: knowledge.slice(0, normalizedOptions.limit),
+        knowledge: rerankedKnowledge.slice(0, normalizedOptions.limit),
         bugs: bugs.slice(0, 3),
         queryEmbedding,
-        totalFound: knowledge.length + bugs.length,
+        totalFound: rerankedKnowledge.length + bugs.length,
         categoriesUsed: normalizedOptions.categories
       }
     } catch (error) {

@@ -2,12 +2,13 @@
   "name": "@groot/api",
   "private": true,
   "type": "module",
-  "main": "./src/server.js",
+  "main": "./dist/server.js",
   "scripts": {
     "dev": "node src/server.js",
     "start": "node src/server.js",
-    "legacy": "node src/legacyServer.js",
-    "smart": "node src/smartServer.js",
+    "build:ts": "tsc -p ../../tsconfig.api-build.json",
+    "start:ts": "node ./dist/server.js",
+    "build:start:ts": "npm run build:ts && npm run start:ts",
     "check": "node --check src/server.js"
   }
 }

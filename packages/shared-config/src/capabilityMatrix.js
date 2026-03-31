@@ -18,13 +18,20 @@ export function buildCapabilityMatrix(options = {}) {
     imageGenerationEnabled = false,
     imageGenerationProvider = "disabled",
     liveWebEnabled = false,
+    weatherForecastEnabled = false,
+    googleSearchEnabled = false,
+    googleImageSearchEnabled = false,
+    sportsScheduleEnabled = false,
     browserPdfExport = true,
     serverPdfGeneration = false,
     structuredDocsNative = false,
     documentGenerationFormats = [],
     privacyRedaction = true,
     sensitiveLearningBlocked = true,
-    temporaryUploads = true
+    temporaryUploads = true,
+    imageControlsEnabled = false,
+    visualImageUnderstanding = false,
+    imageEditingEnabled = false
   } = options
 
   const nativeFormats = Array.isArray(documentGenerationFormats)
@@ -33,6 +40,7 @@ export function buildCapabilityMatrix(options = {}) {
   const nativeFormatsSummary = nativeFormats.length > 0
     ? nativeFormats.join(", ")
     : "TXT, MD, HTML and JSON"
+  const imageControlSurfaceReady = imageGenerationEnabled && imageControlsEnabled
 
   return {
     status: "runtime_capability_matrix",
@@ -52,6 +60,10 @@ export function buildCapabilityMatrix(options = {}) {
         label: "Research",
         items: [
           buildItem("live_web", "Live web search", liveWebEnabled ? "ready" : "planned", liveWebEnabled ? "Live web connectors are active in this runtime." : "Google, Bing and Yahoo live search are not integrated in this runtime yet."),
+          buildItem("google_search", "Google Custom Search", googleSearchEnabled ? "ready" : "planned", googleSearchEnabled ? "Google Custom Search is configured with runtime filters and safe search." : "Google Custom Search still needs API key and search engine configuration."),
+          buildItem("google_image_search", "Google image search", googleImageSearchEnabled ? "ready" : "planned", googleImageSearchEnabled ? "Google image search is active via Programmable Search with safe filters." : "Google image search is not configured in this runtime yet."),
+          buildItem("weather_forecast", "Live weather and forecast", weatherForecastEnabled ? "ready" : "planned", weatherForecastEnabled ? "Operational weather lookups and forecast queries are active in this runtime." : "Live forecast data is not integrated in this runtime yet."),
+          buildItem("sports_schedule", "Live sports schedule", sportsScheduleEnabled ? "ready" : "planned", sportsScheduleEnabled ? "Live next-match lookups for supported teams are active in this runtime." : "Live sports schedule data is not integrated in this runtime yet."),
           buildItem("source_honesty", "Source honesty", "ready", "GIOM should describe the difference between local knowledge, RAG and live web access honestly.")
         ]
       },
@@ -62,10 +74,12 @@ export function buildCapabilityMatrix(options = {}) {
           buildItem("text_code_files", "Text and code files", "ready", "Plain text, markdown, JSON, code and config-like files can be ingested as text.", { accept: uploadAccept }),
           buildItem("pdf_read", "PDF reading", "ready", "PDF text extraction is active on the server."),
           buildItem("svg_read", "SVG reading", "ready", "SVG can be treated as readable text when uploaded with file extension."),
+          buildItem("zip_archives", "ZIP archive reading", "ready", "ZIP files can be inspected and text-like entries can be extracted from the archive."),
           buildItem("docx_read", "DOCX reading", docxEnabled ? "ready" : "planned", docxEnabled ? "DOCX text extraction is active on the server." : "DOCX parsing is not active in this runtime yet."),
           buildItem("xlsx_read", "XLSX reading", xlsxEnabled ? "ready" : "planned", xlsxEnabled ? "XLSX worksheet extraction is active on the server." : "XLSX parsing is not active in this runtime yet."),
           buildItem("pptx_read", "PPTX reading", pptxEnabled ? "ready" : "planned", pptxEnabled ? "PPTX slide-text extraction is active on the server." : "PPTX parsing is not active in this runtime yet."),
           buildItem("image_ocr", "Image OCR", ocrEnabled ? "ready" : "partial", ocrEnabled ? "Image text extraction via OCR is enabled." : "Image upload is accepted, but OCR depends on UPLOAD_OCR_ENABLED=true."),
+          buildItem("image_visual_understanding", "Image understanding", visualImageUnderstanding ? "ready" : (ocrEnabled ? "partial" : "planned"), visualImageUnderstanding ? "This runtime can reason about visual scenes beyond OCR text extraction." : (ocrEnabled ? "This runtime can extract text from images, but not full visual scene understanding." : "Visual image understanding is not active in this runtime yet.")),
           buildItem("office_binary_docs", "Office binary coverage", docxEnabled && xlsxEnabled && pptxEnabled ? "ready" : (docxEnabled || xlsxEnabled || pptxEnabled ? "partial" : "planned"), docxEnabled && xlsxEnabled && pptxEnabled ? "DOCX, XLSX and PPTX basic extraction are available in this runtime." : (docxEnabled || xlsxEnabled || pptxEnabled ? "Part of the Office binary family is available, but coverage is not complete yet." : "Office binary formats are not parsed natively yet.")),
           buildItem("binary_forensics", "Arbitrary binary inspection", "planned", "Generic binary reverse inspection is not a built-in capability yet.")
         ]
@@ -75,6 +89,8 @@ export function buildCapabilityMatrix(options = {}) {
         label: "Generation and export",
         items: [
           buildItem("image_generation", "Image generation", imageGenerationEnabled ? "ready" : "partial", imageGenerationEnabled ? `Image generation is active via ${imageGenerationProvider}.` : "Image generation requires a configured provider token such as Hugging Face."),
+          buildItem("image_controls", "Image prompt controls", imageControlSurfaceReady ? "ready" : (imageGenerationEnabled ? "partial" : "planned"), imageControlSurfaceReady ? "GIOM can control style preset, negative prompt, aspect ratio, dimensions and seed for image generation." : (imageGenerationEnabled ? "Image generation is active, but advanced prompt controls are not fully exposed in this runtime." : "Advanced image controls depend on image generation being active first.")),
+          buildItem("image_editing", "Image editing and variations", imageEditingEnabled ? "ready" : "planned", imageEditingEnabled ? "Reference-image editing, inpainting or multi-turn image editing are active." : "Reference-image editing, inpainting and multi-turn image variations are not integrated in this runtime yet."),
           buildItem("browser_pdf_export", "Browser PDF export", browserPdfExport ? "ready" : "planned", browserPdfExport ? "The web UI can export the current chat through the browser print/export flow." : "Browser-side PDF export is not active."),
           buildItem("server_pdf_generation", "Server PDF generation", serverPdfGeneration ? "ready" : "planned", serverPdfGeneration ? "Server-side PDF file generation is active in this runtime." : "Server-side PDF file generation is not implemented yet."),
           buildItem("structured_docs", "Structured document output", structuredDocsNative ? "ready" : "partial", structuredDocsNative ? `GIOM can generate native files in ${nativeFormatsSummary}.` : "GIOM can draft markdown, HTML, JSON and text documents in chat, but not every binary document type as a native file yet.")

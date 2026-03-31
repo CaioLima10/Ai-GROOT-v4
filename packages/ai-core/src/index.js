@@ -1,5 +1,6 @@
 export * from "./promptBuilder.js"
 export * from "./promptContext.js"
+export * from "./giomOrchestrator.js"
 export * from "./grootFreeEmbeddings.js"
 export * from "./grootEmbeddings.js"
 export * from "./grootMemoryConnector.js"

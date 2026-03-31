@@ -17,17 +17,20 @@ Uma inteligência artificial especializada em ajudar desenvolvedores a resolver 
 ## 🔧 Instalação
 
 1. **Clone o repositório**
+
    ```bash
    git clone https://github.com/CaioLima10/Ai-GROOT-v4.git
    cd Ai-GROOT
    ```
 
 2. **Instale dependências**
+
    ```bash
    npm install
    ```
 
 3. **Configure a API Key**
+
    ```bash
    # Copie o arquivo .env.example para .env
    cp .env.example .env
@@ -39,19 +42,30 @@ Uma inteligência artificial especializada em ajudar desenvolvedores a resolver 
 
 ## 🎯 Uso
 
-### Modo Desenvolvimento
+### Modo Desenvolvimento (monorepo oficial)
 
 ```bash
 npm run dev
 ```
 
-Acesse: http://localhost:3000
+Isso sobe backend + frontend novo:
+
+- Frontend: <http://localhost:3001>
+- Backend API: <http://localhost:3000>
+
+Acesse o chat em <http://localhost:3001>.
 
 ### Scripts Úteis
 
 ```bash
-# Iniciar servidor
+# Iniciar backend somente
 npm start
+
+# Iniciar frontend somente
+npm run dev:web
+
+# Checagem operacional do novo front + API
+npm run ops:check
 
 # Matar processo na porta 3000
 npm run kill-port
@@ -63,20 +77,29 @@ npm run logs
 npm run electron
 ```
 
+## 📚 Documentação Operacional
+
+- Estrutura, portas e conexões: `docs/PROJECT-STRUCTURE-PORTS.md`
+- Playbook interno de bugs: `docs/INTERNAL-BUG-PLAYBOOK.md`
+- Operação diária e runbook: `docs/OPERATIONS-GIOM.md`
+
 ## 🏗️ Estrutura do Projeto
 
 ```
 Ai-GROOT/
+├── apps/
+│   ├── api/               # Backend oficial (Express)
+│   ├── web-next/          # Frontend oficial (Next.js + React + Tailwind)
+│   └── desktop/           # App desktop oficial
+├── packages/
+│   ├── ai-core/           # Núcleo compartilhado de IA
+│   └── shared-config/     # Configurações compartilhadas
 ├── api/
-│   └── server.js          # Servidor Express
+│   └── server.js          # Compat layer -> apps/api/src/server.js
 ├── core/
 │   ├── aiBrain.js         # Cérebro da IA
 │   ├── multiAI.js         # Interface com API Groq
 │   └── conversationEngine.js # Formatação de respostas
-├── ui/
-│   ├── index.html         # Interface web
-│   ├── chat.js           # Lógica do frontend
-│   └── style.css         # Estilos
 ├── .env                  # Variáveis de ambiente
 ├── package.json          # Dependências e scripts
 └── README.md            # Documentação
@@ -85,8 +108,8 @@ Ai-GROOT/
 ## 🔍 Fluxo de Funcionamento
 
 1. Usuário digita pergunta na interface
-2. Frontend envia POST `/ask` para o backend
-3. Server.js valida e processa a requisição
+2. Frontend Next envia requisições para `/backend/*` (rewrite para API em `localhost:3000`)
+3. Backend em `apps/api/src/server.js` valida e processa a requisição
 4. aiBrain.js formata o prompt com contexto
 5. multiAI.js envia para API Groq com retry automático
 6. Resposta é formatada e retornada ao frontend
@@ -95,17 +118,20 @@ Ai-GROOT/
 ## 🛠️ Recursos Técnicos
 
 ### Backend
+
 - **Express**: Servidor web REST API
 - **CORS**: Habilita requisições cross-origin
 - **Axios**: Cliente HTTP para API Groq
 - **dotenv**: Gerenciamento de variáveis de ambiente
 
 ### Frontend
-- **JavaScript puro**: Sem frameworks, vanilla JS
-- **Fetch API**: Comunicação com backend
-- **CSS3**: Interface responsiva e moderna
+
+- **Next.js + React**: App Router com interface moderna
+- **Tailwind CSS**: Estilização da interface
+- **Fetch API**: Comunicação com backend via proxy `/backend/*`
 
 ### IA
+
 - **Groq API**: Modelo Mixtral-8x7b-32768
 - **Retry automático**: 3 tentativas com exponential backoff
 - **Timeout**: 30 segundos por requisição
@@ -114,17 +140,20 @@ Ai-GROOT/
 ## 🚨 Tratamento de Erros
 
 ### Frontend
+
 - Validação de resposta HTTP
 - Tratamento específico para diferentes tipos de erro
 - Interface amigável para mensagens de erro
 
 ### Backend
+
 - Validação de input (tamanho, conteúdo)
 - Logging estruturado com timestamps
 - Graceful shutdown
 - Tratamento de EADDRINUSE
 
 ### API Groq
+
 - Retry automático com exponential backoff
 - Timeout configurável
 - Validação de estrutura de resposta
@@ -133,12 +162,14 @@ Ai-GROOT/
 ## 🔧 Melhorias Implementadas
 
 ### Correções Principais
+
 - ✅ **Problema undefined**: Corrigido ID do botão e validação de resposta
 - ✅ **EADDRINUSE**: Implementado graceful shutdown e tratamento de erro
 - ✅ **Tratamento de erros**: Validação robusta em todo o fluxo
 - ✅ **Retry automático**: 3 tentativas para falhas de API
 
 ### Melhorias Arquiteturais
+
 - ✅ **Logging estruturado**: Timestamps e níveis de log
 - ✅ **Timeout**: 30 segundos para evitar travamentos
 - ✅ **Validação**: Input sanitization e limites
@@ -148,6 +179,7 @@ Ai-GROOT/
 ## 🐛 Solução de Problemas
 
 ### Porta em uso (EADDRINUSE)
+
 ```bash
 # Opção 1: Matar processo
 npm run kill-port
@@ -157,12 +189,14 @@ PORT=3001 npm run dev
 ```
 
 ### API Key inválida
+
 ```bash
 # Verifique se a API Key está correta no .env
 echo $GROQ_API_KEY
 ```
 
 ### Respostas undefined
+
 - Verifique console do navegador para erros
 - Confirme que a API Key é válida
 - Teste conectividade com API Groq
@@ -179,15 +213,18 @@ NODE_ENV=development  # ou production
 ### Bible API (opcional)
 
 Se você tiver acesso à YouVersion Platform API, configure:
+
 ```
 YVP_APP_KEY=seu_app_key
 YVP_BIBLE_ID=3034
 ```
+
 Veja `docs/BIBLE-API.md`.
 
 ## 🚀 Deploy
 
 ### Produção
+
 ```bash
 # Setar ambiente
 export NODE_ENV=production
@@ -197,6 +234,7 @@ npm start
 ```
 
 ### Docker (futuro)
+
 ```dockerfile
 # Dockerfile (planejado)
 FROM node:18-alpine
@@ -236,16 +274,19 @@ Se encontrar problemas:
 ## 🧠 Aprendizado e Conhecimento
 
 Para ingestão de conhecimento local (RAG avançado):
+
 ```bash
 npm run knowledge:ingest
 ```
 
 Para ingestão de fontes curadas (com licença):
+
 ```bash
 npm run knowledge:curated
 ```
 
 Para upgrades de aprendizado no Supabase:
+
 ```bash
 database/groot-learning-upgrades.sql
 ```
@@ -256,6 +297,7 @@ e reexecutar a ingestão.
 ## 🤖 Perfis de Modelo
 
 Controle o modelo via variáveis:
+
 - `GROOT_MODEL_TIER=fast|balanced|best`
 - `GROQ_MODEL`, `OPENROUTER_MODEL`, `GEMINI_MODEL` para sobrescrever
 

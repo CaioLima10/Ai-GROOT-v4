@@ -1,0 +1,47 @@
+name: Frontend QA
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  frontend-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Frontend layout tests
+        run: npm run test:frontend-layout
+
+      - name: Frontend runtime QA
+        run: npm run qa:runtime
+
+      - name: Frontend stress QA
+        run: npm run qa:stress-runtime
+
+      - name: Upload QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-qa-reports
+          path: |
+            reports/runtime-ux-qa.json
+            reports/runtime-ux-stress.json
+          if-no-files-found: warn

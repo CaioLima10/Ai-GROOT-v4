@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-03-30T19:23:10.629Z",
+  "serverUrl": "http://127.0.0.1:3000",
+  "question": "Responda em uma frase curta: o que e o GIOM?",
+  "runs": 5,
+  "timeoutMs": 45000,
+  "warmup": true,
+  "ask": {
+    "summary": {
+      "name": "ask",
+      "runs": 5,
+      "totalMs": {
+        "min": 2776,
+        "avg": 3067.4,
+        "p50": 3110,
+        "p95": 3296,
+        "max": 3296
+      },
+      "ttfbMs": {
+        "min": 2775,
+        "avg": 3066.2,
+        "p50": 3109,
+        "p95": 3295,
+        "max": 3295
+      },
+      "responseLength": {
+        "min": 87,
+        "avg": 87,
+        "max": 87
+      }
+    },
+    "runs": [
+      {
+        "run": 1,
+        "status": 200,
+        "ttfbMs": 3295,
+        "totalMs": 3296,
+        "responseLength": 87,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 2,
+        "status": 200,
+        "ttfbMs": 2775,
+        "totalMs": 2776,
+        "responseLength": 87,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 3,
+        "status": 200,
+        "ttfbMs": 3125,
+        "totalMs": 3127,
+        "responseLength": 87,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 4,
+        "status": 200,
+        "ttfbMs": 3027,
+        "totalMs": 3028,
+        "responseLength": 87,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 5,
+        "status": 200,
+        "ttfbMs": 3109,
+        "totalMs": 3110,
+        "responseLength": 87,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      }
+    ]
+  },
+  "stream": {
+    "summary": {
+      "name": "stream",
+      "runs": 5,
+      "totalMs": {
+        "min": 1664,
+        "avg": 3576.4,
+        "p50": 3670,
+        "p95": 5062,
+        "max": 5062
+      },
+      "ttfbMs": {
+        "min": 820,
+        "avg": 841.6,
+        "p50": 843,
+        "p95": 861,
+        "max": 861
+      },
+      "responseLength": {
+        "min": 86,
+        "avg": 86.8,
+        "max": 87
+      }
+    },
+    "runs": [
+      {
+        "run": 1,
+        "status": 200,
+        "ttfbMs": 836,
+        "totalMs": 1664,
+        "responseLength": 86,
+        "chunkCount": 19,
+        "answerPreview": "Não consegui resposta a esta pergunta no momento, tente novamente em alguns instantes."
+      },
+      {
+        "run": 2,
+        "status": 200,
+        "ttfbMs": 848,
+        "totalMs": 5062,
+        "responseLength": 87,
+        "chunkCount": 0,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 3,
+        "status": 200,
+        "ttfbMs": 843,
+        "totalMs": 3827,
+        "responseLength": 87,
+        "chunkCount": 0,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 4,
+        "status": 200,
+        "ttfbMs": 861,
+        "totalMs": 3670,
+        "responseLength": 87,
+        "chunkCount": 0,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      },
+      {
+        "run": 5,
+        "status": 200,
+        "ttfbMs": 820,
+        "totalMs": 3659,
+        "responseLength": 87,
+        "chunkCount": 0,
+        "answerPreview": "Nao consegui responder a esta pergunta no momento. Tente novamente em alguns instantes."
+      }
+    ]
+  }
+}
