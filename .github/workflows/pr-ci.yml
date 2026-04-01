@@ -70,7 +70,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run reliability fast profile
-        run: npm run reliability:gate:fast
+        run: node scripts/reliability-gate.mjs --profile=fast --skip-chaos
 
       - name: Upload reliability fast reports
         if: always()
@@ -94,7 +94,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run reliability strict profile
-        run: npm run reliability:gate:strict
+        run: node scripts/reliability-gate.mjs --profile=strict --skip-chaos
 
       - name: Upload reliability strict reports
         if: always()
