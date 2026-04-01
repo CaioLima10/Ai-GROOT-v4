@@ -14,8 +14,8 @@ services:
     region: oregon         # choose closest to your users
     branch: main
     rootDir: .             # monorepo root
-    buildCommand: npm ci --omit=dev
-    startCommand: node apps/api/src/server.js
+    buildCommand: npm ci && npm run build:api-ts
+    startCommand: node apps/api/dist/server.js
     healthCheckPath: /health
     numInstances: 1        # scale up here for HA
     autoDeploy: true
