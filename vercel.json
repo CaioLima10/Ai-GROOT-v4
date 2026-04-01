@@ -1,7 +1,7 @@
 {
   "version": 2,
   "name": "giom-frontend",
-  "buildCommand": "npm ci && npm run web-next:build",
+  "buildCommand": "npm run web-next:build",
   "outputDirectory": "apps/web-next/.next",
   "framework": "nextjs",
   "installCommand": "npm ci",
