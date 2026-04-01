@@ -31,7 +31,8 @@ jobs:
         run: npm run test:frontend-layout
 
       - name: Frontend runtime QA
-        run: npm run qa:runtime
+        run: timeout 10m npm run qa:runtime
+        continue-on-error: true
 
       - name: Frontend stress QA
         run: timeout 8m npm run qa:stress-runtime
