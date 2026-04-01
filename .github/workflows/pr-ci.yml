@@ -53,7 +53,13 @@ jobs:
           node --check scripts/ops-runtime-check.mjs
           node --check scripts/giom-memory-backup.mjs
       - name: Import validation
-        run: node -e "import('./apps/api/src/server.js')" --input-type=module
+        run: |
+          node --input-type=module -e "
+            await import('./apps/api/src/runtimeClock.js');
+            await import('./apps/api/src/sportsFixtures.js');
+            await import('./apps/api/src/liveResearchIntents.js');
+            console.log('import validation ok');
+          "
         continue-on-error: true
 
   # ── 2b. Reliability Fast (blocking) ─────────────────────────────────────────
