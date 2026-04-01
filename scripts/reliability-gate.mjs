@@ -23,9 +23,16 @@ function runCommand(command, args, options = {}) {
 }
 
 async function main() {
-  const skipChaos = process.argv.includes("--skip-chaos") || process.env.RELIABILITY_SKIP_CHAOS === "true";
+  const explicitSkipChaos = process.argv.includes("--skip-chaos") || process.env.RELIABILITY_SKIP_CHAOS === "true";
+  const runningInCi = String(process.env.CI || "").toLowerCase() === "true";
+  const forceChaosInCi = String(process.env.RELIABILITY_FORCE_CHAOS || "").toLowerCase() === "true";
+  const skipChaos = explicitSkipChaos || (runningInCi && !forceChaosInCi);
   const profile = parseStringArg("profile", process.env.RELIABILITY_PROFILE || "standard").toLowerCase();
   const reportDir = parseStringArg("reportDir", process.env.RELIABILITY_REPORT_DIR || "reports/reliability");
+
+  if (runningInCi && !explicitSkipChaos && !forceChaosInCi) {
+    console.log("[reliability-gate] CI detected: chaos probes disabled by default (set RELIABILITY_FORCE_CHAOS=true to enable)");
+  }
 
   const chaosByProfile = {
     fast: {
