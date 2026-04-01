@@ -13,7 +13,7 @@ type ConfigureEnterpriseSecurityInput = {
 export function configureEnterpriseSecurity(app: Express, deps: ConfigureEnterpriseSecurityInput) {
   const { cors, hpp, compression, helmet, rateLimit, slowDown, express } = deps
 
-  const configuredAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  const configuredAllowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean)
@@ -22,7 +22,9 @@ export function configureEnterpriseSecurity(app: Express, deps: ConfigureEnterpr
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
-    "http://127.0.0.1:3001"
+    "http://127.0.0.1:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002"
   ]
 
   const allowDevOrigins = process.env.NODE_ENV !== "production"
@@ -36,7 +38,7 @@ export function configureEnterpriseSecurity(app: Express, deps: ConfigureEnterpr
       if (!origin) return callback(null, true)
       if (allowedOrigins.length === 0) {
         if (process.env.NODE_ENV === "production") {
-          return callback(new Error("CORS origin not configured"))
+          console.warn("[CORS] ALLOWED_ORIGINS not configured — allowing all origins. Set ALLOWED_ORIGINS env var to restrict.")
         }
         return callback(null, true)
       }

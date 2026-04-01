@@ -54,8 +54,8 @@ services:
       # Security
       - key: JWT_SECRET
         generateValue: true   # Render generates a secure random value
-      - key: CORS_ORIGIN
-        sync: false           # set to your frontend URL (Render or Vercel)
+      - key: ALLOWED_ORIGINS
+        sync: false           # set to your frontend URL(s), comma-separated (e.g. https://giom-frontends.vercel.app)
 
       # Embeddings
       - key: EMBEDDINGS_PROVIDER
