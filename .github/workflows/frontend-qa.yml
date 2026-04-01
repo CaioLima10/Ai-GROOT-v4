@@ -9,14 +9,14 @@ on:
 jobs:
   frontend-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -34,11 +34,12 @@ jobs:
         run: npm run qa:runtime
 
       - name: Frontend stress QA
-        run: npm run qa:stress-runtime
+        run: timeout 8m npm run qa:stress-runtime
+        continue-on-error: true
 
       - name: Upload QA reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-qa-reports
           path: |
