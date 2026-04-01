@@ -146,6 +146,8 @@
     "compression": "^1.7.4",
     "compromise": "^14.10.0",
     "cors": "^2.8.5",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "docx": "^9.5.1",
     "dotenv": "^16.3.1",
     "electron": "^41.0.2",
@@ -173,12 +175,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
     "nodemon": "^3.0.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   },
   "repository": {
     "type": "git",
