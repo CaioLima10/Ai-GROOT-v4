@@ -4,6 +4,9 @@
   "description": "Ai-GROOT Enterprise Edition - IA avançada para desenvolvimento de software com NLP e aprendizado real",
   "type": "module",
   "main": "apps/api/dist/server.js",
+  "engines": {
+    "node": "20.x"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

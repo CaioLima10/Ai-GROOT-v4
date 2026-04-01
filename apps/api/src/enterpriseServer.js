@@ -75,6 +75,11 @@ import {
   summarizeGoogleSearchResults
 } from "./liveResearch.js"
 import {
+  createSportsDataIoFetch,
+  listSportsDataIoEndpoints,
+  resolveSportsDataIoEndpoint
+} from "./sportsDataIoRuntime.js"
+import {
   isFixtureCardPreferred as runtimeIsFixtureCardPreferred,
   isFixtureQuestion as runtimeIsFixtureQuestion,
   isSportsScheduleRelevant as runtimeIsSportsScheduleRelevant,
@@ -214,6 +219,7 @@ import {
 dotenv.config()
 
 const app = express()
+const fetchSportsDataIo = createSportsDataIoFetch()
 app.disable("x-powered-by")
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false)
 
@@ -667,6 +673,16 @@ async function buildShadowOrchestratorPlan(question, context = {}) {
 // Frontend legado removido do runtime oficial para evitar rotas ambíguas.
 // O frontend suportado é exclusivamente o app Next.js em apps/web-next.
 
+// Root health/info route
+app.get("/", (_req, res) => {
+  res.json({
+    name: AI_ENTERPRISE_NAME,
+    status: "ok",
+    version: process.env.npm_package_version ?? "1.0.0",
+    endpoints: ["/health", "/ask", "/config", "/capabilities", "/v1/models"],
+  })
+})
+
 // Config público para o frontend (somente chaves seguras)
 app.get("/config", async (req, res) => {
   const knowledgeStats = await grootAdvancedRAG.getAdvancedStats()
@@ -956,6 +972,65 @@ app.get("/research/sports", askLimiter, async (req, res) => {
     return res.status(502).json({
       error: error.message || "Falha ao consultar agenda esportiva.",
       code: error.code || "SPORTS_LOOKUP_FAILED",
+      details: process.env.NODE_ENV === "development" ? error.details || null : undefined
+    })
+  }
+})
+
+app.get("/research/soccer/endpoints", askLimiter, (_req, res) => {
+  return res.json({
+    success: true,
+    provider: "sportsdataio",
+    auth: {
+      header: "Ocp-Apim-Subscription-Key",
+      queryParam: "key"
+    },
+    endpoints: listSportsDataIoEndpoints()
+  })
+})
+
+app.get("/research/soccer/:endpointKey", askLimiter, async (req, res) => {
+  const runtimeResearchCapabilities = getResearchCapabilities()
+  if (!runtimeResearchCapabilities.sportsSchedule) {
+    return res.status(503).json({
+      error: "Consulta esportiva ao vivo nao habilitada nesta execucao.",
+      code: "SPORTS_SCHEDULE_DISABLED"
+    })
+  }
+
+  const endpointKey = String(req.params.endpointKey || "").trim()
+  const endpointDefinition = resolveSportsDataIoEndpoint(endpointKey)
+  if (!endpointDefinition) {
+    return res.status(400).json({
+      error: "Endpoint de futebol nao permitido para consulta.",
+      code: "SPORTSDATA_ENDPOINT_NOT_ALLOWED",
+      allowedEndpoints: listSportsDataIoEndpoints().map((entry) => entry.key)
+    })
+  }
+
+  const pathParams = {}
+  for (const key of endpointDefinition.requiredParams) {
+    pathParams[key] = req.query[key]
+  }
+
+  const queryParams = { ...req.query }
+  delete queryParams.key
+
+  try {
+    const payload = await fetchSportsDataIo(endpointKey, pathParams, queryParams)
+    return res.json({
+      success: true,
+      provider: "sportsdataio",
+      endpoint: endpointKey,
+      category: endpointDefinition.category,
+      callInterval: endpointDefinition.callInterval,
+      requiredParams: endpointDefinition.requiredParams,
+      data: payload
+    })
+  } catch (error) {
+    return res.status(error.statusCode || 502).json({
+      error: error.message || "Falha ao consultar SportsDataIO.",
+      code: error.code || "SPORTSDATA_REQUEST_FAILED",
       details: process.env.NODE_ENV === "development" ? error.details || null : undefined
     })
   }
