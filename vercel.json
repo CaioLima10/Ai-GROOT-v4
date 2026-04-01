@@ -8,7 +8,7 @@
   "rewrites": [
     {
       "source": "/backend/:path*",
-      "destination": "https://giom-backend.onrender.com/:path*"
+      "destination": "https://ai-groot-v4.onrender.com/:path*"
     }
   ],
   "headers": [
@@ -48,7 +48,7 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_BACKEND_PROXY_TARGET": "https://giom-backend.onrender.com"
+    "NEXT_PUBLIC_BACKEND_PROXY_TARGET": "https://ai-groot-v4.onrender.com"
   },
   "regions": [
     "iad1"
