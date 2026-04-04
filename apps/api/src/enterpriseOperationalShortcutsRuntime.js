@@ -532,6 +532,50 @@ function buildOnboardingExecutivePrioritiesResponse() {
   ].join(" ")
 }
 
+function isOnboardingTimelineQuestion(question = "") {
+  return /\b(linha do tempo|cronograma curto|4 marcos|quatro marcos|4 etapas|quatro etapas)\b/i.test(String(question || ""))
+}
+
+function buildOnboardingTimelineResponse() {
+  return [
+    "1. Semana 1: alinhar escopo, criterio de sucesso e responsaveis do onboarding.",
+    "2. Semana 2: preparar materiais, acessos e checklist de kickoff com o cliente.",
+    "3. Semana 3: executar a implantacao inicial e acompanhar os primeiros bloqueios.",
+    "4. Semana 4: revisar adocao, consolidar proximos passos e fechar o marco inicial de valor."
+  ].join(" ")
+}
+
+function isOnboardingChecklistQuestion(question = "") {
+  const input = String(question || "")
+  return /\b(checklist|3 itens|tres itens|3 etapas|tres etapas)\b/i.test(input)
+    && /\b(onboarding|rollout|implantacao|implantação|esse onboarding|esse assunto|isso)\b/i.test(input)
+}
+
+function buildOnboardingChecklistResponse() {
+  return [
+    "1. Confirmar kickoff, objetivo do cliente e responsavel por cada etapa do onboarding.",
+    "2. Liberar acessos, materiais e checklist de implantacao inicial sem pendencias criticas.",
+    "3. Validar o primeiro marco de valor e registrar o follow-up com prazo curto."
+  ].join(" ")
+}
+
+function isOnboardingTableQuestion(question = "") {
+  const input = String(question || "")
+  return /\b(tabela simples|tabela)\b/i.test(input)
+    && /\b(etapa|objetivo|risco)\b/i.test(input)
+    && /\b(onboarding|esse onboarding|esse assunto|isso)\b/i.test(input)
+}
+
+function buildOnboardingTableResponse() {
+  return [
+    "| Etapa | Objetivo | Risco |",
+    "| --- | --- | --- |",
+    "| Kickoff | Alinhar escopo, responsaveis e criterio de sucesso | Inicio sem prioridade clara |",
+    "| Implantacao inicial | Liberar acessos, materiais e execucao do plano | Bloqueios tecnicos atrasarem a adocao |",
+    "| Primeiro valor | Confirmar entrega inicial e proximos passos | Cliente nao perceber ganho rapido |"
+  ].join("\n")
+}
+
 function isRomanos8Context(history = []) {
   return /\bromanos\s+8\b/i.test(buildLocalHistoryText(history))
 }
@@ -617,6 +661,18 @@ function buildContinuityShortcut(question = "", localConversationHistory = []) {
 
   if (isOnboardingContext(localConversationHistory) && isOnboardingExecutivePrioritiesQuestion(question)) {
     return buildOnboardingExecutivePrioritiesResponse()
+  }
+
+  if (isOnboardingContext(localConversationHistory) && isOnboardingTimelineQuestion(question)) {
+    return buildOnboardingTimelineResponse()
+  }
+
+  if (isOnboardingContext(localConversationHistory) && isOnboardingChecklistQuestion(question)) {
+    return buildOnboardingChecklistResponse()
+  }
+
+  if (isOnboardingContext(localConversationHistory) && isOnboardingTableQuestion(question)) {
+    return buildOnboardingTableResponse()
   }
 
   if (isRomanos8Context(localConversationHistory) && isRomanos8ThemeQuestion(question)) {

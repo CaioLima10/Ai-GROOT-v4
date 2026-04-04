@@ -365,3 +365,54 @@ test("operational shortcuts keep onboarding priorities concise and executive", (
   assert.match(String(response || ""), /1\.|2\./i)
   assert.match(String(response || ""), /onboarding|cliente|follow-up|prazo|bloqueio/i)
 })
+
+test("operational shortcuts turn onboarding continuity into a short timeline", () => {
+  const response = resolveOperationalRuntimeShortcut(
+    "No mesmo estilo, transforme esse onboarding em uma linha do tempo curta de 4 marcos.",
+    {
+      sessionConversationHistory: [
+        {
+          role: "user",
+          content: "Meu nome e Lucas e estamos tratando de onboarding de clientes."
+        }
+      ]
+    }
+  )
+
+  assert.match(String(response || ""), /1\.|2\.|3\.|4\./i)
+  assert.match(String(response || ""), /semana|onboarding|cliente|marco|implant/i)
+})
+
+test("operational shortcuts turn onboarding continuity into a short checklist", () => {
+  const response = resolveOperationalRuntimeShortcut(
+    "Agora transforme esse onboarding em checklist curto de rollout com 3 itens.",
+    {
+      sessionConversationHistory: [
+        {
+          role: "user",
+          content: "Meu nome e Lucas e estamos tratando de onboarding de clientes."
+        }
+      ]
+    }
+  )
+
+  assert.match(String(response || ""), /1\.|2\.|3\./i)
+  assert.match(String(response || ""), /onboarding|cliente|kickoff|follow-up|implant/i)
+})
+
+test("operational shortcuts turn onboarding continuity into a simple table", () => {
+  const response = resolveOperationalRuntimeShortcut(
+    "Sem gerar arquivo, monte uma tabela simples com etapa, objetivo e risco para esse onboarding.",
+    {
+      sessionConversationHistory: [
+        {
+          role: "user",
+          content: "Meu nome e Lucas e estamos tratando de onboarding de clientes."
+        }
+      ]
+    }
+  )
+
+  assert.match(String(response || ""), /\| Etapa \| Objetivo \| Risco \|/i)
+  assert.match(String(response || ""), /Kickoff|Implantacao|Primeiro valor/i)
+})
