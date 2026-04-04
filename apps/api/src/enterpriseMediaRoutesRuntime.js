@@ -6,6 +6,99 @@ function buildRequestId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
+function extractBibleCodeHint(text = "") {
+  return String(text || "").toUpperCase().match(/\b(NAA|ARC|ACF|AA|ARA|NVI|NVT|BJ|KJA|KJF)\b/)?.[1] || ""
+}
+
+function extractLooseBibleChapterReference(prompt = "") {
+  const input = String(prompt || "").trim()
+  if (!input) {
+    return ""
+  }
+
+  const stopLookahead = String.raw`(?=\s+(?:da\s+b[ií]blia|na\s+b[ií]blia|b[ií]blia|sagrada|naa|arc|acf|aa|ara|nvi|nvt|bj|kja|kjf)\b|[.,!?]|$)`
+  const ordinalPatterns = [
+    { regex: new RegExp(String.raw`\bprimeiro\s+cap[ií]tulo\s+de\s+([a-z\u00c0-\u017f0-9 ]+?)${stopLookahead}`, "i"), chapter: "1" },
+    { regex: new RegExp(String.raw`\bsegundo\s+cap[ií]tulo\s+de\s+([a-z\u00c0-\u017f0-9 ]+?)${stopLookahead}`, "i"), chapter: "2" },
+    { regex: new RegExp(String.raw`\bterceiro\s+cap[ií]tulo\s+de\s+([a-z\u00c0-\u017f0-9 ]+?)${stopLookahead}`, "i"), chapter: "3" }
+  ]
+
+  for (const entry of ordinalPatterns) {
+    const match = input.match(entry.regex)
+    if (match?.[1]) {
+      return `${match[1].trim()} ${entry.chapter}`.replace(/\s+/g, " ").trim()
+    }
+  }
+
+  const numericMatch = input.match(new RegExp(String.raw`\bcap[ií]tulo\s+(\d+)\s+de\s+([a-z\u00c0-\u017f0-9 ]+?)${stopLookahead}`, "i"))
+  if (numericMatch?.[1] && numericMatch?.[2]) {
+    return `${numericMatch[2].trim()} ${numericMatch[1].trim()}`.replace(/\s+/g, " ").trim()
+  }
+
+  return ""
+}
+
+function normalizeLooseBibleDocumentPrompt(prompt = "") {
+  return extractLooseBibleChapterReference(prompt) || String(prompt || "")
+}
+
+function shouldUseDeterministicBibleDocument(prompt = "", parseBibleReference) {
+  if (typeof parseBibleReference !== "function") {
+    return false
+  }
+
+  const input = normalizeLooseBibleDocumentPrompt(prompt)
+  const parsedReference = parseBibleReference(input)
+  if (!parsedReference) {
+    return false
+  }
+
+  if (/\b(devocional|estudo|explic[ae]|explica[cç][aã]o|resum[ao]|prega[cç][aã]o|serm[aã]o|aplica[cç][aã]o|contexto|interpreta[cç][aã]o)\b/i.test(input)) {
+    return false
+  }
+
+  return /\b(biblia|bíblia|capitulo|capítulo|versiculo|versículo|passagem|texto|leia|mostre|traga|livro de|evangelho|salmo|genesis|gênesis)\b/i.test(input)
+}
+
+async function resolveDeterministicBibleDocumentContent(prompt = "", title = "", context = {}, deps = {}) {
+  const { parseBibleReference, fetchBiblePassage } = deps
+
+  if (!shouldUseDeterministicBibleDocument(prompt, parseBibleReference) || typeof fetchBiblePassage !== "function") {
+    return null
+  }
+
+  const normalizedPrompt = normalizeLooseBibleDocumentPrompt(prompt)
+  const parsedReference = parseBibleReference(normalizedPrompt)
+  const passageReference = parsedReference?.canonical || parsedReference?.human || String(prompt || "").trim()
+  const bibleCode = extractBibleCodeHint(`${prompt}\n${title}`) || String(context?.preferredBibleCode || context?.bibleCode || "NAA").trim() || "NAA"
+
+  let biblePassage
+  try {
+    biblePassage = await fetchBiblePassage({
+      bibleCode,
+      passage: passageReference
+    })
+  } catch (error) {
+    const wrappedError = new Error(`Nao foi possivel buscar a passagem biblica solicitada: ${getErrorMessage(error)}`)
+    wrappedError.statusCode = getErrorStatusCode(error) || 503
+    wrappedError.code = getErrorCode(error) || "BIBLE_DOCUMENT_SOURCE_UNAVAILABLE"
+    throw wrappedError
+  }
+
+  const resolvedReference = String(biblePassage?.reference || parsedReference?.human || passageReference).trim()
+  const resolvedBibleCode = String(biblePassage?.bibleCode || bibleCode).trim() || "NAA"
+  const passageContent = String(biblePassage?.content || "").trim()
+
+  if (!passageContent) {
+    const error = new Error("Nao foi possivel montar o conteudo biblico solicitado para o documento.")
+    error.statusCode = 503
+    error.code = "EMPTY_BIBLE_DOCUMENT_CONTENT"
+    throw error
+  }
+
+  return [`${resolvedReference} (${resolvedBibleCode})`, "", passageContent].join("\n")
+}
+
 export function registerEnterpriseMediaRoutes(app, deps) {
   const {
     askLimiter,
@@ -42,6 +135,8 @@ export function registerEnterpriseMediaRoutes(app, deps) {
     sanitizeAskContext,
     buildDocumentDraftPrompt,
     documentGenerationFormatIds,
+    parseBibleReference,
+    fetchBiblePassage,
     getResearchCapabilities,
     buildRuntimeCapabilityMatrix,
     askGiom,
@@ -289,7 +384,14 @@ export function registerEnterpriseMediaRoutes(app, deps) {
         }
       }
 
-      const documentContent = providedContent || await askGiom(
+      const deterministicBibleDocumentContent = providedContent
+        ? null
+        : await resolveDeterministicBibleDocumentContent(prompt, title, runtimeContext, {
+          parseBibleReference,
+          fetchBiblePassage
+        })
+
+      const documentContent = providedContent || deterministicBibleDocumentContent || await askGiom(
         buildDocumentDraftPrompt(prompt, requestedFormat, {
           locale,
           style: req.body?.context?.verbosity || "natural",

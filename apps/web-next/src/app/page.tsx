@@ -5,6 +5,7 @@ import { AuthModal } from "@/components/chat/AuthModal";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatConversation } from "@/components/chat/ChatConversation";
 import { ChatHeader } from "@/components/chat/ChatHeader";
+import { IconSidebar } from "@/components/chat/ChatIcons";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ProfileModal } from "@/components/chat/ProfileModal";
 import { buildUploadPreviews, revokeUploadPreviews, type MessageUploadPreview } from "@/lib/uploadPreviews";
@@ -15,7 +16,6 @@ import type {
   ChatMessage,
   ChatThread,
   GeneratedDocument,
-  GeneratedImage
 } from "@/components/chat/types";
 import { resilientFetch } from "@/lib/resilientFetch";
 import { isLikelyWeatherQuestion } from "@/lib/questionIntents";
@@ -27,6 +27,7 @@ import {
 import { MessageRenderer } from "@/components/messages/MessageRenderer";
 import type { GIOMMessage } from "@/components/messages/types";
 import type {
+  ConversationHistoryItem,
   GIOMAskContext,
   GIOMRenderableContent,
   GIOMUploadAsset,
@@ -60,7 +61,7 @@ type RuntimeConfig = {
   };
   ai?: {
     documentGeneration?: {
-      formats?: Array<{ id?: string }>;
+      formats?: Array<{ id?: string; format?: string }>;
     };
   };
 };
@@ -131,6 +132,8 @@ const WEATHER_LOCATION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const DEFAULT_DOC_FORMAT = "pdf";
 const MAX_INLINE_ATTACHMENTS = 12;
+const MAX_CONVERSATION_HISTORY_ITEMS = 10;
+const MAX_CONVERSATION_HISTORY_ITEM_CHARS = 900;
 function normalizeApiBase(value: string) {
   return String(value || "").trim().replace(/\/$/, "");
 }
@@ -165,6 +168,51 @@ function createThread(title = "Novo chat"): ChatThread {
     updatedAt: now,
     messages: []
   };
+}
+
+function buildConversationHistoryItemContent(message: ChatMessage) {
+  const baseContent = String(message.content || "").trim();
+  const artifactContext: string[] = [];
+
+  if (message.generatedDocument?.previewText) {
+    artifactContext.push(
+      `Documento gerado (${message.generatedDocument.fileName}): ${message.generatedDocument.previewText}`
+    );
+  }
+
+  if (message.generatedImage) {
+    artifactContext.push(
+      message.artifactPrompt
+        ? `Imagem gerada com prompt: ${message.artifactPrompt}`
+        : "Imagem gerada nesta conversa."
+    );
+  }
+
+  if (!artifactContext.length && message.artifactPrompt && !baseContent) {
+    artifactContext.push(`Prompt do artefato: ${message.artifactPrompt}`);
+  }
+
+  return [baseContent, ...artifactContext]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, MAX_CONVERSATION_HISTORY_ITEM_CHARS);
+}
+
+function buildConversationHistory(messages: ChatMessage[]): ConversationHistoryItem[] {
+  return messages
+    .filter((message) => !message.pending)
+    .reduce<ConversationHistoryItem[]>((history, message) => {
+      const content = buildConversationHistoryItemContent(message);
+      if (!content) return history;
+
+      history.push({
+        role: message.role,
+        content
+      });
+
+      return history;
+    }, [])
+    .slice(-MAX_CONVERSATION_HISTORY_ITEMS);
 }
 
 function parseSSEPacket(packet: string) {
@@ -566,8 +614,11 @@ function detectToolIntent(question: string, availableDocFormats: string[]) {
     return { mode: "document" as ToolMode, prompt: slashDocumentPrompt, format };
   }
 
+  const explicitChatOnlyRequest = /\b(sem (criar|gerar|montar|fazer|produzir) (arquivo|documento|pdf|docx)|sem (arquivo|documento|pdf|docx)|so no chat|apenas no chat|em texto|sem baixar)\b/i;
   const imageRequest = /(gere|gera|crie|cria|faca|produza|desenhe|renderize|monte).{0,30}(uma |a )?(imagem|foto|ilustracao|arte|logo|capa|banner|wallpaper|thumbnail)/i;
-  const documentRequest = /(gere|gera|crie|cria|faca|produza|redija|escreva|monte).{0,30}(um |uma )?(documento|pdf|docx|relatorio|proposta|contrato|resumo|plano|cronograma|apresentacao|ata|manual|briefing)/i;
+  const documentRequest = /(gere|gera|crie|cria|faca|produza|redija|escreva|monte).{0,30}(um |uma )?(documento|arquivo|pdf|docx|xlsx|pptx|relatorio|proposta|contrato|apresentacao|planilha|ata|manual|briefing|slides?)/i;
+  const softDocumentIntent = /\b(resumo|plano|cronograma)\b/i;
+  const explicitExportIntent = /\b(arquivo|documento|pdf|docx|download|exportar|exportacao|baixar|anexo)\b/i;
 
   if (imageRequest.test(normalized)) {
     return {
@@ -576,7 +627,11 @@ function detectToolIntent(question: string, availableDocFormats: string[]) {
     };
   }
 
-  if (documentRequest.test(normalized)) {
+  if (explicitChatOnlyRequest.test(normalized)) {
+    return null;
+  }
+
+  if (documentRequest.test(normalized) || (softDocumentIntent.test(normalized) && explicitExportIntent.test(normalized))) {
     const format = availableDocFormats.find((item) => lowered.includes(item.toLowerCase())) || DEFAULT_DOC_FORMAT;
     return {
       mode: "document" as ToolMode,
@@ -933,6 +988,40 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function hasExplicitShortReplyInstruction(question: string) {
+  return /\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\b/i.test(String(question || ""));
+}
+
+function isCapabilityPresentationQuestion(normalizedQuestion: string) {
+  const asksCapabilities = /\b(o que voce consegue|o que voce realmente tem|quais sao seus limites|como voce funciona|consegue pesquisar|consegue verificar|quais formatos|quais arquivos|le de forma nativa|faz bem nesta execucao|nesta execucao|capacidade|capacidades|limites|ferramentas)\b/.test(normalizedQuestion);
+  const mentionsToolingSurface = /\b(google|bing|yahoo|web|internet|browser|ao vivo|tempo real|formatos|arquivos|pdf|docx|xlsx|pptx|ocr|imagem|pesquisa)\b/.test(normalizedQuestion);
+
+  return asksCapabilities && mentionsToolingSurface;
+}
+
+function hasSportsIntentCue(normalizedQuestion: string) {
+  return /(jogo|jogos|partida|partidas|placar|agenda esportiva|agenda de jogos|confronto|quando joga|proximo jogo|proximos jogos|proximo confronto|historico|retrospecto|ultimos jogos|ultimos resultados|ultimos 5|resultado do jogo|escalacao|local do jogo|local da partida|horario do jogo|horario da partida|estadio|onde sera|proxima partida)/.test(normalizedQuestion);
+}
+
+function hasSportsCompetitionCue(normalizedQuestion: string) {
+  return /(campeonato|serie a|serie b|brasileirao|brasileiro serie|libertadores|copa do brasil|copa do mundo|eliminatorias|selecao)/.test(normalizedQuestion);
+}
+
+function hasStrongSportsEntity(normalizedQuestion: string) {
+  return /\b(botafogo|flamengo|palmeiras|corinthians|gremio|internacional|spfc|sao paulo fc|santos fc|selecao brasileira|bahia ec|ec bahia|esporte clube bahia)\b/.test(normalizedQuestion);
+}
+
+function hasAmbiguousSportsSubject(normalizedQuestion: string) {
+  return /\b(brasil|bahia|santos|sao paulo|argentina)\b/.test(normalizedQuestion);
+}
+
+function hasSportsContextAnchor(normalizedQuestion: string) {
+  return hasStrongSportsEntity(normalizedQuestion)
+    || hasAmbiguousSportsSubject(normalizedQuestion)
+    || hasSportsCompetitionCue(normalizedQuestion)
+    || /\b(time|clube|selecao)\b/.test(normalizedQuestion);
+}
+
 function detectResponsePresentation(question: string) {
   const normalized = String(question || "")
     .normalize("NFD")
@@ -940,13 +1029,26 @@ function detectResponsePresentation(question: string) {
     .toLowerCase()
     .trim();
   const weatherIntent = isLikelyWeatherQuestion(question);
-  const sportsIntentCue =
-    /(jogo|jogos|partida|partidas|placar|campeonato|agenda esportiva|quando joga|proximo jogo|proximos jogos|proximo confronto|historico|retrospecto|ultimos jogos|ultimos resultados|ultimos 5|serie a|serie b|brasileirao|brasileiro serie|libertadores|copa do brasil|copa do mundo|eliminatorias|horario|estadio|ao vivo|selecao|onde sera|onde será|local do jogo|proxima partida|próxima partida|resultado do jogo|escalacao|escalação)/.test(normalized);
-  const strongSportsEntity =
-    /\b(botafogo|flamengo|palmeiras|corinthians|gremio|internacional|spfc|sao paulo fc|santos fc|selecao brasileira|bahia ec|ec bahia)\b/.test(normalized);
+  const sportsIntentCue = hasSportsIntentCue(normalized);
+  const strongSportsEntity = hasStrongSportsEntity(normalized);
   const brazilNationalTeamIntent = /\bbrasil\b/.test(normalized) && /(jogo|partida|placar|quando joga|campeonato|copa|selecao|eliminatorias)/.test(normalized);
+  const capabilityIntent = isCapabilityPresentationQuestion(normalized);
 
   if (!normalized) return null;
+
+  if (hasExplicitShortReplyInstruction(question)) {
+    return {
+      card: "text",
+      instructions: "Se o usuario pedir para responder apenas com uma palavra ou frase curta, obedeça exatamente. Nao transforme isso em card, lista, passagem completa, citacao ou resposta expandida."
+    };
+  }
+
+  if (capabilityIntent) {
+    return {
+      card: "text",
+      instructions: "Quando o usuario perguntar sobre capacidades, limites, pesquisa web, formatos de arquivo ou verificacao atual, responda em texto objetivo e profissional. Nao force card de clima ou esporte."
+    };
+  }
 
   if (weatherIntent) {
     return {
@@ -956,7 +1058,7 @@ function detectResponsePresentation(question: string) {
     };
   }
 
-  if (!weatherIntent && (sportsIntentCue || strongSportsEntity || brazilNationalTeamIntent)) {
+  if (!weatherIntent && ((sportsIntentCue && hasSportsContextAnchor(normalized)) || strongSportsEntity || brazilNationalTeamIntent)) {
     return {
       card: "data",
       variant: "fixture",
@@ -1283,7 +1385,7 @@ export default function Home() {
     const candidates = [
       useProxyInDev ? "/backend" : configuredApiBase || "/backend",
       configuredApiBase,
-      useProxyInDev && allowDirectBackendFallback ? configuredBackendTarget || "http://localhost:3002" : ""
+      useProxyInDev && allowDirectBackendFallback && configuredBackendTarget ? configuredBackendTarget : ""
     ]
       .map((value) => normalizeApiBase(value))
       .filter(Boolean);
@@ -1421,14 +1523,14 @@ export default function Home() {
   const availableDocFormats = useMemo(() => {
     const configured = config?.ai?.documentGeneration?.formats;
     if (!Array.isArray(configured) || !configured.length) {
-      return ["pdf", "docx", "txt", "md"];
+      return ["pdf", "docx", "xlsx", "pptx", "txt", "md"];
     }
 
     const values = configured
-      .map((entry) => String(entry?.id || "").trim().toLowerCase())
+      .map((entry) => String(entry?.id || entry?.format || "").trim().toLowerCase())
       .filter(Boolean);
 
-    return values.length ? values : ["pdf", "docx", "txt", "md"];
+    return values.length ? values : ["pdf", "docx", "xlsx", "pptx", "txt", "md"];
   }, [config]);
 
   useEffect(() => {
@@ -1770,20 +1872,27 @@ export default function Home() {
     return payload as unknown as GIOMUploadAsset;
   }
 
-  async function requestAssistantResponseStandard(question: string, context: GIOMAskContext) {
+  async function requestAssistantResponseStandard(question: string, context: GIOMAskContext, sessionId: string | null) {
     const safeContext = sanitizeContextForApi(context);
 
     const runAsk = async (contextPayload: GIOMAskContext | Record<string, unknown>, retryAttempt = 1) => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-User-Id": authUser?.id || getScopeId()
+      };
+
+      if (sessionId) {
+        headers["X-Session-Id"] = sessionId;
+      }
+
       return await requestJsonWithFailover(
         "/ask",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-User-Id": authUser?.id || getScopeId()
-          },
+          headers,
           body: JSON.stringify({
             question,
+            sessionId,
             context: {
               ...contextPayload,
               clientRetryAttempt: retryAttempt
@@ -1820,19 +1929,28 @@ export default function Home() {
   async function requestAssistantResponseStream(
     question: string,
     context: GIOMAskContext,
+    sessionId: string | null,
     onProgress: (partial: string) => void
   ) {
+    const streamReadTimeoutMs = 20_000;
+    const streamFirstAnswerTimeoutMs = 18_000;
+    const streamStallTimeoutMs = 18_000;
     const safeContext = sanitizeContextForApi(context);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-User-Id": authUser?.id || getScopeId()
+    };
+
+    if (sessionId) {
+      headers["X-Session-Id"] = sessionId;
+    }
 
     const response = await requestStreamWithFailover(
       "/ask/stream",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": authUser?.id || getScopeId()
-        },
-        body: JSON.stringify({ question, context: safeContext })
+        headers,
+        body: JSON.stringify({ question, sessionId, context: safeContext })
       },
       65_000
     );
@@ -1845,6 +1963,38 @@ export default function Home() {
     const decoder = new TextDecoder();
     let buffer = "";
     let finalAnswer = "";
+    const streamStartedAt = Date.now();
+    let lastProgressAt = streamStartedAt;
+    let receivedAnswer = false;
+
+    const readNextChunk = async () => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              reject(new Error("Streaming sem atividade por muito tempo."));
+            }, streamReadTimeoutMs);
+          })
+        ]);
+      } finally {
+        if (timer != null) {
+          clearTimeout(timer);
+        }
+      }
+    };
+
+    const assertStreamProgress = () => {
+      const now = Date.now();
+      if (!receivedAnswer && now - streamStartedAt > streamFirstAnswerTimeoutMs) {
+        throw new Error("Streaming demorou demais para iniciar a resposta.");
+      }
+
+      if (receivedAnswer && now - lastProgressAt > streamStallTimeoutMs) {
+        throw new Error("Streaming ficou sem progresso por muito tempo.");
+      }
+    };
 
     const processPacket = (packet: string) => {
       const parsed = parseSSEPacket(packet);
@@ -1853,6 +2003,8 @@ export default function Home() {
       if (parsed.event === "chunk") {
         const data = parsed.data as { fullText?: string; chunk?: string };
         finalAnswer = data.fullText || `${finalAnswer}${data.chunk || ""}`;
+        receivedAnswer = true;
+        lastProgressAt = Date.now();
         onProgress(finalAnswer);
         return "continue" as const;
       }
@@ -1860,6 +2012,8 @@ export default function Home() {
       if (parsed.event === "complete") {
         const data = parsed.data as { response?: string; metadata?: { fallback?: boolean } };
         finalAnswer = data.response || finalAnswer;
+        receivedAnswer = true;
+        lastProgressAt = Date.now();
 
         if (Boolean(data.metadata?.fallback) && isGenericAssistantFallback(finalAnswer)) {
           return "fallback" as const;
@@ -1878,7 +2032,7 @@ export default function Home() {
     };
 
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readNextChunk();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
@@ -1888,12 +2042,14 @@ export default function Home() {
       for (const packet of packets) {
         const outcome = processPacket(packet);
         if (outcome === "fallback") {
-          return requestAssistantResponseStandard(question, context);
+          return requestAssistantResponseStandard(question, context, sessionId);
         }
         if (outcome === "complete") {
           return finalAnswer;
         }
       }
+
+      assertStreamProgress();
     }
 
     buffer += decoder.decode();
@@ -1902,13 +2058,15 @@ export default function Home() {
       for (const packet of trailingPackets) {
         const outcome = processPacket(packet);
         if (outcome === "fallback") {
-          return requestAssistantResponseStandard(question, context);
+          return requestAssistantResponseStandard(question, context, sessionId);
         }
         if (outcome === "complete") {
           return finalAnswer;
         }
       }
     }
+
+    assertStreamProgress();
 
     if (!finalAnswer) {
       throw new Error("Streaming encerrado sem resposta.");
@@ -2168,6 +2326,8 @@ export default function Home() {
 
     const toolIntent = detectToolIntent(question, availableDocFormats);
     const responsePresentation = detectResponsePresentation(question);
+    const sessionId = activeThread.id;
+    const conversationHistory = buildConversationHistory(activeThread.messages);
 
     if (toolIntent) {
       if (!canUseTools) {
@@ -2273,6 +2433,7 @@ export default function Home() {
         preferredResponseCard: responsePresentation?.card || "text",
         preferredResponseVariant: responsePresentation?.variant || undefined,
         instructions: `${responsePresentation?.instructions || "Responda em texto limpo, sem markdown visual desnecessario."}${instructionSuffix}`,
+        conversationHistory,
         weatherLocation: resolvedWeatherLocation
           ? {
               label: resolvedWeatherLocation.label || "Local atual",
@@ -2324,15 +2485,15 @@ export default function Home() {
 
       if (config?.features?.streaming !== false) {
         try {
-          answer = await requestAssistantResponseStream(question, context, (partial) => {
+          answer = await requestAssistantResponseStream(question, context, sessionId, (partial) => {
             applyPartial(partial, true);
           });
         } catch (streamError) {
           console.warn("Streaming falhou, caindo para resposta padrao.", streamError);
-          answer = await requestAssistantResponseStandard(question, context);
+          answer = await requestAssistantResponseStandard(question, context, sessionId);
         }
       } else {
-        answer = await requestAssistantResponseStandard(question, context);
+        answer = await requestAssistantResponseStandard(question, context, sessionId);
       }
 
       updateActiveThread((thread) => ({
@@ -2545,7 +2706,20 @@ export default function Home() {
   }
 
   return (
-    <div id="appShell" className={`chatgpt-shell ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+    <>
+      <button
+        id="mobileMenuBtn"
+        type="button"
+        className="sidebar-toggle-mobile"
+        aria-controls="sidebar"
+        aria-label={sidebarOpen ? "Fechar sidebar" : "Abrir sidebar"}
+        title={sidebarOpen ? "Fechar sidebar" : "Abrir sidebar"}
+        onClick={() => setSidebarOpen((current) => !current)}
+      >
+        <IconSidebar />
+      </button>
+
+      <div id="appShell" className={`chatgpt-shell ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
       <ChatSidebar
         activeThreadId={activeThread?.id || ""}
         authUser={authUser}
@@ -2652,6 +2826,7 @@ export default function Home() {
         onSubmit={submitAuth}
         open={showAuthScreen}
       />
-    </div>
+      </div>
+    </>
   );
 }

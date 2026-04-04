@@ -6,6 +6,66 @@ function buildMemoryContextLimits() {
   }
 }
 
+function needsOperationalRuntimeClock(question = "") {
+  const input = String(question || "")
+  if (!input.trim()) {
+    return false
+  }
+
+  const asksForCurrentTime = /\b(que horas|qual(?:\s+e|\s+é)?(?:\s+o)?\s+hor[aá]rio|hor[aá]rio de agora|hora de agora|hora agora|hor[aá]rio agora)\b/i.test(input)
+  const asksForCurrentDate = /\b(que dia (?:e|é) hoje|qual (?:e|é) a data de hoje|data de hoje|dia mes e ano|dia m[eê]s e ano|mes e ano|m[eê]s e ano)\b/i.test(input)
+  const asksForNow = /\b(agora|hoje|neste momento|nesse momento)\b/i.test(input)
+
+  return asksForCurrentDate || (asksForCurrentTime && asksForNow)
+}
+
+function resolveOperationalClockTimezone(context = {}) {
+  const weatherTimezone = String(context?.weatherLocation?.timezone || "").trim()
+  if (weatherTimezone && weatherTimezone.toLowerCase() !== "auto") {
+    return weatherTimezone
+  }
+
+  const runtimeTimezone = String(context?.runtimeClock?.timezone || "").trim()
+  if (runtimeTimezone && runtimeTimezone.toLowerCase() !== "auto") {
+    return runtimeTimezone
+  }
+
+  const contextTimezone = String(context?.timezone || context?.userTimezone || "").trim()
+  if (contextTimezone && contextTimezone.toLowerCase() !== "auto") {
+    return contextTimezone
+  }
+
+  return undefined
+}
+
+async function enrichOperationalShortcutContext(question = "", context = {}, getVerifiedRuntimeClock) {
+  if (!needsOperationalRuntimeClock(question)) {
+    return context
+  }
+
+  if (context?.runtimeClock && typeof context.runtimeClock === "object") {
+    return context
+  }
+
+  if (typeof getVerifiedRuntimeClock !== "function") {
+    return context
+  }
+
+  try {
+    const runtimeClock = await getVerifiedRuntimeClock(resolveOperationalClockTimezone(context))
+    if (!runtimeClock || typeof runtimeClock !== "object") {
+      return context
+    }
+
+    return {
+      ...context,
+      runtimeClock
+    }
+  } catch {
+    return context
+  }
+}
+
 async function prepareAskRuntime({ req, requestId, mode, route, deps }) {
   const {
     buildPreparedAskPayloadFromHttp,
@@ -83,6 +143,8 @@ export function registerEnterpriseAskRoutes(app, deps) {
     runtimeBuildWeatherClientMetadata,
     buildLanguageRuntimeMetadata,
     buildOperationalContingencyResponse,
+    resolveOperationalRuntimeShortcut,
+    getVerifiedRuntimeClock,
     writeSSE,
     buildAskProviderContext,
     buildFastDirectAiOptions,
@@ -141,7 +203,87 @@ export function registerEnterpriseAskRoutes(app, deps) {
       const question = normalizedQuestion
       const userId = enrichedData.request.userId
       preparedQuestion = finalQuestion
-      preparedContext = enhancedContext
+      const shortcutContext = await enrichOperationalShortcutContext(question, enhancedContext, getVerifiedRuntimeClock)
+      preparedContext = shortcutContext
+      const operationalShortcut = resolveOperationalRuntimeShortcut(question, shortcutContext)
+
+      if (operationalShortcut) {
+        const responseText = String(operationalShortcut || "").trim()
+        const shortcutResult = {
+          responseText,
+          handler: "operationalShortcut",
+          intent: decision.intent,
+          routeType: decision.routeType || "ai",
+          learning: {
+            shouldPersistMemory: true
+          }
+        }
+
+        aiGateway.logger.info(requestId, "REQUEST_SHORTCUT", {
+          intent: decision.intent,
+          handlerName: decision.handlerName,
+          routeType: decision.routeType,
+          memoryContext: runtimeContextResult.diagnostics
+        })
+
+        if (shouldPersistLearnedConversation(shortcutResult)) {
+          saveConversationNonBlocking(userId, question, responseText, {
+            provider: "operational_shortcut",
+            requestId,
+            sessionId: enrichedData.request.sessionId || null,
+            assistantProfile: shortcutContext.assistantProfile || null,
+            activeModules: shortcutContext.activeModules || [],
+            domainSubmodules: shortcutContext.domainSubmodules || {},
+            bibleStudyModules: shortcutContext.bibleStudyModules || [],
+            promptPacks: shortcutContext.promptPacks || [],
+            askRoute: {
+              handler: "operationalShortcut",
+              intent: decision.intent,
+              routeType: decision.routeType || "ai",
+              shortcut: true
+            }
+          }, requestId)
+        }
+
+        aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
+        aiGateway.metrics.recordUserActivity(userId, "ask", {
+          length: question.length,
+          routeType: decision.routeType || "ai",
+          intent: decision.intent || "operational_shortcut"
+        })
+        if (shouldPersistLearnedConversation(shortcutResult)) {
+          appendConversationToStm(userId, enrichedData.request.sessionId || null, question, responseText)
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            response: responseText
+          },
+          response: responseText,
+          answer: responseText,
+          requestId,
+          metadata: {
+            processingTime: Date.now() - startTime,
+            version: "2.0.0",
+            assistantProfile: shortcutContext.assistantProfile || null,
+            requestedAssistantProfile: shortcutContext.assistantProfile || null,
+            activeModules: shortcutContext.activeModules || [],
+            domainSubmodules: shortcutContext.domainSubmodules || {},
+            bibleStudyModules: shortcutContext.bibleStudyModules || [],
+            askRoute: {
+              handler: "operationalShortcut",
+              intent: decision.intent,
+              routeType: decision.routeType || "ai",
+              shortcut: true
+            },
+            weatherUsed: runtimeBuildWeatherClientMetadata(shortcutContext.agroWeather),
+            languageUsed: buildLanguageRuntimeMetadata(shortcutContext),
+            memoryContext: runtimeContextResult.diagnostics
+          }
+        })
+      }
+
       const useFastDirectRequest = decision.handlerName === "fallbackAIHandler"
         && shouldUseFastDirectAnswer(question, enhancedContext)
       const requestFastPath = useFastDirectRequest
@@ -352,6 +494,104 @@ export function registerEnterpriseAskRoutes(app, deps) {
         enrichedData
       } = preparedPayload
       const userId = enrichedData.request.userId
+      const shortcutContext = await enrichOperationalShortcutContext(question, enhancedContext, getVerifiedRuntimeClock)
+      const operationalShortcut = resolveOperationalRuntimeShortcut(question, shortcutContext)
+
+      if (operationalShortcut) {
+        const responseText = String(operationalShortcut || "").trim()
+        const shortcutResult = {
+          responseText,
+          handler: "operationalShortcut",
+          intent: streamDecision.intent,
+          routeType: streamDecision.routeType || "ai",
+          learning: {
+            shouldPersistMemory: true
+          }
+        }
+
+        aiGateway.logger.info(requestId, "STREAM_REQUEST_SHORTCUT", {
+          intent: streamDecision.intent,
+          handlerName: streamDecision.handlerName,
+          routeType: streamDecision.routeType,
+          memoryContext: runtimeContextResult.diagnostics
+        })
+
+        if (shouldPersistLearnedConversation(shortcutResult)) {
+          saveConversationNonBlocking(userId, question, responseText, {
+            provider: "operational_shortcut",
+            requestId,
+            sessionId: enrichedData.request.sessionId || null,
+            assistantProfile: shortcutContext.assistantProfile || null,
+            activeModules: shortcutContext.activeModules || [],
+            domainSubmodules: shortcutContext.domainSubmodules || {},
+            bibleStudyModules: shortcutContext.bibleStudyModules || [],
+            promptPacks: shortcutContext.promptPacks || [],
+            streaming: true,
+            askRoute: {
+              handler: "operationalShortcut",
+              intent: streamDecision.intent,
+              routeType: streamDecision.routeType || "ai",
+              shortcut: true
+            }
+          }, requestId)
+        }
+
+        aiGateway.metrics.recordRequest(requestId, Date.now() - startTime, true)
+        aiGateway.metrics.recordUserActivity(userId, "ask_stream", {
+          length: question.length,
+          routeType: streamDecision.routeType || "ai",
+          intent: streamDecision.intent || "operational_shortcut"
+        })
+        if (shouldPersistLearnedConversation(shortcutResult)) {
+          appendConversationToStm(userId, enrichedData.request.sessionId || null, question, responseText)
+        }
+
+        hasCompleted = true
+        writeSSE(res, "meta", {
+          requestId,
+          providerMode: process.env.GROOT_AI_PROVIDER || "auto",
+          assistantProfile: shortcutContext.assistantProfile || null,
+          requestedAssistantProfile: shortcutContext.assistantProfile || null,
+          activeModules: shortcutContext.activeModules || [],
+          domainSubmodules: shortcutContext.domainSubmodules || {},
+          bibleStudyModules: shortcutContext.bibleStudyModules || [],
+          askRoute: {
+            handler: "operationalShortcut",
+            intent: streamDecision.intent,
+            routeType: streamDecision.routeType || "ai",
+            shortcut: true
+          },
+          weatherUsed: runtimeBuildWeatherClientMetadata(shortcutContext.agroWeather),
+          languageUsed: buildLanguageRuntimeMetadata(shortcutContext)
+        })
+
+        writeSSE(res, "complete", {
+          requestId,
+          response: responseText,
+          metadata: {
+            processingTime: Date.now() - startTime,
+            provider: "operational_shortcut",
+            assistantProfile: shortcutContext.assistantProfile || null,
+            requestedAssistantProfile: shortcutContext.assistantProfile || null,
+            activeModules: shortcutContext.activeModules || [],
+            domainSubmodules: shortcutContext.domainSubmodules || {},
+            bibleStudyModules: shortcutContext.bibleStudyModules || [],
+            askRoute: {
+              handler: "operationalShortcut",
+              intent: streamDecision.intent,
+              routeType: streamDecision.routeType || "ai",
+              shortcut: true
+            },
+            weatherUsed: runtimeBuildWeatherClientMetadata(shortcutContext.agroWeather),
+            languageUsed: buildLanguageRuntimeMetadata(shortcutContext),
+            memoryContext: runtimeContextResult.diagnostics
+          }
+        })
+        clearHeartbeat()
+        res.end()
+        return
+      }
+
       const useFastDirectStream = streamDecision.handlerName === "fallbackAIHandler"
         && shouldUseFastDirectAnswer(question, enhancedContext)
       const streamFastPath = useFastDirectStream
