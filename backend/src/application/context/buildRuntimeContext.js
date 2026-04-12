@@ -119,6 +119,50 @@ function trimTurnsByTokenBudget(turns = [], maxTokens = 300) {
   return selected
 }
 
+function trimTurnsTailByTokenBudget(turns = [], maxTokens = 300) {
+  if (!Array.isArray(turns) || turns.length === 0) return []
+  return trimTurnsByTokenBudget([...turns].reverse(), maxTokens).reverse()
+}
+
+function estimateTurnsTokenUsage(turns = []) {
+  if (!Array.isArray(turns) || turns.length === 0) return 0
+  return turns.reduce((total, turn) => {
+    const text = `${turn.role || "user"}: ${String(turn.content || "")}`
+    return total + estimateTokenUsage(text)
+  }, 0)
+}
+
+function normalizeConversationHistoryTurns(history = [], source = "request_history", baseTimestampMs = Date.now()) {
+  if (!Array.isArray(history) || history.length === 0) return []
+
+  return history
+    .map((turn, index) => normalizeTurnCandidate({
+      ...turn,
+      created_at: turn?.created_at || new Date(baseTimestampMs - ((history.length - index) * 1000)).toISOString()
+    }, source))
+    .filter(Boolean)
+}
+
+function uniqueTurns(turns = []) {
+  const seen = new Set()
+  const unique = []
+
+  for (const turn of turns) {
+    const normalized = normalizeTurnCandidate(turn, turn?._source || "unknown")
+    if (!normalized) continue
+    const signature = turnSignature(normalized)
+    if (seen.has(signature)) continue
+    seen.add(signature)
+    unique.push({
+      role: normalized.role,
+      content: normalized.content,
+      created_at: normalized.created_at
+    })
+  }
+
+  return unique
+}
+
 function combineUniqueSummaryParts(parts = [], maxChars = 500) {
   const seen = new Set()
   const unique = []
@@ -172,6 +216,11 @@ export async function buildRuntimeContext(input) {
   const sessionId = preparedPayload?.enrichedData?.request?.sessionId || null
   const question = String(preparedPayload.normalizedQuestion || "").trim()
   const topic = inferTopic(question)
+  const requestConversationTurns = normalizeConversationHistoryTurns(
+    Array.isArray(preparedPayload?.context?.conversationHistory) ? preparedPayload.context.conversationHistory : [],
+    "request_history",
+    buildStartedAt
+  )
 
   const stmFetchStartedAt = Date.now()
   const stmTurns = ports.stm.getRecentTurns({
@@ -180,6 +229,13 @@ export async function buildRuntimeContext(input) {
     limit: limits.maxConversationTurns
   })
   const stmFetchMs = Date.now() - stmFetchStartedAt
+  const normalizedStmTurns = stmTurns
+    .map(turn => normalizeTurnCandidate(turn, "stm"))
+    .filter(Boolean)
+  const retrievalConversationHistory = uniqueTurns([
+    ...requestConversationTurns,
+    ...normalizedStmTurns
+  ])
 
   const retrievalStartedAt = Date.now()
   const ltm = await ports.retrieval.retrieveRelevant({
@@ -191,15 +247,14 @@ export async function buildRuntimeContext(input) {
     limit: limits.maxConversationTurns,
     activeModules: Array.isArray(preparedPayload?.context?.activeModules) ? preparedPayload.context.activeModules : [],
     bibleStudyModules: Array.isArray(preparedPayload?.context?.bibleStudyModules) ? preparedPayload.context.bibleStudyModules : [],
-    conversationHistory: stmTurns
+    conversationHistory: retrievalConversationHistory
   })
   const retrievalMs = Date.now() - retrievalStartedAt
 
   const nowMs = Date.now()
   const rawCandidates = [
-    ...stmTurns
-      .map(turn => normalizeTurnCandidate(turn, "stm"))
-      .filter(Boolean),
+    ...requestConversationTurns,
+    ...normalizedStmTurns,
     ...(Array.isArray(ltm?.conversationTurns) ? ltm.conversationTurns : [])
       .map(turn => normalizeTurnCandidate(turn, "ltm_turn"))
       .filter(Boolean),
@@ -235,7 +290,11 @@ export async function buildRuntimeContext(input) {
       const recencyScore = computeRecencyScore(turn.created_at, nowMs)
       const importanceScore = computeImportanceScore(turn.content, topic, decisionResult?.intent)
       const semanticScore = Math.max(0, Math.min(1, Number(turn.semanticScore || 0)))
-      const sourceBoost = turn._source === "stm" ? 0.08 : 0
+      const sourceBoost = turn._source === "request_history"
+        ? 0.16
+        : turn._source === "stm"
+          ? 0.08
+          : 0
       // Hybrid score formula:
       // final = 0.40 * semantic + 0.25 * lexical + 0.20 * recency + 0.15 * importance + sourceBoost
       const finalScore = (0.40 * semanticScore) + (0.25 * similarityScore) + (0.20 * recencyScore) + (0.15 * importanceScore) + sourceBoost
@@ -256,18 +315,52 @@ export async function buildRuntimeContext(input) {
   const topCandidates = scoredCandidates.slice(0, maxCandidates)
 
   const memoryTurnsTokenBudget = Math.max(140, Math.floor(limits.maxContextTokens * 0.34))
-  const rankedTurns = trimTurnsByTokenBudget(topCandidates, memoryTurnsTokenBudget)
-    .slice(0, limits.maxConversationTurns)
+  const prioritizedRequestTurns = trimTurnsTailByTokenBudget(
+    requestConversationTurns.slice(-limits.maxConversationTurns),
+    Math.max(140, Math.floor(memoryTurnsTokenBudget * 0.72))
+  )
+  const prioritizedSignatures = new Set(prioritizedRequestTurns.map(turn => turnSignature(turn)))
+  const supplementalTurnBudget = Math.max(80, memoryTurnsTokenBudget - estimateTurnsTokenUsage(prioritizedRequestTurns))
+  const supplementalTurns = trimTurnsByTokenBudget(
+    topCandidates.filter((turn) => {
+      const signature = turnSignature(turn)
+      if (prioritizedSignatures.has(signature)) {
+        return false
+      }
+
+      return turn?._source === "request_history" || turn?._source === "stm"
+    }),
+    supplementalTurnBudget
+  )
+    .slice(0, Math.max(0, limits.maxConversationTurns - prioritizedRequestTurns.length))
+  const rankedTurns = requestConversationTurns.length > 0
+    ? [...prioritizedRequestTurns, ...supplementalTurns].slice(-limits.maxConversationTurns)
+    : trimTurnsByTokenBudget(
+      topCandidates.filter(turn => turn?._source === "request_history" || turn?._source === "stm"),
+      memoryTurnsTokenBudget
+    )
+      .slice(0, limits.maxConversationTurns)
 
   const mergedTurns = rankedTurns.map(turn => ({
     role: turn.role,
     content: turn.content,
     created_at: turn.created_at
   }))
+  const requestScopedTurns = requestConversationTurns.map(turn => ({
+    role: turn.role,
+    content: turn.content,
+    created_at: turn.created_at
+  }))
+  const sessionScopedTurns = uniqueTurns([
+    ...requestConversationTurns,
+    ...normalizedStmTurns
+  ]).map(turn => ({
+    role: turn.role,
+    content: turn.content,
+    created_at: turn.created_at
+  }))
 
   const memorySummary = combineUniqueSummaryParts([
-    ltm?.contextSummary || "",
-    ltm?.summary || "",
     ltm?.knownFactsText || ""
   ], limits.maxMemorySummaryChars)
 
@@ -277,6 +370,8 @@ export async function buildRuntimeContext(input) {
     {
       ...preparedPayload.context,
       conversationHistory: mergedTurns,
+      requestConversationHistory: requestScopedTurns,
+      sessionConversationHistory: sessionScopedTurns,
       memorySummary,
       memoryTopic: topic,
       memoryIntent: decisionResult?.intent || null,
@@ -363,6 +458,7 @@ export async function buildRuntimeContext(input) {
     },
     diagnostics: {
       topic,
+      requestConversationTurns: requestConversationTurns.length,
       stmTurns: stmTurns.length,
       ltmTurns: Array.isArray(ltm?.conversationTurns) ? ltm.conversationTurns.length : 0,
       candidateCount,

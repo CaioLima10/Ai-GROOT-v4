@@ -100,6 +100,12 @@ type EnterpriseMediaRouteDeps = {
   buildSafetyResponse: (safety: SafetyResult, input: { locale: string; promptText: string }) => string
   normalizeDocumentFormat: (format: unknown) => string
   sanitizeDocumentTitle: (title: unknown, fallback: string) => string
+  sanitizeGeneratedDocumentContent: (
+    content?: string,
+    prompt?: string,
+    format?: string,
+    options?: RecordLike
+  ) => string
   sanitizeAskContext: (context: unknown) => SanitizedAskContext
   buildDocumentDraftPrompt: (
     prompt: string,
@@ -273,6 +279,7 @@ export function registerEnterpriseMediaRoutes(app: Express, deps: EnterpriseMedi
     buildSafetyResponse,
     normalizeDocumentFormat,
     sanitizeDocumentTitle,
+    sanitizeGeneratedDocumentContent,
     sanitizeAskContext,
     buildDocumentDraftPrompt,
     documentGenerationFormatIds,
@@ -532,7 +539,7 @@ export function registerEnterpriseMediaRoutes(app: Express, deps: EnterpriseMedi
           fetchBiblePassage
         })
 
-      const documentContent = providedContent || deterministicBibleDocumentContent || await askGiom(
+      const rawDocumentContent = providedContent || deterministicBibleDocumentContent || await askGiom(
         buildDocumentDraftPrompt(prompt, requestedFormat, {
           locale,
           style: req.body?.context?.verbosity || "natural",
@@ -541,6 +548,9 @@ export function registerEnterpriseMediaRoutes(app: Express, deps: EnterpriseMedi
         }),
         runtimeContext
       )
+      const documentContent = providedContent
+        ? rawDocumentContent
+        : sanitizeGeneratedDocumentContent(rawDocumentContent, prompt || title, requestedFormat, { title })
 
       const document = await generateStructuredDocument({
         format: requestedFormat,

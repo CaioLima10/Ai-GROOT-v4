@@ -12,11 +12,11 @@ Este documento define a arquitetura oficial do GIOM no monorepo, o que cada past
 
 ## Mapa de portas e conexões
 
-- Frontend Next.js: `http://localhost:3001`
-- Backend API: `http://localhost:3000`
+- Frontend Next.js: `http://localhost:3003`
+- Backend API: `http://localhost:3001`
 - Bridge front -> back: rewrite no Next
   - origem: `/backend/:path*`
-  - destino: `http://localhost:3000/:path*`
+  - destino: `http://localhost:3001/:path*`
 - Endpoints principais usados pelo front:
   - `GET /backend/config`
   - `POST /backend/ask`
@@ -27,7 +27,7 @@ Este documento define a arquitetura oficial do GIOM no monorepo, o que cada past
 
 1. Usuário envia mensagem no frontend (`apps/web-next`).
 2. Front chama `/backend/ask` ou `/backend/ask/stream`.
-3. Next reescreve para backend em `localhost:3000`.
+3. Next reescreve para backend em `localhost:3001`.
 4. Backend normaliza payload, aplica segurança/rate-limit e chama núcleo de IA.
 5. Resposta retorna ao front pelo mesmo caminho `/backend/*`.
 
@@ -73,7 +73,7 @@ Este documento define a arquitetura oficial do GIOM no monorepo, o que cada past
 1. `npm install`
 2. `npm run dev`
 3. `npm run ops:check`
-4. Abrir `http://localhost:3001`
+4. Abrir `http://localhost:3003`
 
 ## Regra de manutenção
 

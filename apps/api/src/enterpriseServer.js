@@ -31,6 +31,7 @@ import {
   AI_SERVICE_SLUG,
   getResearchCapabilities,
   listAssistantProfiles,
+  listBibleLearningTracks,
   listBibleStudyModules,
   listCapabilityHighlights,
   listCompatModels,
@@ -162,6 +163,8 @@ import {
   buildFixtureCardResponse,
   buildFixtureIntentFallback,
   buildPromptCardResponse,
+  buildTableCardResponse,
+  isTableCardPreferred,
   isPromptCardPreferred,
   normalizeAnswerText,
   shouldKeepIdentityPreamble
@@ -186,9 +189,16 @@ import {
 } from "./enterpriseBibleRuntime.js"
 import {
   buildDocumentDraftPrompt,
+  sanitizeGeneratedDocumentContent,
   sanitizeDocumentTitle
 } from "./enterpriseDocumentRuntime.js"
 import { buildRuntimeCapabilityMatrix } from "./enterpriseCapabilityRuntime.js"
+import { createEnterpriseTraceStore } from "./enterpriseTraceRuntime.js"
+import { createEnterpriseToolRegistry } from "./enterpriseToolRegistryRuntime.js"
+import { createEnterpriseJobManager } from "./enterpriseJobsRuntime.js"
+import { createEnterpriseLocalVoiceRuntime } from "./enterpriseLocalVoiceRuntime.js"
+import { createEnterpriseVoiceRuntime } from "./enterpriseVoiceRuntime.js"
+import { createEnterpriseLongMemoryRuntime } from "./enterpriseLongMemoryRuntime.js"
 import { writeSSE } from "./enterpriseSSERuntime.js"
 import {
   registerEnterpriseAskRoutes,
@@ -200,7 +210,8 @@ import {
   registerEnterpriseMediaRoutes,
   registerEnterprisePublicRoutes,
   registerEnterpriseQualityRoutes,
-  registerEnterpriseResearchRoutes
+  registerEnterpriseResearchRoutes,
+  registerEnterpriseVoiceRoutes
 } from "./enterpriseRouteRegistrarsRuntime.js"
 import {
   buildOperationalContingencyResponseCore,
@@ -241,6 +252,14 @@ const app = express()
 const fetchSportsDataIo = createSportsDataIoFetch()
 app.disable("x-powered-by")
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false)
+
+const traceStore = createEnterpriseTraceStore({
+  logger: aiGateway.logger,
+  service: AI_SERVICE_SLUG,
+  version: process.env.npm_package_version || "2.1.0"
+})
+
+app.use(traceStore.createRequestMiddleware())
 
 const { askLimiter, askSlowDown } = configureEnterpriseSecurity(app, {
   cors,
@@ -285,6 +304,8 @@ const responseProcessingDeps = {
   resolveDeterministicBibleGuidanceResponse,
   isPromptCardPreferred,
   buildPromptCardResponse,
+  isTableCardPreferred,
+  buildTableCardResponse,
   isInterpretiveBibleQuestion,
   refineBibleInterpretiveResponse,
   buildGreetingLead,
@@ -744,6 +765,235 @@ const saveConversationNonBlocking = createSaveConversationNonBlocking({
   logger: aiGateway.logger
 })
 
+const longMemoryRuntime = createEnterpriseLongMemoryRuntime({
+  connector: grootMemoryConnector,
+  runtimeSessionMemoryStore,
+  logger: aiGateway.logger,
+  summaryTurnThreshold: Number(process.env.GIOM_LONG_MEMORY_SUMMARY_TURN_THRESHOLD || 8),
+  summaryCharThreshold: Number(process.env.GIOM_LONG_MEMORY_SUMMARY_CHAR_THRESHOLD || 900),
+  summaryCooldownMs: Number(process.env.GIOM_LONG_MEMORY_SUMMARY_COOLDOWN_MS || 45_000)
+})
+
+const jobManager = createEnterpriseJobManager({
+  logger: aiGateway.logger,
+  traceStore,
+  concurrency: Number(process.env.GIOM_ASYNC_JOB_CONCURRENCY || 2),
+  maxJobs: Number(process.env.GIOM_ASYNC_JOB_MAX_ITEMS || 500)
+})
+
+const toolRegistry = createEnterpriseToolRegistry({
+  logger: aiGateway.logger,
+  traceStore,
+  maxExecutions: Number(process.env.GIOM_TOOL_EXECUTIONS_MAX || 400)
+})
+
+const localVoiceRuntime = createEnterpriseLocalVoiceRuntime({
+  logger: aiGateway.logger
+})
+
+const voiceRuntime = createEnterpriseVoiceRuntime({
+  logger: aiGateway.logger,
+  maxSessions: Number(process.env.GIOM_VOICE_MAX_SESSIONS || 200),
+  maxEventsPerSession: Number(process.env.GIOM_VOICE_MAX_EVENTS || 250),
+  sessionTtlMs: Number(process.env.GIOM_VOICE_SESSION_TTL_MS || 6 * 60 * 60 * 1000),
+  resolveCapabilities: () => localVoiceRuntime.buildSessionCapabilities()
+})
+
+toolRegistry.registerTool({
+  id: "weather.lookup",
+  title: "Consultar clima",
+  description: "Busca previsao do tempo e contexto meteorologico ao vivo.",
+  category: "research",
+  timeoutMs: 10_000,
+  grounding: {
+    mode: "weather_api",
+    provider: "open-meteo"
+  },
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      city: { type: "string", minLength: 2, maxLength: 120 },
+      latitude: { type: "number", minimum: -90, maximum: 90, coerce: true },
+      longitude: { type: "number", minimum: -180, maximum: 180, coerce: true },
+      timezone: { type: "string", default: "auto", maxLength: 80 },
+      days: { type: "integer", minimum: 1, maximum: 7, default: 3, coerce: true }
+    }
+  },
+  outputDescription: "Retorna forecast estruturado, localizacao resolvida e provider.",
+  enabled: () => Boolean(getResearchCapabilities().weatherForecast),
+  execute: async (input = {}) => {
+    const runtimeResearchCapabilities = getResearchCapabilities()
+    if (!runtimeResearchCapabilities.weatherForecast) {
+      const error = new Error("Consulta de clima ao vivo nao habilitada nesta execucao.")
+      error.code = "WEATHER_FORECAST_DISABLED"
+      error.statusCode = 503
+      throw error
+    }
+
+    const forecastDays = Math.max(1, Math.min(Number(input.days || 3) || 3, 7))
+    const cityQuery = sanitizeWeatherLocationQuery(String(input.city || ""))
+    let resolvedLocation = null
+
+    if (cityQuery) {
+      resolvedLocation = await runtimeResolveWeatherLocationByQuery(cityQuery, forecastDays, { question: cityQuery })
+      if (!resolvedLocation) {
+        const error = new Error(`Nao encontrei a localidade ${cityQuery}.`)
+        error.code = "WEATHER_LOCATION_NOT_FOUND"
+        error.statusCode = 404
+        throw error
+      }
+    } else if (Number.isFinite(Number(input.latitude)) && Number.isFinite(Number(input.longitude))) {
+      resolvedLocation = {
+        latitude: Number(input.latitude),
+        longitude: Number(input.longitude),
+        timezone: String(input.timezone || "auto"),
+        forecastDays
+      }
+    } else {
+      const error = new Error("Informe city ou latitude/longitude validas para consultar o clima.")
+      error.code = "WEATHER_COORDINATES_REQUIRED"
+      error.statusCode = 400
+      throw error
+    }
+
+    const weatherClock = await getVerifiedRuntimeClock(resolvedLocation.timezone || String(input.timezone || "Etc/UTC"))
+    const payload = await runtimeFetchWeatherForecastPayload(resolvedLocation)
+
+    return {
+      provider: "open-meteo",
+      forecastDays,
+      timezone: resolvedLocation.timezone || String(input.timezone || "auto"),
+      location: {
+        label: resolvedLocation.label || null,
+        city: resolvedLocation.city || cityQuery || null,
+        region: resolvedLocation.region || null,
+        country: resolvedLocation.country || null,
+        countryCode: resolvedLocation.countryCode || null
+      },
+      data: runtimeBuildWeatherSnapshot(payload, resolvedLocation, weatherClock)
+    }
+  }
+})
+
+toolRegistry.registerTool({
+  id: "search.web",
+  title: "Pesquisa web",
+  description: "Executa busca web ou de imagem com grounding explicitado.",
+  category: "research",
+  timeoutMs: 12_000,
+  grounding: {
+    mode: "live_search",
+    provider: "google-custom-search"
+  },
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["query"],
+    properties: {
+      query: { type: "string", minLength: 2, maxLength: 240 },
+      searchType: { type: "string", enum: ["web", "image"], default: "web" },
+      num: { type: "integer", minimum: 1, maximum: 10, default: 5, coerce: true },
+      hl: { type: "string", default: "pt-BR", maxLength: 20 },
+      gl: { type: "string", default: "br", maxLength: 8 }
+    }
+  },
+  outputDescription: "Retorna itens pesquisados com provider e tipo de busca.",
+  enabled: () => Boolean(getResearchCapabilities().google && hasGoogleCustomSearchConfigured()),
+  execute: async (input = {}) => {
+    const runtimeResearchCapabilities = getResearchCapabilities()
+    if (!runtimeResearchCapabilities.google || !hasGoogleCustomSearchConfigured()) {
+      const error = new Error("Pesquisa Google ao vivo nao habilitada nesta execucao.")
+      error.code = "GOOGLE_SEARCH_DISABLED"
+      error.statusCode = 503
+      throw error
+    }
+
+    const payload = await performGoogleCustomSearch(String(input.query || ""), {
+      num: Math.max(1, Math.min(Number(input.num || 5) || 5, 10)),
+      searchType: String(input.searchType || "web") === "image" ? "image" : "web",
+      hl: String(input.hl || "pt-BR"),
+      gl: String(input.gl || "br")
+    })
+
+    return {
+      provider: payload.provider,
+      searchType: payload.searchType,
+      items: payload.items
+    }
+  }
+})
+
+toolRegistry.registerTool({
+  id: "sports.lookup",
+  title: "Consultar esportes",
+  description: "Busca agenda esportiva e proximos confrontos.",
+  category: "research",
+  timeoutMs: 10_000,
+  grounding: {
+    mode: "sports_api",
+    provider: "thesportsdb"
+  },
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["query"],
+    properties: {
+      query: { type: "string", minLength: 2, maxLength: 180 }
+    }
+  },
+  outputDescription: "Retorna fixture estruturado do esporte consultado.",
+  enabled: () => Boolean(getResearchCapabilities().sportsSchedule),
+  execute: async (input = {}) => {
+    const runtimeResearchCapabilities = getResearchCapabilities()
+    if (!runtimeResearchCapabilities.sportsSchedule) {
+      const error = new Error("Consulta esportiva ao vivo nao habilitada nesta execucao.")
+      error.code = "SPORTS_SCHEDULE_DISABLED"
+      error.statusCode = 503
+      throw error
+    }
+
+    const fixture = await resolveNextFixtureFromQuestion(String(input.query || ""))
+    if (!fixture) {
+      const error = new Error("Nao encontrei agenda esportiva para a consulta informada.")
+      error.code = "SPORTS_LOOKUP_EMPTY"
+      error.statusCode = 404
+      throw error
+    }
+
+    return {
+      provider: fixture.provider || "thesportsdb",
+      data: fixture
+    }
+  }
+})
+
+toolRegistry.registerTool({
+  id: "system.capabilities",
+  title: "Capacidades do runtime",
+  description: "Explica as capacidades ativas do GIOM nesta execucao.",
+  category: "system",
+  timeoutMs: 2_000,
+  grounding: {
+    mode: "internal_runtime",
+    provider: "giom"
+  },
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {}
+  },
+  outputDescription: "Retorna capability matrix, profiles e status de tools/jobs.",
+  execute: async () => ({
+    capabilityMatrix: buildRuntimeCapabilityMatrix(),
+    research: getResearchCapabilities(),
+    compatModels: listCompatModels(),
+    assistantProfiles: listAssistantProfiles(),
+    jobs: jobManager.getSummary(),
+    tools: toolRegistry.getSummary()
+  })
+})
+
 function isAgroWeatherRelevant(question = "", context = {}) {
   return isAgroWeatherRelevantCore(question, context, responseProcessingDeps)
 }
@@ -1070,6 +1320,7 @@ function buildOrchestratorShadowEnvelope(shadowPlan, fastPathEnabled = false) {
 
 // Root health/info route
 registerEnterprisePublicRoutes(app, {
+  askLimiter,
   AI_ENTERPRISE_NAME,
   AI_SERVICE_SLUG,
   grootAdvancedRAG,
@@ -1079,6 +1330,7 @@ registerEnterprisePublicRoutes(app, {
   aiProviders,
   grootEmbeddings,
   listAssistantProfiles,
+  listBibleLearningTracks,
   listDomainModules,
   listModuleEnhancementPlans,
   listPlannedModules,
@@ -1099,7 +1351,13 @@ registerEnterprisePublicRoutes(app, {
   SUPPORTED_UPLOAD_ACCEPT,
   getUploadCapabilities,
   uploadMaxBytes,
-  listCapabilityHighlights
+  listCapabilityHighlights,
+  traceStore,
+  toolRegistry,
+  jobManager,
+  voiceRuntime,
+  longMemoryRuntime,
+  localVoiceRuntime
 })
 
 registerEnterpriseResearchRoutes(app, {
@@ -1118,9 +1376,21 @@ registerEnterpriseResearchRoutes(app, {
   fetchSportsDataIo
 })
 
+registerEnterpriseVoiceRoutes(app, {
+  askLimiter,
+  voiceRuntime,
+  writeSSE,
+  askGiom,
+  buildRuntimeConversationContext,
+  traceStore,
+  longMemoryRuntime,
+  localVoiceRuntime
+})
+
 registerEnterpriseKnowledgeRoutes(app, {
   grootAdvancedRAG,
   AI_KNOWLEDGE_SERVICE_SLUG,
+  listBibleLearningTracks,
   listBibleStudyModules
 })
 
@@ -1148,7 +1418,13 @@ registerEnterpriseAdminRoutes(app, {
   memoryContextMetrics,
   memoryMetricsNodeId,
   getLanguageRuntimeStatus,
-  cleanupLanguageRuntimeCache
+  cleanupLanguageRuntimeCache,
+  traceStore,
+  toolRegistry,
+  jobManager,
+  voiceRuntime,
+  longMemoryRuntime,
+  localVoiceRuntime
 })
 
 registerEnterpriseMediaRoutes(app, {
@@ -1183,6 +1459,7 @@ registerEnterpriseMediaRoutes(app, {
   buildSafetyResponse,
   normalizeDocumentFormat,
   sanitizeDocumentTitle,
+  sanitizeGeneratedDocumentContent,
   sanitizeAskContext,
   buildDocumentDraftPrompt,
   documentGenerationFormatIds,
@@ -1192,7 +1469,9 @@ registerEnterpriseMediaRoutes(app, {
   buildRuntimeCapabilityMatrix,
   askGiom,
   generateStructuredDocument,
-  grootMemoryConnector
+  grootMemoryConnector,
+  jobManager,
+  traceStore
 })
 
 registerEnterpriseAskRoutes(app, {
@@ -1218,6 +1497,7 @@ registerEnterpriseAskRoutes(app, {
   shouldPersistLearnedConversation,
   saveConversationNonBlocking,
   appendConversationToStm,
+  longMemoryRuntime,
   runtimeBuildWeatherClientMetadata,
   buildLanguageRuntimeMetadata,
   buildOperationalContingencyResponse,
@@ -1252,12 +1532,45 @@ registerEnterpriseQualityRoutes(app, {
   getResearchCapabilities,
   runConversationBenchmark,
   grootMemoryConnector,
-  askGroot
+  askGroot,
+  jobManager
 })
 
 // Bible API (YouVersion Platform) - requer YVP_APP_KEY
 registerEnterpriseBibleRoutes(app, {
   fetchBiblePassage
+})
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) {
+    return next(error)
+  }
+
+  const requestTrace = traceStore.getRequestContext(req) || {}
+  const requestId = String(requestTrace.requestId || `runtime_error_${Date.now()}`)
+  const statusCode = Number(error?.statusCode || error?.status || 500) || 500
+  const publicMessage = statusCode >= 500
+    ? "Falha interna do runtime do GIOM."
+    : (error?.message || "Falha ao processar requisicao.")
+
+  aiGateway.logger.error(requestId, "HTTP_UNHANDLED_ERROR", {
+    traceId: requestTrace.traceId || null,
+    path: req?.originalUrl || req?.url || "/",
+    method: req?.method || "GET",
+    statusCode,
+    error: error?.message || "unknown_error",
+    code: error?.code || null
+  })
+
+  res.status(statusCode).json({
+    success: false,
+    error: publicMessage,
+    code: error?.code || "UNHANDLED_RUNTIME_ERROR",
+    requestId,
+    details: process.env.NODE_ENV === "development"
+      ? (error?.stack || error?.message || null)
+      : undefined
+  })
 })
 
 const PORT = process.env.PORT || 3002

@@ -47,6 +47,13 @@ type RuntimeConversationContextDeps = {
 
 type MutableEnhancedRuntimeConversationContext = EnhancedRuntimeConversationContext & Record<string, any>
 
+function normalizeExplicitWeatherLocationQuery(value = ""): string {
+  return String(value || "")
+    .trim()
+    .replace(/^(?:\s*(?:em|na|no|para)\s+)+/i, "")
+    .trim()
+}
+
 export async function buildRuntimeConversationContext(
   question = "",
   context: PromptBuilderRuntimeContext = {},
@@ -81,7 +88,7 @@ export async function buildRuntimeConversationContext(
   const inferredMinistryFocus = deps.inferMinistryFocusFromText(question)
 
   const forecastDays = deps.inferWeatherForecastDays(question)
-  const explicitWeatherLocationQuery = deps.extractWeatherLocationQuery(question)
+  const explicitWeatherLocationQuery = normalizeExplicitWeatherLocationQuery(deps.extractWeatherLocationQuery(question))
   const requestedWeatherWidget = String(contextRecord?.preferredResponseVariant || "").trim().toLowerCase() === "weather"
   let weatherLocation: WeatherLocationResolution | null = null
 

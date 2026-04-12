@@ -26,5 +26,6 @@ export const {
   registerEnterpriseMediaRoutes,
   registerEnterprisePublicRoutes,
   registerEnterpriseQualityRoutes,
-  registerEnterpriseResearchRoutes
+  registerEnterpriseResearchRoutes,
+  registerEnterpriseVoiceRoutes
 } = routeRegistrars

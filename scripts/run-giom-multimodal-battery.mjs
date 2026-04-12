@@ -708,6 +708,7 @@ const selectedProfile = profileMap[profileId] || profileMap.long60
 const targetDurationMs = selectedProfile.equivalentMinutes * 60_000
 const reportNamespace = String(selectedProfile.reportNamespace || "giom-multimodal-battery").trim() || "giom-multimodal-battery"
 const reportDir = path.join(repoRoot, "reports", reportNamespace, `${timestamp}-${selectedProfile.id}`)
+const workspaceUrl = new URL("/chat", `${baseUrl}/`).toString().replace(/\/$/, "")
 
 async function ensureFixtures(threads = []) {
   const filePaths = threads
@@ -722,6 +723,11 @@ async function ensureFixtures(threads = []) {
 
 async function waitForComposer(page) {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 })
+  const rootHasComposer = await page.locator("#msg").isVisible({ timeout: 12_000 }).catch(() => false)
+  if (!rootHasComposer && workspaceUrl !== baseUrl) {
+    await page.goto(workspaceUrl, { waitUntil: "domcontentloaded", timeout: 60_000 })
+  }
+
   await page.waitForSelector("#msg", { timeout: 60_000 })
   await page.waitForSelector("#sendBtn", { timeout: 60_000 })
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => { })

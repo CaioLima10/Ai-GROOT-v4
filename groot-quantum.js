@@ -6,6 +6,24 @@ import { reasoningAgent } from './agents/reasoningAgent.js'
 // Instância global do cérebro quântico
 const grootBrain = reasoningAgent
 
+function normalizeQuantumResponseCandidate(value) {
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function looksLikeInternalQuantumResponse(text = "") {
+  return /(validacao da solucao:|score geral:|intent detectada:|abordagem recomendada:|recomendacao:)/i.test(String(text || ""))
+}
+
+export function extractUserFacingQuantumResponse(result = {}) {
+  const candidates = [
+    normalizeQuantumResponseCandidate(result?.response),
+    normalizeQuantumResponseCandidate(result?.combination?.finalRecommendation),
+    normalizeQuantumResponseCandidate(result?.recommendation)
+  ]
+
+  return candidates.find((candidate) => candidate && !looksLikeInternalQuantumResponse(candidate)) || ""
+}
+
 // Função principal - askGroot
 export async function askGroot(prompt, context = {}) {
   try {
@@ -13,12 +31,7 @@ export async function askGroot(prompt, context = {}) {
 
     // Processar com inteligência quântica
     const result = await grootBrain.run(prompt, {}, context)
-    const responseText = [
-      typeof result?.response === 'string' ? result.response.trim() : '',
-      typeof result?.reasoning === 'string' ? result.reasoning.trim() : '',
-      typeof result?.recommendation === 'string' ? result.recommendation.trim() : '',
-      typeof result?.combination?.finalRecommendation === 'string' ? result.combination.finalRecommendation.trim() : ''
-    ].find(Boolean) || ''
+    const responseText = extractUserFacingQuantumResponse(result)
 
     if (result.success && responseText) {
       console.log(`✅ Resposta quântica gerada (confiança: ${(result.confidence * 100).toFixed(0)}%)`)

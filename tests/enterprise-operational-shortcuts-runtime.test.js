@@ -416,3 +416,38 @@ test("operational shortcuts turn onboarding continuity into a simple table", () 
   assert.match(String(response || ""), /\| Etapa \| Objetivo \| Risco \|/i)
   assert.match(String(response || ""), /Kickoff|Implantacao|Primeiro valor/i)
 })
+
+test("operational shortcuts turn onboarding continuity into a ready prompt", () => {
+  const response = resolveOperationalRuntimeShortcut(
+    "No mesmo assunto, me de um prompt copia e cola para esse onboarding.",
+    {
+      sessionConversationHistory: [
+        {
+          role: "user",
+          content: "Meu nome e Lucas e estamos tratando de onboarding de clientes."
+        }
+      ]
+    }
+  )
+
+  assert.match(String(response || ""), /analista de onboarding de clientes/i)
+  assert.match(String(response || ""), /prioridade|prazo|follow-up|bloqueios/i)
+  assert.doesNotMatch(String(response || ""), /Nao consegui responder/i)
+})
+
+test("operational shortcuts keep onboarding continuity even when history mentions rollout and implantacao", () => {
+  const response = resolveOperationalRuntimeShortcut(
+    "Ainda sem arquivo, me de um prompt curto para outro analista tocar esse onboarding.",
+    {
+      sessionConversationHistory: [
+        {
+          role: "user",
+          content: "Quero um plano de onboarding para clientes com kickoff, implantacao inicial e primeiro marco de valor."
+        }
+      ]
+    }
+  )
+
+  assert.match(String(response || ""), /analista de onboarding de clientes/i)
+  assert.match(String(response || ""), /bloqueios|marco de valor|follow-up|prioridade/i)
+})

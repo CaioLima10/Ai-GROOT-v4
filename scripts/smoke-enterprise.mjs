@@ -1,29 +1,42 @@
+import "dotenv/config"
 import { spawn } from "child_process"
 
-const SERVER_URL = "http://127.0.0.1:3000"
+const serverPort = Number(process.env.SMOKE_BACKEND_PORT || process.env.API_PORT || process.env.PORT || 3001)
+const SERVER_URL = process.env.SMOKE_SERVER_URL || `http://127.0.0.1:${serverPort}`
 const SERVER_ENTRY = "apps/api/dist/server.js"
+const SERVER_STARTUP_TIMEOUT_MS = Number(process.env.SMOKE_STARTUP_TIMEOUT_MS || 20_000)
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-async function waitForServer(timeoutMs = 12000) {
+async function isEndpointReady(path) {
+  try {
+    const response = await fetch(`${SERVER_URL}${path}`)
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+async function waitForServer(timeoutMs = SERVER_STARTUP_TIMEOUT_MS) {
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < timeoutMs) {
-    try {
-      const response = await fetch(`${SERVER_URL}/health`)
-      if (response.ok) {
-        return
-      }
-    } catch {
-      // servidor ainda não respondeu
+    const [configReady, knowledgeReady, healthReady] = await Promise.all([
+      isEndpointReady("/config"),
+      isEndpointReady("/knowledge/status"),
+      isEndpointReady("/health")
+    ])
+
+    if ((configReady && knowledgeReady) || healthReady) {
+      return
     }
 
     await delay(500)
   }
 
-  throw new Error("Servidor não respondeu dentro do tempo limite")
+  throw new Error("Servidor não disponibilizou os endpoints principais dentro do tempo limite")
 }
 
 function parseSSE(rawText) {

@@ -8,6 +8,7 @@
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
+| **[AI-IMPLEMENTATION-ROADMAP.md](AI-IMPLEMENTATION-ROADMAP.md)** | Official roadmap for long memory, voice, orchestration, evals and observability | Founders, leads, product, engineering |
 | **[GIOM-PRODUCTION-CHECKLIST.md](GIOM-PRODUCTION-CHECKLIST.md)** | Comprehensive pre-deployment validation checklist | QA, Platform Engineers, DevOps |
 | **[GIOM-OPERATIONAL-PLAYBOOK.md](GIOM-OPERATIONAL-PLAYBOOK.md)** | Step-by-step operational guide covering deploy, scale, monitor, troubleshoot | DevOps, SREs, Operations |
 | **[GIOM-DEVOPS-CHEATSHEET.md](GIOM-DEVOPS-CHEATSHEET.md)** | One-page quick reference for emergency situations | DevOps on-call |
@@ -198,6 +199,12 @@ Start with: [GIOM-ARCHITECTURE-FLOW.md](GIOM-ARCHITECTURE-FLOW.md) (complete arc
 ---
 
 ## 🎯 Next Evolution (Priority Order)
+
+### Phase 0: True AI Roadmap Alignment (Highest Priority)
+
+- [ ] Follow `AI-IMPLEMENTATION-ROADMAP.md` as the canonical sequence for GIOM evolution
+- [ ] Start with long memory + user profile before larger orchestration changes
+- [ ] Keep stack free-first or self-hosted whenever possible
 
 ### Phase 1: SLO Tuning (High Priority)
 

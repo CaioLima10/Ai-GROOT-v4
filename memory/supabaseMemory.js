@@ -6,10 +6,10 @@ export default class SupabaseMemory {
   constructor() {
     this.supabase = supabase
     this.tableName = 'memory'
-    console.log('🗄️ SupabaseMemory initialized with mock client')
+    console.log('🗄️ SupabaseMemory initialized')
   }
 
-  async save(text, type = "interaction") {
+  async save(text, type = "interaction", metadata = null) {
     try {
       console.log('💾 Saving to Supabase:', text.substring(0, 50) + '...')
       
@@ -19,6 +19,7 @@ export default class SupabaseMemory {
           {
             text,
             type,
+            metadata,
             created_at: new Date().toISOString()
           }
         ])

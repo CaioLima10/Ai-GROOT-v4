@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type RefObject } from "react";
-import { IconMic, IconPlus, IconSend } from "./ChatIcons";
+import { IconMic, IconPlus, IconSend, IconVolume } from "./ChatIcons";
+import { VoiceQuickModal } from "./VoiceQuickModal";
 import {
   buildUploadPreviews,
   getFileBadge,
@@ -8,43 +9,77 @@ import {
   type MessageUploadPreview
 } from "@/lib/uploadPreviews";
 
+type VoicePersonaId = "giom" | "diana";
+
 type ChatComposerProps = {
   canUseUploads: boolean;
   fileAccept?: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
+  isGuest: boolean;
+  inlineVoiceActive: boolean;
+  inlineVoiceSignalLevel: number;
   input: string;
   isSending: boolean;
   micListening: boolean;
+  microphoneMode?: "dictation" | "conversation";
   micSupported: boolean;
+  onCloseVoiceModal: () => void;
+  voiceConversationActive: boolean;
+  onOpenVoiceModal: () => void;
+  voiceStatusLabel?: string | null;
   onComposerKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onInputChange: (value: string) => void;
   onRemovePendingFile: (index: number) => void;
+  onSelectVoicePersona: (persona: VoicePersonaId) => void;
+  onStartVoiceConversation: (persona: VoicePersonaId) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onToggleMicrophone: () => void;
   pendingFiles: File[];
+  selectedVoicePersona: VoicePersonaId;
+  showVoicePersonaButton?: boolean;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
+  voiceModalOpen: boolean;
 };
 
 export function ChatComposer({
   canUseUploads,
   fileAccept,
   fileInputRef,
+  isGuest,
+  inlineVoiceActive,
+  inlineVoiceSignalLevel,
   input,
   isSending,
   micListening,
+  microphoneMode = "dictation",
   micSupported,
+  onCloseVoiceModal,
+  voiceConversationActive,
+  onOpenVoiceModal,
+  voiceStatusLabel,
   onComposerKeyDown,
   onFileChange,
   onInputChange,
   onRemovePendingFile,
+  onSelectVoicePersona,
+  onStartVoiceConversation,
   onSubmit,
   onToggleMicrophone,
   pendingFiles,
-  textareaRef
+  selectedVoicePersona,
+  showVoicePersonaButton = true,
+  textareaRef,
+  voiceModalOpen
 }: ChatComposerProps) {
   const [previews, setPreviews] = useState<MessageUploadPreview[]>([]);
   const previewsRef = useRef<MessageUploadPreview[]>([]);
+  const personaLabel = selectedVoicePersona === "diana" ? "DIANA" : "GIOM";
+  const isConversationMode = microphoneMode === "conversation";
+  const composerSignalLevel = Math.max(0, Math.min(Math.round(inlineVoiceSignalLevel), 5));
+  const sendReady = Boolean(input.trim() || pendingFiles.length);
+  const useVoicePill = isGuest && !sendReady && !isConversationMode && !inlineVoiceActive;
+  const showSendButton = !isGuest || sendReady || pendingFiles.length > 0 || isConversationMode || showVoicePersonaButton;
 
   useEffect(() => {
     previewsRef.current = previews;
@@ -57,15 +92,25 @@ export function ChatComposer({
   }, []);
 
   useEffect(() => {
-    if (!pendingFiles.length) {
-      setPreviews((current) => {
-        revokeUploadPreviews(current);
-        return [];
-      });
-      return;
-    }
-
     let isDisposed = false;
+
+    if (!pendingFiles.length) {
+      const currentPreviews = previewsRef.current;
+      revokeUploadPreviews(currentPreviews);
+      previewsRef.current = [];
+
+      if (currentPreviews.length) {
+        Promise.resolve().then(() => {
+          if (!isDisposed) {
+            setPreviews([]);
+          }
+        });
+      }
+
+      return () => {
+        isDisposed = true;
+      };
+    }
 
     async function buildPreviews() {
       const nextPreviews = await buildUploadPreviews(pendingFiles);
@@ -89,8 +134,33 @@ export function ChatComposer({
   }, [pendingFiles]);
 
   return (
-    <form id="composerShell" className="composer-shell" onSubmit={onSubmit}>
-      <div className="composer">
+    <>
+      <form id="composerShell" className="composer-shell" onSubmit={onSubmit}>
+        <div className={`composer ${isGuest ? "is-guest" : "is-authenticated"}`}>
+          {inlineVoiceActive && (
+            <div
+              className="composer-voice-inline"
+              data-persona={selectedVoicePersona}
+              data-signal-level={composerSignalLevel}
+            >
+              <div className="composer-voice-inline-copy">
+                <span className="composer-voice-inline-kicker">Ditado ativo</span>
+                <strong>{personaLabel} esta ouvindo e preenchendo o texto antes do envio.</strong>
+              </div>
+
+              <div className="composer-voice-inline-orb" aria-hidden="true">
+                <span className="composer-voice-inline-ring ring-one"></span>
+                <span className="composer-voice-inline-ring ring-two"></span>
+                <span className="composer-voice-inline-wave wave-one"></span>
+                <span className="composer-voice-inline-wave wave-two"></span>
+                <div className="composer-voice-inline-core">
+                  <small>{selectedVoicePersona === "diana" ? "Feminina" : "Masculina"}</small>
+                  <strong>{personaLabel}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
         {pendingFiles.length > 0 && (
           <div className="composer-selected-files" aria-live="polite" aria-label="Arquivos prontos para envio">
             {pendingFiles.map((file, index) => (
@@ -101,11 +171,14 @@ export function ChatComposer({
               >
                 <div className={`composer-selected-file-preview is-${previews[index]?.kind || "generic"}`}>
                   {previews[index]?.src ? (
-                    <img
-                      src={previews[index]?.src}
-                      alt={`Preview de ${file.name}`}
-                      className="composer-selected-file-image"
-                    />
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- upload previews use local blob/data URLs */}
+                      <img
+                        src={previews[index]?.src}
+                        alt={`Preview de ${file.name}`}
+                        className="composer-selected-file-image"
+                      />
+                    </>
                   ) : (
                     <div className="composer-selected-file-fallback">
                       {previews[index]?.badge || getFileBadge(file)}
@@ -131,68 +204,127 @@ export function ChatComposer({
           </div>
         )}
 
-        <div className="composer-row">
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => fileInputRef.current?.click()}
-            title={canUseUploads ? "Adicionar arquivos" : "Upload bloqueado no modo atual"}
-            disabled={!canUseUploads || isSending}
-          >
-            <IconPlus />
-          </button>
+          <div className="composer-row">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title={canUseUploads ? "Adicionar arquivos" : "Upload bloqueado no modo atual"}
+              disabled={!canUseUploads || isSending}
+            >
+              <IconPlus />
+            </button>
 
-          <input
-            id="fileInput"
-            ref={fileInputRef}
-            type="file"
-            hidden
-            multiple
-            onChange={onFileChange}
-            disabled={!canUseUploads || isSending}
-            accept={
-              fileAccept ||
-              "image/*,.pdf,.zip,.docx,.xlsx,.pptx,.txt,.md,.svg,.json,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.cs,.php,.rb,.html,.css,.xml,.yml,.yaml,.log,.csv,.sql"
-            }
-          />
+            {showVoicePersonaButton && (
+              <button
+                type="button"
+                className={`icon-btn voice-persona-btn ${voiceModalOpen ? "is-open" : ""}`}
+                onClick={onOpenVoiceModal}
+                title="Escolher voz para conversa por voz"
+                aria-label="Escolher voz para conversa por voz"
+                disabled={!micSupported || isSending || inlineVoiceActive}
+              >
+                <IconVolume />
+              </button>
+            )}
 
-          <div className="composer-input-slot">
-            <textarea
-              id="msg"
-              ref={textareaRef}
-              value={input}
-              onChange={(event) => onInputChange(event.target.value)}
-              onKeyDown={onComposerKeyDown}
-              placeholder="No que esta pensando agora?"
-              rows={1}
-              disabled={isSending}
+            <input
+              id="fileInput"
+              ref={fileInputRef}
+              type="file"
+              hidden
+              multiple
+              onChange={onFileChange}
+              disabled={!canUseUploads || isSending}
+              accept={
+                fileAccept ||
+                "image/*,.pdf,.zip,.docx,.xlsx,.pptx,.txt,.md,.svg,.json,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.cs,.php,.rb,.html,.css,.xml,.yml,.yaml,.log,.csv,.sql"
+              }
             />
-          </div>
 
-          <button
-            type="button"
-            className={`icon-btn ${micListening ? "active" : ""}`}
-            onClick={onToggleMicrophone}
-            title={micSupported ? (micListening ? "Parar gravacao" : "Ditado por voz") : "Microfone indisponivel"}
-            aria-label={micListening ? "Parar gravacao" : "Iniciar ditado por voz"}
-            disabled={!micSupported || isSending}
-          >
-            <IconMic />
-          </button>
+            <div className="composer-input-slot">
+              <textarea
+                id="msg"
+                ref={textareaRef}
+                value={input}
+                onChange={(event) => onInputChange(event.target.value)}
+                onKeyDown={onComposerKeyDown}
+                placeholder="Pergunte alguma coisa"
+                rows={1}
+                disabled={isSending}
+              />
+            </div>
 
-          <button
-            id="sendBtn"
-            type="submit"
-            className={`send-btn ${input.trim() || pendingFiles.length ? "ready" : ""} ${isSending ? "is-working" : ""}`}
-            disabled={isSending || (!input.trim() && !pendingFiles.length)}
-            title="Enviar mensagem"
-            aria-label="Enviar mensagem"
-          >
-            <IconSend />
-          </button>
+            {useVoicePill ? (
+              <button
+                type="button"
+                className={`voice-pill-btn ${voiceModalOpen ? "is-open" : ""}`}
+                onClick={onOpenVoiceModal}
+                title="Abrir experiencia de voz"
+                aria-label="Abrir experiencia de voz"
+                disabled={!micSupported || isSending}
+              >
+                <IconVolume />
+                <span>Voz</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`icon-btn ${voiceConversationActive || inlineVoiceActive || micListening ? "active" : ""}`}
+                onClick={onToggleMicrophone}
+                title={micSupported
+                  ? isConversationMode
+                    ? voiceConversationActive
+                      ? "Encerrar conversa por voz"
+                      : "Iniciar conversa por voz com o GIOM"
+                    : inlineVoiceActive
+                      ? "Encerrar ditado por voz"
+                      : "Gravar voz para preencher o texto"
+                  : "Microfone indisponivel"}
+                aria-label={isConversationMode
+                  ? voiceConversationActive
+                    ? "Encerrar conversa por voz"
+                    : "Iniciar conversa por voz"
+                  : inlineVoiceActive
+                    ? "Encerrar ditado por voz"
+                    : "Gravar voz para preencher o texto"}
+                disabled={!micSupported || isSending}
+              >
+                <IconMic />
+              </button>
+            )}
+
+            {showSendButton ? (
+              <button
+                id="sendBtn"
+                type="submit"
+                className={`send-btn ${sendReady && !inlineVoiceActive ? "ready" : ""} ${isSending ? "is-working" : ""}`}
+                disabled={isSending || inlineVoiceActive || !sendReady}
+                title="Enviar mensagem"
+                aria-label="Enviar mensagem"
+              >
+                <IconSend />
+              </button>
+            ) : null}
         </div>
-      </div>
-      <p className="composer-disclaimer">Giom e uma IA e pode cometer erros.</p>
-    </form>
+
+        </div>
+        <p className="composer-disclaimer">
+          {voiceStatusLabel ? `${voiceStatusLabel} · ` : ""}
+          Giom e uma IA e pode cometer erros.
+        </p>
+      </form>
+
+      {(showVoicePersonaButton || isGuest) && (
+        <VoiceQuickModal
+          micSupported={micSupported}
+          onClose={onCloseVoiceModal}
+          onSelectPersona={onSelectVoicePersona}
+          onStartConversation={onStartVoiceConversation}
+          open={voiceModalOpen}
+          personaId={selectedVoicePersona}
+        />
+      )}
+    </>
   );
 }

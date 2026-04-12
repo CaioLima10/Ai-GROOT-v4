@@ -21,7 +21,13 @@ export function registerEnterpriseAdminRoutes(app, deps) {
     memoryContextMetrics,
     memoryMetricsNodeId,
     getLanguageRuntimeStatus,
-    cleanupLanguageRuntimeCache
+    cleanupLanguageRuntimeCache,
+    traceStore,
+    toolRegistry,
+    jobManager,
+    voiceRuntime,
+    longMemoryRuntime,
+    localVoiceRuntime
   } = deps
 
   app.get("/health", async (_req, res) => {
@@ -107,17 +113,146 @@ export function registerEnterpriseAdminRoutes(app, deps) {
     }
   })
 
+  app.get("/runtime/traces/recent", requireAdmin, (req, res) => {
+    try {
+      res.json({
+        success: true,
+        traces: traceStore.getRecentTraces({
+          limit: req.query.limit,
+          requestId: req.query.requestId,
+          status: req.query.status,
+          kind: req.query.kind,
+          event: req.query.event
+        })
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get recent traces" })
+    }
+  })
+
+  app.get("/runtime/traces/summary", requireAdmin, (_req, res) => {
+    try {
+      res.json({
+        success: true,
+        summary: traceStore.getSummary()
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get trace summary" })
+    }
+  })
+
+  app.get("/runtime/tools", requireAdmin, (_req, res) => {
+    try {
+      res.json({
+        success: true,
+        tools: toolRegistry.listTools(),
+        summary: toolRegistry.getSummary(),
+        recentExecutions: toolRegistry.getRecentExecutions(25)
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get tool registry state" })
+    }
+  })
+
+  app.get("/runtime/jobs", requireAdmin, (req, res) => {
+    try {
+      res.json({
+        success: true,
+        summary: jobManager.getSummary(),
+        jobs: jobManager.listJobs({
+          limit: req.query.limit,
+          status: req.query.status,
+          type: req.query.type,
+          ownerKey: req.query.ownerKey
+        })
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get async jobs" })
+    }
+  })
+
+  app.get("/runtime/jobs/:jobId", requireAdmin, (req, res) => {
+    try {
+      const job = jobManager.getJob(req.params.jobId, { includePayload: true })
+      if (!job) {
+        return res.status(404).json({ success: false, error: "Job not found", code: "JOB_NOT_FOUND" })
+      }
+
+      res.json({
+        success: true,
+        job
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get async job" })
+    }
+  })
+
+  app.get("/runtime/voice/sessions", requireAdmin, (req, res) => {
+    try {
+      res.json({
+        success: true,
+        summary: voiceRuntime.getSummary(),
+        providers: localVoiceRuntime?.getStatus?.() || null,
+        sessions: voiceRuntime.listSessions(Number(req.query.limit || 50) || 50)
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get realtime voice sessions" })
+    }
+  })
+
+  app.get("/runtime/memory/summary", requireAdmin, (_req, res) => {
+    try {
+      res.json({
+        success: true,
+        summary: longMemoryRuntime.getSummary(),
+        recentCompactions: longMemoryRuntime.getRecentCompactions(25)
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get long memory summary" })
+    }
+  })
+
+  app.get("/runtime/memory/profiles", requireAdmin, (req, res) => {
+    try {
+      res.json({
+        success: true,
+        profiles: longMemoryRuntime.listRecentProfiles(req.query.limit || 25)
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get long memory profiles" })
+    }
+  })
+
+  app.get("/runtime/memory/sessions", requireAdmin, (req, res) => {
+    try {
+      res.json({
+        success: true,
+        sessions: longMemoryRuntime.listRecentSessions(req.query.limit || 25)
+      })
+    } catch {
+      res.status(500).json({ error: "Failed to get long memory sessions" })
+    }
+  })
+
   app.get("/admin", requireAdmin, (_req, res) => {
     res.json({
       service: AI_SERVICE_SLUG,
       admin: true,
-      note: "UI de admin legada removida do runtime oficial. Use /metrics, /metrics/json, /logs e /runtime/language/status.",
+      note: "UI de admin legada removida do runtime oficial. Use /metrics, /metrics/json, /logs, /runtime/traces/*, /runtime/tools, /runtime/jobs, /runtime/voice/sessions, /runtime/memory/* e /runtime/language/status.",
       endpoints: {
         health: "/health",
         metrics: "/metrics",
         metricsJson: "/metrics/json",
         memoryContextMetrics: "/metrics/memoryContext",
         logs: "/logs",
+        traceSummary: "/runtime/traces/summary",
+        tracesRecent: "/runtime/traces/recent",
+        tools: "/runtime/tools",
+        jobs: "/runtime/jobs",
+        voiceSessions: "/runtime/voice/sessions",
+        longMemorySummary: "/runtime/memory/summary",
+        longMemoryProfiles: "/runtime/memory/profiles",
+        longMemorySessions: "/runtime/memory/sessions",
         languageRuntimeStatus: "/runtime/language/status",
         languageRuntimeCleanup: "/runtime/language/cache/cleanup"
       }

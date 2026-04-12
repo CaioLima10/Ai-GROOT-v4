@@ -99,6 +99,207 @@ async function resolveDeterministicBibleDocumentContent(prompt = "", title = "",
   return [`${resolvedReference} (${resolvedBibleCode})`, "", passageContent].join("\n")
 }
 
+function buildMediaRouteError(message, code, statusCode = 400, details = null) {
+  const error = new Error(message)
+  error.code = code
+  error.statusCode = statusCode
+  if (details) {
+    error.details = details
+  }
+  return error
+}
+
+function resolveRequesterId(req) {
+  return String(req.get("X-User-Id") || req.ip || "default_user")
+}
+
+function isAdminRequest(req) {
+  const adminKey = String(process.env.ADMIN_DASH_KEY || "").trim()
+  if (!adminKey) {
+    return false
+  }
+  return String(req.get("X-Admin-Key") || "").trim() === adminKey
+}
+
+function ensureAsyncJobAccess(req, job) {
+  if (!job) {
+    throw buildMediaRouteError("Job nao encontrado", "JOB_NOT_FOUND", 404)
+  }
+
+  if (job.ownerKey === resolveRequesterId(req) || isAdminRequest(req)) {
+    return job
+  }
+
+  throw buildMediaRouteError("Voce nao possui acesso a este job", "JOB_ACCESS_DENIED", 403)
+}
+
+function getRawContext(body = {}) {
+  return body?.context && typeof body.context === "object" && !Array.isArray(body.context)
+    ? body.context
+    : {}
+}
+
+async function buildDocumentGenerationInput(req, requestId, deps) {
+  const {
+    normalizeDocumentFormat,
+    sanitizeDocumentTitle,
+    sanitizeAskContext,
+    detectSafetyRisk,
+    buildSafetyResponse,
+    getResearchCapabilities,
+    buildRuntimeCapabilityMatrix,
+    documentGenerationFormatIds
+  } = deps
+
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+    ? req.body
+    : {}
+  const userId = resolveRequesterId(req)
+  const rawContext = getRawContext(body)
+  const prompt = String(body.prompt || "").trim()
+  const providedContent = String(body.content || "").trim()
+  const requestedFormat = normalizeDocumentFormat(body.format || "pdf")
+  const locale = String(body.locale || "pt-BR")
+  const title = sanitizeDocumentTitle(body.title || "", "Documento GIOM")
+  const documentContext = sanitizeAskContext(rawContext)
+  const activeModules = Array.isArray(documentContext.activeModules) ? documentContext.activeModules : []
+  const assistantProfile = String(documentContext.assistantProfile || "auto")
+
+  if (!requestedFormat) {
+    throw buildMediaRouteError(
+      "Formato de documento nao suportado.",
+      "UNSUPPORTED_DOCUMENT_FORMAT",
+      400,
+      { supportedFormats: documentGenerationFormatIds }
+    )
+  }
+
+  if (!prompt && !providedContent) {
+    throw buildMediaRouteError(
+      "Informe um prompt ou conteudo para gerar o documento.",
+      "EMPTY_DOCUMENT_REQUEST",
+      400
+    )
+  }
+
+  const safety = detectSafetyRisk(`${title}\n${prompt}\n${providedContent}`)
+  if (safety.triggered) {
+    const safetyError = buildMediaRouteError(
+      buildSafetyResponse(safety, { locale, promptText: prompt || providedContent }),
+      "DOCUMENT_PROMPT_BLOCKED",
+      400
+    )
+    safetyError.safety = safety
+    throw safetyError
+  }
+
+  return {
+    requestId,
+    userId,
+    prompt,
+    providedContent,
+    requestedFormat,
+    locale,
+    title,
+    documentContext,
+    activeModules,
+    assistantProfile,
+    runtimeContext: {
+      ...rawContext,
+      locale,
+      userId,
+      requestId,
+      assistantProfile,
+      activeModules,
+      researchCapabilities: getResearchCapabilities(rawContext.researchCapabilities || {}),
+      capabilityMatrix: buildRuntimeCapabilityMatrix(),
+      privacyCapabilities: {
+        sensitiveDataRedaction: true,
+        sensitiveLearningBlocked: true,
+        temporaryUploadStorage: true
+      }
+    }
+  }
+}
+
+async function generateDocumentArtifact(input, deps) {
+  const {
+    sanitizeGeneratedDocumentContent,
+    buildDocumentDraftPrompt,
+    parseBibleReference,
+    fetchBiblePassage,
+    askGiom,
+    generateStructuredDocument,
+    grootMemoryConnector
+  } = deps
+  const {
+    userId,
+    prompt,
+    providedContent,
+    requestedFormat,
+    locale,
+    title,
+    activeModules,
+    assistantProfile,
+    runtimeContext,
+    requestId
+  } = input
+
+  const deterministicBibleDocumentContent = providedContent
+    ? null
+    : await resolveDeterministicBibleDocumentContent(prompt, title, runtimeContext, {
+      parseBibleReference,
+      fetchBiblePassage
+    })
+
+  const rawDocumentContent = providedContent || deterministicBibleDocumentContent || await askGiom(
+    buildDocumentDraftPrompt(prompt, requestedFormat, {
+      locale,
+      style: runtimeContext?.verbosity || "natural",
+      activeModules,
+      title
+    }),
+    runtimeContext
+  )
+  const documentContent = providedContent
+    ? rawDocumentContent
+    : sanitizeGeneratedDocumentContent(rawDocumentContent, prompt || title, requestedFormat, { title })
+
+  const document = await generateStructuredDocument({
+    format: requestedFormat,
+    title,
+    content: documentContent,
+    fileNameBase: title,
+    metadata: {
+      requestId,
+      locale,
+      assistantProfile
+    }
+  })
+
+  await grootMemoryConnector.saveConversation(userId, prompt || `Gerar documento ${requestedFormat.toUpperCase()}`, `Documento ${document.fileName} gerado com sucesso.`, {
+    provider: "document_generation",
+    requestId,
+    assistantProfile,
+    activeModules,
+    document: {
+      format: requestedFormat,
+      title,
+      fileName: document.fileName,
+      mimeType: document.mimeType,
+      size: document.size
+    }
+  })
+
+  return {
+    success: true,
+    requestId,
+    document,
+    content: documentContent,
+    previewText: document.previewText
+  }
+}
+
 export function registerEnterpriseMediaRoutes(app, deps) {
   const {
     askLimiter,
@@ -132,6 +333,7 @@ export function registerEnterpriseMediaRoutes(app, deps) {
     buildSafetyResponse,
     normalizeDocumentFormat,
     sanitizeDocumentTitle,
+    sanitizeGeneratedDocumentContent,
     sanitizeAskContext,
     buildDocumentDraftPrompt,
     documentGenerationFormatIds,
@@ -141,7 +343,9 @@ export function registerEnterpriseMediaRoutes(app, deps) {
     buildRuntimeCapabilityMatrix,
     askGiom,
     generateStructuredDocument,
-    grootMemoryConnector
+    grootMemoryConnector,
+    jobManager,
+    traceStore
   } = deps
 
   app.post("/upload", askLimiter, async (req, res) => {
@@ -334,110 +538,154 @@ export function registerEnterpriseMediaRoutes(app, deps) {
     const requestId = buildRequestId("doc")
 
     try {
-      const userId = req.get("X-User-Id") || req.ip || "default_user"
-      const prompt = String(req.body?.prompt || "").trim()
-      const providedContent = String(req.body?.content || "").trim()
-      const requestedFormat = normalizeDocumentFormat(req.body?.format || "pdf")
-      const locale = String(req.body?.locale || "pt-BR")
-      const title = sanitizeDocumentTitle(req.body?.title || "", "Documento GIOM")
-      const documentContext = sanitizeAskContext(req.body?.context)
-      const activeModules = Array.isArray(documentContext.activeModules) ? documentContext.activeModules : []
-      const assistantProfile = String(documentContext.assistantProfile || "auto")
-
-      if (!requestedFormat) {
-        return res.status(400).json({
-          error: "Formato de documento nao suportado.",
-          code: "UNSUPPORTED_DOCUMENT_FORMAT",
-          supportedFormats: documentGenerationFormatIds
-        })
-      }
-
-      if (!prompt && !providedContent) {
-        return res.status(400).json({
-          error: "Informe um prompt ou conteudo para gerar o documento.",
-          code: "EMPTY_DOCUMENT_REQUEST"
-        })
-      }
-
-      const safety = detectSafetyRisk(`${title}\n${prompt}\n${providedContent}`)
-      if (safety.triggered) {
-        return res.status(400).json({
-          error: buildSafetyResponse(safety, { locale, promptText: prompt || providedContent }),
-          code: "DOCUMENT_PROMPT_BLOCKED",
-          safety
-        })
-      }
-
-      const runtimeContext = {
-        ...(req.body?.context || {}),
-        locale,
-        userId,
-        requestId,
-        assistantProfile,
-        activeModules,
-        researchCapabilities: getResearchCapabilities(req.body?.context?.researchCapabilities || {}),
-        capabilityMatrix: buildRuntimeCapabilityMatrix(),
-        privacyCapabilities: {
-          sensitiveDataRedaction: true,
-          sensitiveLearningBlocked: true,
-          temporaryUploadStorage: true
-        }
-      }
-
-      const deterministicBibleDocumentContent = providedContent
-        ? null
-        : await resolveDeterministicBibleDocumentContent(prompt, title, runtimeContext, {
-          parseBibleReference,
-          fetchBiblePassage
-        })
-
-      const documentContent = providedContent || deterministicBibleDocumentContent || await askGiom(
-        buildDocumentDraftPrompt(prompt, requestedFormat, {
-          locale,
-          style: req.body?.context?.verbosity || "natural",
-          activeModules,
-          title
-        }),
-        runtimeContext
-      )
-
-      const document = await generateStructuredDocument({
-        format: requestedFormat,
-        title,
-        content: documentContent,
-        fileNameBase: title,
-        metadata: {
+      const requestTrace = traceStore?.getRequestContext?.(req) || {}
+      const input = await buildDocumentGenerationInput(req, requestId, deps)
+      const payload = traceStore
+        ? await traceStore.withTrace({
           requestId,
-          locale,
-          assistantProfile
-        }
-      })
+          traceId: requestTrace.traceId || null,
+          kind: "media",
+          name: "generate.document",
+          timeoutMs: 120_000,
+          metadata: {
+            format: input.requestedFormat,
+            title: input.title
+          }
+        }, () => generateDocumentArtifact(input, deps))
+        : await generateDocumentArtifact(input, deps)
 
-      await grootMemoryConnector.saveConversation(userId, prompt || `Gerar documento ${requestedFormat.toUpperCase()}`, `Documento ${document.fileName} gerado com sucesso.`, {
-        provider: "document_generation",
-        requestId,
-        assistantProfile,
-        activeModules,
-        document: {
-          format: requestedFormat,
-          title,
-          fileName: document.fileName,
-          mimeType: document.mimeType,
-          size: document.size
-        }
-      })
-
-      res.json({
-        success: true,
-        requestId,
-        document,
-        content: documentContent,
-        previewText: document.previewText
-      })
+      res.json(payload)
     } catch (error) {
       res.status(error.statusCode || 500).json({
         error: error.message || "Falha ao gerar documento",
-        code: error.code || "DOCUMENT_GENERATION_FAILED"
+        code: error.code || "DOCUMENT_GENERATION_FAILED",
+        details: process.env.NODE_ENV === "development" ? error.details || undefined : undefined,
+        safety: error.safety || undefined,
+        requestId
+      })
+    }
+  })
+
+  app.post("/generate/document/async", askLimiter, askSlowDown, async (req, res) => {
+    const requestId = buildRequestId("docjob")
+
+    try {
+      const requestTrace = traceStore?.getRequestContext?.(req) || {}
+      const input = await buildDocumentGenerationInput(req, requestId, deps)
+      const job = jobManager.enqueue({
+        requestId,
+        traceId: requestTrace.traceId || null,
+        ownerKey: input.userId,
+        type: "document_generation",
+        timeoutMs: 10 * 60 * 1000,
+        metadata: {
+          format: input.requestedFormat,
+          title: input.title
+        },
+        handler: async () => generateDocumentArtifact(input, deps)
+      })
+
+      res.status(202).json({
+        success: true,
+        requestId,
+        async: true,
+        statusUrl: `/jobs/${job.jobId}`,
+        job
+      })
+    } catch (error) {
+      res.status(error.statusCode || 500).json({
+        error: error.message || "Falha ao agendar geracao de documento",
+        code: error.code || "DOCUMENT_GENERATION_ASYNC_FAILED",
+        details: process.env.NODE_ENV === "development" ? error.details || undefined : undefined,
+        safety: error.safety || undefined,
+        requestId
+      })
+    }
+  })
+
+  app.post("/upload/extract/async", askLimiter, async (req, res) => {
+    const requestId = buildRequestId("extract")
+
+    try {
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+        ? req.body
+        : {}
+      const uploadId = String(body.uploadId || "").trim()
+      if (!uploadId) {
+        return res.status(400).json({
+          error: "Informe uploadId para processar o arquivo em background.",
+          code: "UPLOAD_ID_REQUIRED",
+          requestId
+        })
+      }
+
+      const uploadRef = uploads.get(uploadId)
+      if (!uploadRef) {
+        return res.status(404).json({
+          error: "Upload nao encontrado ou expirado.",
+          code: "UPLOAD_NOT_FOUND",
+          requestId
+        })
+      }
+
+      const requestTrace = traceStore?.getRequestContext?.(req) || {}
+      const ownerKey = resolveRequesterId(req)
+      const job = jobManager.enqueue({
+        requestId,
+        traceId: requestTrace.traceId || null,
+        ownerKey,
+        type: "upload_extraction",
+        timeoutMs: 5 * 60 * 1000,
+        metadata: {
+          uploadId,
+          name: uploadRef.name,
+          type: uploadRef.type
+        },
+        handler: async () => ({
+          success: true,
+          requestId,
+          uploadId,
+          file: {
+            name: uploadRef.name,
+            type: uploadRef.type,
+            size: uploadRef.size
+          },
+          extraction: await resolveUploadExtraction(uploadRef)
+        })
+      })
+
+      res.status(202).json({
+        success: true,
+        requestId,
+        async: true,
+        statusUrl: `/jobs/${job.jobId}`,
+        job
+      })
+    } catch (error) {
+      res.status(error.statusCode || 500).json({
+        error: error.message || "Falha ao agendar extracao de upload",
+        code: error.code || "UPLOAD_EXTRACTION_ASYNC_FAILED",
+        requestId
+      })
+    }
+  })
+
+  app.get("/jobs/:jobId", async (req, res) => {
+    const requestId = String(traceStore?.getRequestContext?.(req)?.requestId || buildRequestId("jobstatus"))
+
+    try {
+      const job = ensureAsyncJobAccess(req, jobManager.getJob(req.params.jobId))
+      res.json({
+        success: true,
+        requestId,
+        job
+      })
+    } catch (error) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || "Falha ao consultar job",
+        code: error.code || "JOB_STATUS_FAILED",
+        requestId
       })
     }
   })

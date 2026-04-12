@@ -8,3 +8,4 @@ export { registerEnterpriseMediaRoutes } from "./enterpriseMediaRoutesRuntime.js
 export { registerEnterprisePublicRoutes } from "./enterprisePublicRoutesRuntime.js"
 export { registerEnterpriseQualityRoutes } from "./enterpriseQualityRoutesRuntime.js"
 export { registerEnterpriseResearchRoutes } from "./enterpriseResearchRoutesRuntime.js"
+export { registerEnterpriseVoiceRoutes } from "./enterpriseVoiceRoutesRuntime.js"

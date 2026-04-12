@@ -1,76 +1,10 @@
 import type { Express } from "express"
 
-type ResearchCapabilities = {
-  liveWeb?: boolean
-  google?: boolean
-  bing?: boolean
-  yahoo?: boolean
-  scholar?: boolean
-  news?: boolean
-  codeSearch?: boolean
-  browserAutomation?: boolean
-  weatherForecast?: boolean
-  sportsSchedule?: boolean
-}
+import { parseRuntimeConfigPayload } from "../../../packages/shared-config/src/runtimeSchemas.js"
 
-type LiveResearchRuntime = {
-  googleSearch?: boolean
-  googleImageSearch?: boolean
-  sportsSchedule?: boolean
-}
+type EnterprisePublicRouteDeps = Record<string, any>
 
-type KnowledgeStats = {
-  localKnowledge?: unknown
-  localBugs?: unknown
-  remoteEnabled?: unknown
-}
-
-type AdvancedRagLike = {
-  getAdvancedStats: () => Promise<KnowledgeStats>
-}
-
-type ProvidersLike = {
-  getProviderSummary: () => unknown
-}
-
-type EmbeddingsLike = {
-  getStatus: () => unknown
-}
-
-type EnterprisePublicRouteDeps = {
-  AI_ENTERPRISE_NAME: string
-  AI_SERVICE_SLUG: string
-  grootAdvancedRAG: AdvancedRagLike
-  buildRuntimeCapabilityMatrix: () => Record<string, unknown>
-  getResearchCapabilities: () => ResearchCapabilities
-  getLiveResearchRuntime: () => LiveResearchRuntime
-  aiProviders: ProvidersLike
-  grootEmbeddings: EmbeddingsLike
-  listAssistantProfiles: () => unknown
-  listDomainModules: () => unknown
-  listModuleEnhancementPlans: () => unknown
-  listPlannedModules: () => unknown
-  listBibleStudyModules: () => unknown
-  listCompatModels: () => unknown
-  listPromptPacks: () => unknown
-  isImageGenerationEnabled: () => boolean
-  imageGenerationModel: string
-  IMAGE_STYLE_PRESETS: Record<string, unknown>
-  IMAGE_RATIO_DIMENSIONS: Record<string, unknown>
-  imageGenerationMinDimension: number
-  imageGenerationMaxDimension: number
-  documentGenerationFormats: unknown
-  uploadOcrEnabled: boolean
-  uploadTtlMinutes: number
-  listEvaluationDimensions: () => unknown
-  listEvaluationPacks: () => unknown
-  SUPPORTED_UPLOAD_ACCEPT: string
-  getUploadCapabilities: () => Record<string, unknown>
-  uploadMaxBytes: number
-  listCapabilityHighlights: (input: Record<string, unknown>) => unknown
-}
-
-function isLiveWebEnabled(runtimeResearchCapabilities: ResearchCapabilities, liveResearchRuntime: LiveResearchRuntime) {
+function isLiveWebEnabled(runtimeResearchCapabilities: Record<string, any>, liveResearchRuntime: Record<string, any>) {
   return Boolean(
     runtimeResearchCapabilities.liveWeb ||
     runtimeResearchCapabilities.google ||
@@ -84,8 +18,25 @@ function isLiveWebEnabled(runtimeResearchCapabilities: ResearchCapabilities, liv
   )
 }
 
+function normalizeObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {}
+}
+
+function resolveMemoryUserId(req: any) {
+  const candidate = String(
+    req.get("X-User-Id") ||
+    req.query.userId ||
+    req.body?.userId ||
+    req.ip ||
+    "anonymous"
+  ).trim()
+
+  return candidate || "anonymous"
+}
+
 export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePublicRouteDeps) {
   const {
+    askLimiter,
     AI_ENTERPRISE_NAME,
     AI_SERVICE_SLUG,
     grootAdvancedRAG,
@@ -95,6 +46,7 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
     aiProviders,
     grootEmbeddings,
     listAssistantProfiles,
+    listBibleLearningTracks,
     listDomainModules,
     listModuleEnhancementPlans,
     listPlannedModules,
@@ -115,7 +67,13 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
     SUPPORTED_UPLOAD_ACCEPT,
     getUploadCapabilities,
     uploadMaxBytes,
-    listCapabilityHighlights
+    listCapabilityHighlights,
+    traceStore,
+    toolRegistry,
+    jobManager,
+    voiceRuntime,
+    longMemoryRuntime,
+    localVoiceRuntime
   } = deps
 
   app.get("/", (_req, res) => {
@@ -123,7 +81,7 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
       name: AI_ENTERPRISE_NAME,
       status: "ok",
       version: process.env.npm_package_version ?? "1.0.0",
-      endpoints: ["/health", "/ask", "/config", "/capabilities", "/v1/models"]
+      endpoints: ["/health", "/ask", "/config", "/capabilities", "/runtime/tools", "/memory/profile", "/memory/session-summary", "/v1/models", "/v1/realtime/sessions"]
     })
   })
 
@@ -134,8 +92,17 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
     const liveResearchRuntime = getLiveResearchRuntime()
     const imageGenerationEnabled = isImageGenerationEnabled()
     const liveWebEnabled = isLiveWebEnabled(runtimeResearchCapabilities, liveResearchRuntime)
+    const toolSummary = toolRegistry?.getSummary?.() || null
+    const jobSummary = jobManager?.getSummary?.() || null
+    const traceSummary = traceStore?.getSummary?.() || null
+    const voiceSummary = voiceRuntime?.getSummary?.() || null
+    const longMemorySummary = longMemoryRuntime?.getSummary?.() || null
+    const voiceProviders = localVoiceRuntime?.getStatus?.() || null
+    const voicePersonas = localVoiceRuntime?.getPersonas?.() || []
+    const bibleLearningTracks = typeof listBibleLearningTracks === "function" ? listBibleLearningTracks() : []
+    const bibleStudyModules = typeof listBibleStudyModules === "function" ? listBibleStudyModules() : []
 
-    res.json({
+    const configPayload = parseRuntimeConfigPayload({
       service: AI_SERVICE_SLUG,
       supabaseUrl: process.env.SUPABASE_URL || null,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
@@ -154,6 +121,13 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
         imageGeneration: imageGenerationEnabled,
         documentGeneration: true,
         serverPdfGeneration: true,
+        voiceRealtime: true,
+        audioTranscriptions: true,
+        audioSpeech: true,
+        browserVad: true,
+        serverAudioTranscriptions: Boolean(localVoiceRuntime?.hasServerTranscriptions?.()),
+        serverAudioSpeech: Boolean(localVoiceRuntime?.hasServerSpeech?.()),
+        serverVad: Boolean(localVoiceRuntime?.getStatus?.()?.vad?.available),
         weatherForecast: Boolean(runtimeResearchCapabilities.weatherForecast),
         sportsSchedule: Boolean(runtimeResearchCapabilities.sportsSchedule || liveResearchRuntime.sportsSchedule),
         googleSearch: Boolean(liveResearchRuntime.googleSearch),
@@ -168,7 +142,8 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
         domainModules: listDomainModules(),
         moduleEnhancements: listModuleEnhancementPlans(),
         plannedModules: listPlannedModules(),
-        bibleStudyModules: listBibleStudyModules(),
+        bibleLearningTracks,
+        bibleStudyModules,
         compatModels: listCompatModels(),
         promptPacks: listPromptPacks(),
         imageGeneration: {
@@ -221,7 +196,7 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
         docxEnabled: true,
         xlsxEnabled: true,
         pptxEnabled: true,
-        imageGenerationEnabled,
+        imageGenerationEnabled: imageGenerationEnabled,
         imageGenerationProvider: imageGenerationEnabled ? "huggingface" : "disabled",
         imageControlsEnabled: true,
         visualImageUnderstanding: uploadOcrEnabled,
@@ -239,12 +214,195 @@ export function registerEnterprisePublicRoutes(app: Express, deps: EnterprisePub
         ttlMinutes: uploadTtlMinutes,
         ...getUploadCapabilities()
       },
+      runtime: {
+        contracts: {
+          boundaryValidation: true,
+          engine: "zod-shared"
+        },
+        observability: {
+          requestTracing: true,
+          recentTraceInspection: true,
+          otelReadyFields: true,
+          traceSummary
+        },
+        tools: {
+          registry: true,
+          schemaValidated: true,
+          timeoutEnforced: true,
+          groundingAnnotated: true,
+          summary: toolSummary
+        },
+        jobs: {
+          asyncExecution: true,
+          summary: jobSummary
+        },
+        memory: {
+          longSessionMemory: true,
+          userProfiles: true,
+          sessionCompaction: true,
+          summary: longMemorySummary
+        },
+        voice: {
+          realtimeSessions: true,
+          audioTranscriptions: true,
+          audioSpeech: true,
+          browserAssisted: true,
+          bargeIn: true,
+          defaultPersona: voicePersonas.find((persona: Record<string, any>) => persona.serverAudioAvailable)?.id || "giom",
+          personas: voicePersonas,
+          providers: voiceProviders,
+          summary: voiceSummary
+        }
+      },
       capabilityMatrix,
       documentFormats: documentGenerationFormats
     })
+
+    res.json(configPayload)
   })
 
   app.get("/capabilities", (_req, res) => {
     res.json(buildRuntimeCapabilityMatrix())
+  })
+
+  app.get("/memory/profile", async (req, res) => {
+    const userId = resolveMemoryUserId(req)
+
+    try {
+      const snapshot = await longMemoryRuntime.getProfileSnapshot(userId, {
+        sessionId: req.query.sessionId ? String(req.query.sessionId) : null
+      })
+
+      res.json(snapshot)
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || "Falha ao consultar perfil de memoria",
+        code: error.code || "MEMORY_PROFILE_GET_FAILED"
+      })
+    }
+  })
+
+  app.post("/memory/profile", askLimiter, async (req, res) => {
+    const userId = resolveMemoryUserId(req)
+    const body = normalizeObject(req.body)
+    const profilePatch = normalizeObject(body.profile)
+
+    try {
+      const updated = await longMemoryRuntime.updateProfile(userId, {
+        ...profilePatch,
+        activeModules: Array.isArray(body.activeModules) ? body.activeModules : profilePatch.activeModules,
+        bibleStudyModules: Array.isArray(body.bibleStudyModules) ? body.bibleStudyModules : profilePatch.bibleStudyModules,
+        promptPacks: Array.isArray(body.promptPacks) ? body.promptPacks : profilePatch.promptPacks
+      })
+
+      res.json(updated)
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || "Falha ao atualizar perfil de memoria",
+        code: error.code || "MEMORY_PROFILE_UPDATE_FAILED"
+      })
+    }
+  })
+
+  app.get("/memory/session-summary", async (req, res) => {
+    const userId = resolveMemoryUserId(req)
+    const sessionId = String(req.query.sessionId || "").trim()
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: "Informe sessionId para consultar o resumo da sessao.",
+        code: "MEMORY_SESSION_ID_REQUIRED"
+      })
+    }
+
+    try {
+      const summary = await longMemoryRuntime.getSessionSummary(userId, sessionId, {
+        refresh: String(req.query.refresh || "false").toLowerCase() === "true"
+      })
+
+      res.json(summary)
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || "Falha ao consultar resumo da sessao",
+        code: error.code || "MEMORY_SESSION_SUMMARY_FAILED"
+      })
+    }
+  })
+
+  app.post("/memory/compact", askLimiter, async (req, res) => {
+    const userId = resolveMemoryUserId(req)
+    const body = normalizeObject(req.body)
+    const sessionId = String(body.sessionId || "").trim()
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        error: "Informe sessionId para compactar a memoria da sessao.",
+        code: "MEMORY_COMPACT_SESSION_REQUIRED"
+      })
+    }
+
+    try {
+      const result = await longMemoryRuntime.compactSession({
+        userId,
+        sessionId,
+        question: body.question || "",
+        responseText: body.responseText || "",
+        conversationHistory: Array.isArray(body.conversationHistory) ? body.conversationHistory : [],
+        metadata: {
+          requestId: body.requestId || null,
+          provider: body.provider || "manual_compaction",
+          assistantProfile: body.assistantProfile || null,
+          activeModules: Array.isArray(body.activeModules) ? body.activeModules : [],
+          bibleStudyModules: Array.isArray(body.bibleStudyModules) ? body.bibleStudyModules : [],
+          promptPacks: Array.isArray(body.promptPacks) ? body.promptPacks : [],
+          locale: body.locale || null
+        }
+      })
+
+      res.json(result)
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || "Falha ao compactar memoria da sessao",
+        code: error.code || "MEMORY_COMPACTION_FAILED"
+      })
+    }
+  })
+
+  app.get("/runtime/tools", (_req, res) => {
+    res.json({
+      success: true,
+      tools: toolRegistry?.listTools?.() || [],
+      summary: toolRegistry?.getSummary?.() || null
+    })
+  })
+
+  app.post("/runtime/tools/:toolId/execute", askLimiter, async (req, res) => {
+    const requestTrace = traceStore?.getRequestContext?.(req) || {}
+    const requestId = String(requestTrace.requestId || `tool_${Date.now()}`)
+
+    try {
+      const input = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+        ? req.body
+        : {}
+      const result = await toolRegistry.executeTool(req.params.toolId, input, {
+        requestId,
+        traceId: requestTrace.traceId || null,
+        userId: req.get("X-User-Id") || req.ip || "anonymous"
+      })
+
+      res.json(result)
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message || "Falha ao executar tool",
+        code: error.code || "TOOL_EXECUTION_FAILED",
+        details: process.env.NODE_ENV === "development" ? error.details || error.message : undefined,
+        requestId
+      })
+    }
   })
 }

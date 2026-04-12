@@ -9,6 +9,10 @@ export function isInterpretiveBibleQuestion(question = "") {
   return /\b(explique|explica|contexto|interprete|interpretacao|estudo|aplique|aplicacao|resuma|devocional|pregacao|pregacao|sermao|teologia|hermeneutica)\b/i.test(String(question || ""))
 }
 
+function isBibleTransformationRequest(question = "") {
+  return /\b(tabela|quadro|compar[ae]|prompt|roteiro|cronograma|linha do tempo|timeline|checklist|plano|7 dias|sete dias|tom pastoral|pastoral maduro|aconselh[ae]|alguem ansioso|alguém ansioso|fale com tom|escreva com tom|mensagem pastoral|texto pastoral|para outro analista|topicos|tópicos|bullet points?)\b/i.test(String(question || ""))
+}
+
 export function isBibleFollowUpQuestion(question = "") {
   return /\b(essa passagem|esse texto|esse versiculo|esse versículo|esse capitulo|esse capítulo|isso significa|o que isso quer dizer|me explica isso|explique melhor|fale mais sobre isso|qual o contexto|como aplicar|aplicacao desse texto|aplicação desse texto|o que paulo quis dizer|o que jesus quis dizer)\b/i.test(String(question || ""))
 }
@@ -271,12 +275,164 @@ function buildBibleLocalCapabilityFallback(question = "", context = {}) {
   ].join("\n\n").trim()
 }
 
-function resolveDeterministicPreferenceRegistrationResponse(question = "") {
-  const input = String(question || "")
-  if (!/\b(responda\s+s[oó]|responda\s+apenas|somente responda)\s*:\s*registrado\b/i.test(input)) {
+function normalizeBibleTopicText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function hasBibleOrHistoryContext(context = {}) {
+  const activeModules = Array.isArray(context?.activeModules) ? context.activeModules : []
+  const bibleStudyModules = Array.isArray(context?.bibleStudyModules) ? context.bibleStudyModules : []
+  return activeModules.includes("bible")
+    || activeModules.includes("history_archaeology")
+    || bibleStudyModules.length > 0
+}
+
+function isEscatologyQuestion(question = "", context = {}) {
+  const input = normalizeBibleTopicText(question)
+  return (hasBibleOrHistoryContext(context) || /\bescatologia|apocalipse|arrebatamento|milenio|profecia\b/.test(input))
+    && /\bescatologia|apocalipse|arrebatamento|milenio|profecia\b/.test(input)
+}
+
+function buildEscatologyFallback(question = "", context = {}) {
+  if (!isEscatologyQuestion(question, context)) {
     return null
   }
-  return "Registrado."
+
+  return [
+    "Escatologia e o campo da teologia que trata das ultimas coisas.",
+    "Os eixos mais seguros do tema sao retorno de Cristo, ressurreicao, juizo final, consumacao do Reino e novo ceu e nova terra.",
+    "As maiores divergencias entre cristaos normalmente aparecem na ordem detalhada dos eventos, no milenio e na leitura de textos apocalipticos.",
+    "Metodo seguro: comece pelo que os textos centrais afirmam com clareza e trate esquemas cronologicos mais finos com humildade.",
+    "Se quiser, eu posso comparar amilenismo, pre-milenismo e pos-milenismo em linguagem simples."
+  ].join("\n\n").trim()
+}
+
+function isAngelologyQuestion(question = "", context = {}) {
+  const input = normalizeBibleTopicText(question)
+  if (/\bangiologia\b/.test(input)) {
+    return false
+  }
+
+  const hasExplicitAngelologyTerm = /\b(?:angelologia|angeologia)\b/.test(input)
+  const hasGenericAngelTopic = /\b(?:anjos|anjo)\b/.test(input)
+  const hasBibleAnchor = /\b(?:biblia|biblico|biblica|teologia|cristo|deus|escritura|escrituras)\b/.test(input)
+    || hasBibleOrHistoryContext(context)
+
+  return hasExplicitAngelologyTerm || (hasGenericAngelTopic && hasBibleAnchor)
+}
+
+function buildAngelologyFallback(question = "", context = {}) {
+  if (!isAngelologyQuestion(question, context)) {
+    return null
+  }
+
+  return [
+    "Angeologia ou angelologia biblica e o estudo dos anjos a partir das Escrituras.",
+    "Na Biblia, anjos aparecem como servos e mensageiros de Deus, ligados a adoracao, anuncio, protecao e juizo.",
+    "O ponto central da fe nao sao os anjos, mas Deus e a obra de Cristo; por isso o tema deve ser tratado sem especulacao descontrolada.",
+    "Um mapa seguro do assunto passa por natureza dos anjos, funcoes, anjos santos e anjos caidos, e o lugar deles na historia da redencao.",
+    "Se quiser, eu posso organizar isso em um estudo biblico curto com textos-base."
+  ].join("\n\n").trim()
+}
+
+function isBiblicalMindMapQuestion(question = "", context = {}) {
+  const input = normalizeBibleTopicText(question)
+  return /\bmapa mental\b/.test(input)
+    && (/\bestudo biblico|biblia|biblico|teologia\b/.test(input) || hasBibleOrHistoryContext(context))
+}
+
+function buildBiblicalMindMapFallback(question = "", context = {}) {
+  if (!isBiblicalMindMapQuestion(question, context)) {
+    return null
+  }
+
+  return [
+    "Mapa mental de estudo biblico:",
+    "1. Texto-base: definicao da passagem, repeticoes, contrastes e termos-chave.",
+    "2. Contexto: autor, audiencia, momento historico e lugar do texto no argumento do livro.",
+    "3. Teologia: o que o texto revela sobre Deus, Cristo, pecado, salvacao, igreja e vida crista.",
+    "4. Aplicacao: consolo, correcao, obediencia pratica e oracao.",
+    "5. Desdobramento: referencias cruzadas, duvidas abertas e proximo bloco de leitura."
+  ].join("\n\n").trim()
+}
+
+function isChristChronologyQuestion(question = "", context = {}) {
+  const input = normalizeBibleTopicText(question)
+  const hasChronologyCue = /\b(cronologia|timeline|linha do tempo)\b/.test(input)
+  const hasBirthCue = /\b(nascimento|encarnacao)\b/.test(input)
+  const hasResurrectionCue = /\b(resureicao|ressureicao|resurreicao|ressurreicao)\b/.test(input)
+  const hasChristAnchor = /\b(cristo|jesus)\b/.test(input) || hasBibleOrHistoryContext(context)
+  return hasChronologyCue && hasBirthCue && hasResurrectionCue && hasChristAnchor
+}
+
+function buildChristChronologyFallback(question = "", context = {}) {
+  if (!isChristChronologyQuestion(question, context)) {
+    return null
+  }
+
+  return [
+    "1. Nascimento e infancia: anuncio a Maria, nascimento em Belem, apresentacao no templo e ida para Nazare, em torno do fim do reinado de Herodes.",
+    "2. Preparacao do ministerio: batismo por Joao Batista e inicio do ministerio publico por volta dos 30 anos.",
+    "3. Caminho para a cruz: ministerio na Galileia e Judeia, entrada final em Jerusalem, ultima ceia, prisao e crucificacao sob Poncio Pilatos.",
+    "4. Sepultamento: Jesus e colocado no tumulo de Jose de Arimateia antes do inicio do sabado.",
+    "5. Ressurreicao: ao terceiro dia o tumulo e encontrado vazio e Jesus aparece aos discipulos.",
+    "Nota de metodo: a maior discussao academica esta nas datas exatas, nao na sequencia central desses eventos."
+  ].join("\n\n").trim()
+}
+
+function isMosesArchaeologyScheduleQuestion(question = "", context = {}) {
+  const input = normalizeBibleTopicText(question)
+  const hasScheduleCue = /\b(cronograma|cronologia|timeline|linha do tempo)\b/.test(input)
+  const hasArchaeologyCue = /\b(arqueologia|arquiologia)\b/.test(input)
+  const hasMosesCue = /\b(moises|exodo|egito)\b/.test(input)
+  return hasScheduleCue && hasArchaeologyCue && (hasMosesCue || hasBibleOrHistoryContext(context))
+}
+
+function buildMosesArchaeologyScheduleFallback(question = "", context = {}) {
+  if (!isMosesArchaeologyScheduleQuestion(question, context)) {
+    return null
+  }
+
+  return [
+    "Semana 1. Egito e Levante no Bronze Tardio: situe cronologia, imperios e rotas para entender o pano de fundo do Exodo.",
+    "Semana 2. Texto e metodo: separe o que o texto biblico afirma, o que a historiografia discute e o que a arqueologia material realmente consegue mostrar.",
+    "Semana 3. Evidencias e limites: observe topografia, estelas, padroes de assentamento, nomes, memoria cultural e o limite de cada achado isolado.",
+    "Semana 4. Sintese: compare propostas de data, niveis de consenso, lacunas e o que pode ou nao ser dito com seguranca sobre o periodo de Moises."
+  ].join("\n\n").trim()
+}
+
+function isChristianBooksCurrentQuestion(question = "", context = {}) {
+  const input = normalizeBibleTopicText(question)
+  const hasBookCue = /\b(livros|leituras|obras)\b/.test(input)
+  const hasChristianThinkersCue = /\b(pensadores cristaos|pensadores cristos|autores cristaos|autores cristos|teologos|teologos)\b/.test(input)
+  const hasCurrentCue = /\b(do momento|de hoje|atuais|mais recentes|recentes)\b/.test(input)
+  return hasBookCue && hasChristianThinkersCue && (hasCurrentCue || hasBibleOrHistoryContext(context))
+}
+
+function buildChristianBooksCurrentFallback(question = "", context = {}) {
+  if (!isChristianBooksCurrentQuestion(question, context)) {
+    return null
+  }
+
+  return [
+    "AINDA NAO TENHO ESSA INFORMACAO, PERGUNTE DENOVO.",
+    "Sem verificacao externa, eu nao consigo afirmar quais sao os melhores livros de pensadores cristaos do momento.",
+    "Se voce quiser uma base segura sem depender de ranking atual, comece por:",
+    "1. C. S. Lewis, Cristianismo puro e simples: apologetica acessivel e centrada no nucleo da fe.",
+    "2. John Stott, A cruz de Cristo: leitura pastoral e teologica da obra de Cristo.",
+    "3. J. I. Packer, O conhecimento de Deus: doutrina com calor devocional.",
+    "4. Timothy Keller, A fe na era do ceticismo: dialogo claro com objeções contemporaneas."
+  ].join("\n\n").trim()
+}
+
+function hasExplicitShortReplyInstruction(question = "") {
+  return /\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\b/i.test(String(question || ""))
 }
 
 function shouldPreferDeterministicBibleGuidance(question = "", context = {}) {
@@ -288,9 +444,8 @@ function shouldPreferDeterministicBibleGuidance(question = "", context = {}) {
 }
 
 export function resolveDeterministicBibleGuidanceResponse(question = "", context = {}) {
-  const registrationResponse = resolveDeterministicPreferenceRegistrationResponse(question)
-  if (registrationResponse) {
-    return registrationResponse
+  if (hasExplicitShortReplyInstruction(question)) {
+    return null
   }
 
   const gospelCoreFallback = buildGospelCoreFallback(question, context)
@@ -311,6 +466,36 @@ export function resolveDeterministicBibleGuidanceResponse(question = "", context
   const localCapabilityFallback = buildBibleLocalCapabilityFallback(question, context)
   if (localCapabilityFallback) {
     return localCapabilityFallback
+  }
+
+  const escatologyFallback = buildEscatologyFallback(question, context)
+  if (escatologyFallback) {
+    return escatologyFallback
+  }
+
+  const angelologyFallback = buildAngelologyFallback(question, context)
+  if (angelologyFallback) {
+    return angelologyFallback
+  }
+
+  const biblicalMindMapFallback = buildBiblicalMindMapFallback(question, context)
+  if (biblicalMindMapFallback) {
+    return biblicalMindMapFallback
+  }
+
+  const christChronologyFallback = buildChristChronologyFallback(question, context)
+  if (christChronologyFallback) {
+    return christChronologyFallback
+  }
+
+  const mosesArchaeologyScheduleFallback = buildMosesArchaeologyScheduleFallback(question, context)
+  if (mosesArchaeologyScheduleFallback) {
+    return mosesArchaeologyScheduleFallback
+  }
+
+  const christianBooksCurrentFallback = buildChristianBooksCurrentFallback(question, context)
+  if (christianBooksCurrentFallback) {
+    return christianBooksCurrentFallback
   }
 
   if (context?.biblePassage?.content && isInterpretiveBibleQuestion(question) && shouldPreferDeterministicBibleGuidance(question, context)) {
@@ -365,9 +550,13 @@ export function resolveDeterministicBiblePassageResponse(question = "", context 
     return null
   }
 
+  if (hasExplicitShortReplyInstruction(question)) {
+    return null
+  }
+
   const hasReference = Boolean(parseBibleReference(question))
   const asksForQuote = /\b(leia|mostre|me mostre|me mostra|cite|traga|qual e|qual e o texto|o que diz|me de o versiculo|me de o texto|versiculo)\b/i.test(String(question || ""))
-  if ((!hasReference && !asksForQuote) || isInterpretiveBibleQuestion(question)) {
+  if ((!hasReference && !asksForQuote) || isInterpretiveBibleQuestion(question) || isBibleTransformationRequest(question)) {
     return null
   }
 

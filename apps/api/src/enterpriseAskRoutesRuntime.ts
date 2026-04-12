@@ -604,7 +604,7 @@ export function registerEnterpriseAskRoutes(app: Express, deps: EnterpriseAskRou
       })
 
       const giomResult = await askGiomService.execute(preparedPayload, decision)
-      const responseText = giomResult.responseText
+      const responseText = postProcessAssistantResponse(question, String(giomResult.responseText || "").trim(), enhancedContext)
       aiGateway.metrics.recordResponseEvaluation(requestId, giomResult.evaluation, giomResult.selfHealing)
 
       const [promptPackage, shadowPlan] = await Promise.all([
@@ -913,11 +913,12 @@ export function registerEnterpriseAskRoutes(app: Express, deps: EnterpriseAskRou
           },
           streamDecision
         )
+        const responseText = postProcessAssistantResponse(question, String(deterministicResult.responseText || "").trim(), enhancedContext)
 
         aiGateway.metrics.recordResponseEvaluation(requestId, deterministicResult.evaluation, deterministicResult.selfHealing)
 
         if (shouldPersistLearnedConversation(deterministicResult)) {
-          saveConversationNonBlocking(userId, question, deterministicResult.responseText, {
+          saveConversationNonBlocking(userId, question, responseText, {
             provider: "decision_router_direct",
             requestId,
             assistantProfile: enhancedContext.assistantProfile || null,
@@ -944,7 +945,7 @@ export function registerEnterpriseAskRoutes(app: Express, deps: EnterpriseAskRou
           intent: deterministicResult.intent
         })
         if (shouldPersistLearnedConversation(deterministicResult)) {
-          appendConversationToStm(userId, enrichedData.request.sessionId || null, question, deterministicResult.responseText)
+          appendConversationToStm(userId, enrichedData.request.sessionId || null, question, responseText)
         }
 
         writeSSE(res, "meta", {
@@ -967,7 +968,7 @@ export function registerEnterpriseAskRoutes(app: Express, deps: EnterpriseAskRou
 
         writeSSE(res, "complete", {
           requestId,
-          response: deterministicResult.responseText,
+          response: responseText,
           metadata: {
             processingTime: Date.now() - startTime,
             provider: "decision_router_direct",
@@ -1235,8 +1236,8 @@ export function registerEnterpriseAskRoutes(app: Express, deps: EnterpriseAskRou
           const streamErrorMessage = String(payload?.error || "Falha no streaming")
           try {
             const fallbackResult = await askGiomService(preparedPayload, { mode: "standard" })
-            const responseText = String(fallbackResult.responseText || "").trim()
-              || buildOperationalContingencyResponse(question, enhancedContext, streamErrorMessage)
+            const responseText = postProcessAssistantResponse(question, String(fallbackResult.responseText || "").trim(), streamEnhancedContext)
+              || buildOperationalContingencyResponse(question, streamEnhancedContext, streamErrorMessage)
 
             hasCompleted = true
 

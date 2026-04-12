@@ -117,7 +117,7 @@ export class GiomOrchestrator {
       : ""
 
     const finalPrompt = buildFinalPrompt({
-      systemPrompt: promptContext.promptPackage?.prompt || "",
+      systemPrompt: promptContext.promptPackage?.systemPrompt || promptContext.promptPackage?.prompt || "",
       memoryText,
       ragText,
       userQuestion: question,

@@ -518,7 +518,9 @@ function buildPlainLanguageJwtResponse() {
 }
 
 function isOnboardingContext(history = []) {
-  return /\bonboarding de clientes\b/i.test(buildLocalHistoryText(history))
+  const text = buildLocalHistoryText(history)
+  return /\bonboarding\b/i.test(text)
+    && /\b(cliente|clientes|implantacao|implantação|rollout|kickoff|marco de valor)\b/i.test(text)
 }
 
 function isOnboardingExecutivePrioritiesQuestion(question = "") {
@@ -573,6 +575,21 @@ function buildOnboardingTableResponse() {
     "| Kickoff | Alinhar escopo, responsaveis e criterio de sucesso | Inicio sem prioridade clara |",
     "| Implantacao inicial | Liberar acessos, materiais e execucao do plano | Bloqueios tecnicos atrasarem a adocao |",
     "| Primeiro valor | Confirmar entrega inicial e proximos passos | Cliente nao perceber ganho rapido |"
+  ].join("\n")
+}
+
+function isOnboardingPromptQuestion(question = "") {
+  const input = String(question || "")
+  return /\b(prompt|copia e cola|copie e cole)\b/i.test(input)
+    && /\b(onboarding|esse onboarding|esse assunto|isso)\b/i.test(input)
+}
+
+function buildOnboardingPromptResponse() {
+  return [
+    "Atue como analista de onboarding de clientes.",
+    "Mapeie a etapa atual, os principais bloqueios e o primeiro marco de valor esperado.",
+    "Entregue um plano curto com prioridade, responsavel, prazo e follow-up imediato.",
+    "Mantenha tom executivo, objetivo e orientado a reduzir atrito na implantacao."
   ].join("\n")
 }
 
@@ -673,6 +690,10 @@ function buildContinuityShortcut(question = "", localConversationHistory = []) {
 
   if (isOnboardingContext(localConversationHistory) && isOnboardingTableQuestion(question)) {
     return buildOnboardingTableResponse()
+  }
+
+  if (isOnboardingContext(localConversationHistory) && isOnboardingPromptQuestion(question)) {
+    return buildOnboardingPromptResponse()
   }
 
   if (isRomanos8Context(localConversationHistory) && isRomanos8ThemeQuestion(question)) {

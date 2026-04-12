@@ -134,22 +134,46 @@ function buildWeatherLookupParts(query = ""): string[] {
     .filter(Boolean)
 }
 
+function refineWeatherLocationCandidate(value = ""): string {
+  const input = String(value || "").trim()
+  if (!input) {
+    return ""
+  }
+
+  const trailingLocationMatch = input.match(/(?:^|.*\b)(?:em|na|no|para)\s+([a-zà-ú0-9'.\s,-]{2,80})$/i)
+  if (trailingLocationMatch?.[1]) {
+    return String(trailingLocationMatch[1] || "").trim()
+  }
+
+  return input
+}
+
 export function sanitizeWeatherLocationQuery(value = ""): string {
   const cleaned = normalizeWeatherText(value)
     .replace(/[?!.,;:]+$/g, "")
     .replace(/\b(?:hoje|agora|amanha|depois de amanha|esta semana|essa semana|semana|proximos dias|previsao semanal|clima|tempo|temperatura|chuva|uv|vento|momento)\b/g, " ")
     .replace(/\b(?:estado|cidade|municipio|pais|regiao|localidade)\s+(?:de|da|do|dos|das)\b/g, " ")
     .replace(/\b(?:estado|cidade|municipio|pais|regiao|localidade)\b/g, " ")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
     .replace(/\s{2,}/g, " ")
+    .replace(/^(?:\s*(?:em|de|para|na|no)\s+)+/g, "")
     .replace(/^[\s,/-]+|[\s,/-]+$/g, "")
     .trim()
-  if (!cleaned || cleaned.split(/\s+/).length > 6) return ""
-  if (/^(hoje|agora|amanha|semana|tempo real|localizacao|minha cidade|momento|aqui)$/.test(cleaned)) return ""
-  return cleaned
+  const refined = refineWeatherLocationCandidate(cleaned)
+  if (!refined || refined.split(/\s+/).length > 6) return ""
+  if (/^(hoje|agora|amanha|semana|tempo real|localizacao|minha cidade|momento|aqui)$/.test(refined)) return ""
+  return refined
 }
 
 export function buildWeatherGeocodingSearchQuery(query = "", question = ""): string {
   const sanitizedQuery = sanitizeWeatherLocationQuery(query)
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
+    .replace(/\s+brasil$/i, ", Brasil")
+    .replace(/,\s+Brasil$/i, ", Brasil")
+    .replace(/^,\s*/g, "")
+    .trim()
   const scopeHint = detectWeatherLocationScope(question, sanitizedQuery)
   const stateDefinition = detectBrazilStateDefinition(sanitizedQuery)
   const normalizedQuery = normalizeWeatherLookupKey(sanitizedQuery)

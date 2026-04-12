@@ -1,3 +1,4 @@
+import "dotenv/config"
 import fs from "node:fs/promises"
 import path from "node:path"
 
@@ -8,8 +9,10 @@ const intervalArg = args.find((arg) => arg.startsWith("--interval="))
 const intervalSeconds = Number(intervalArg?.split("=")[1] || 20)
 const intervalMs = Number.isFinite(intervalSeconds) && intervalSeconds > 0 ? intervalSeconds * 1000 : 20_000
 
-const FRONTEND_URL = process.env.OPS_FRONTEND_URL || "http://localhost:3002"
-const BACKEND_URL = process.env.OPS_BACKEND_URL || "http://localhost:3000"
+const frontendPort = Number(process.env.WEB_PORT || 3003)
+const backendPort = Number(process.env.OPS_BACKEND_PORT || process.env.API_PORT || process.env.PORT || 3001)
+const FRONTEND_URL = process.env.OPS_FRONTEND_URL || `http://127.0.0.1:${frontendPort}`
+const BACKEND_URL = process.env.OPS_BACKEND_URL || `http://127.0.0.1:${backendPort}`
 const REPORT_PATH = path.join(process.cwd(), "reports", "ops-runtime-health.jsonl")
 
 function sleep(ms) {

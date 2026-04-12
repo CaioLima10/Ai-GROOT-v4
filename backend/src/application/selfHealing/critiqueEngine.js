@@ -1,7 +1,17 @@
+function isExplicitShortAnswerInstruction(question = "") {
+  return /\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)(?:\s*:|\s+["'“”]?)/i.test(String(question || ""))
+}
+
 const ISSUE_RULES = [
   {
     code: "TOO_SHORT",
-    test: ({ answer }) => String(answer || "").trim().length < 20
+    test: ({ question, answer }) => {
+      if (isExplicitShortAnswerInstruction(question)) {
+        return false
+      }
+
+      return String(answer || "").trim().length < 20
+    }
   },
   {
     code: "UNCERTAIN_LANGUAGE",

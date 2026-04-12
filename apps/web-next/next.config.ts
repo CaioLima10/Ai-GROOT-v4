@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { resolveGiomBackendProxyTarget } from "../../config/runtimePorts.js";
 
 const nextConfig: NextConfig = {
   // Força o agente HTTP interno do Next.js a reutilizar conexões TCP com o backend.
@@ -23,8 +24,7 @@ const nextConfig: NextConfig = {
     ]
   },
   async rewrites() {
-    const defaultBackendTarget = `http://localhost:${process.env.API_PORT || process.env.PORT || "3001"}`;
-    const backendTarget = (process.env.NEXT_PUBLIC_BACKEND_PROXY_TARGET || defaultBackendTarget).replace(/\/$/, "");
+    const backendTarget = resolveGiomBackendProxyTarget(process.env);
     return [
       {
         source: "/backend/:path*",

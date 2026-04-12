@@ -127,6 +127,18 @@ const DEFAULTS: Required<
   recoveryTimeMs: 30_000,
 }
 
+function toNativeFetchOptions(options: ResilientFetchOptions): RequestInit {
+  const nativeOptions = { ...options } as RequestInit & ResilientFetchOptions
+  delete nativeOptions.timeoutMs
+  delete nativeOptions.maxRetries
+  delete nativeOptions.retryDelay
+  delete nativeOptions.failureThreshold
+  delete nativeOptions.recoveryTimeMs
+  delete nativeOptions.forceRetry
+  delete nativeOptions.signal
+  return nativeOptions
+}
+
 // ─── Core ─────────────────────────────────────────────────────────────────────
 
 export async function resilientFetch(url: string, options: ResilientFetchOptions = {}): Promise<Response> {
@@ -170,16 +182,7 @@ export async function resilientFetch(url: string, options: ResilientFetchOptions
     const timer = setTimeout(() => controller.abort(), cfg.timeoutMs)
 
     // Clean options before passing to native fetch
-    const {
-      timeoutMs: _t,
-      maxRetries: _mr,
-      retryDelay: _rd,
-      failureThreshold: _ft,
-      recoveryTimeMs: _rt,
-      forceRetry: _fr,
-      signal: _s,
-      ...nativeOptions
-    } = cfg
+    const nativeOptions = toNativeFetchOptions(cfg)
 
     try {
       const response = await fetch(url, { ...nativeOptions, signal: controller.signal })

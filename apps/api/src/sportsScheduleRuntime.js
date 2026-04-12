@@ -27,12 +27,24 @@ function normalizeLooseText(value = "") {
     .trim()
 }
 
+function hasFixtureLookupCue(question = "") {
+  return /\b(proximo jogo|próximo jogo|quando joga|proximo confronto|próximo confronto|agenda esportiva|agenda de jogos|local do jogo|local da partida|horario do jogo|horario da partida|resultado do jogo|escalacao)\b/i.test(String(question || ""))
+}
+
+function hasFixtureSubjectCue(question = "") {
+  return /\b(brasil|bahia|santos|sao paulo|argentina|botafogo|flamengo|palmeiras|corinthians|gremio|internacional|vasco|cruzeiro|time|clube|selecao)\b/i.test(normalizeLooseText(question))
+}
+
 export function isHistoryQuestion(question = "") {
   return /\b(historico|histórico|retrospecto|ultimos jogos|últimos jogos|ultimas partidas|últimas partidas|ultimos resultados|últimos resultados|jogos anteriores|resultados anteriores)\b/i.test(String(question || ""))
 }
 
 export function isNextFixtureQuestion(question = "") {
-  return /\b(proximo jogo|próximo jogo|quando joga|proximo confronto|próximo confronto|agenda esportiva|partida)\b/i.test(String(question || ""))
+  if (/\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\b/i.test(String(question || ""))) {
+    return false
+  }
+
+  return hasFixtureLookupCue(question) && hasFixtureSubjectCue(question)
 }
 
 /**

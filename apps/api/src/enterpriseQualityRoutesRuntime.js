@@ -23,6 +23,76 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : []
 }
 
+async function executeEvaluationBenchmark(packId, benchmarkId, deps) {
+  const {
+    buildRuntimeConversationContext,
+    askGiom,
+    persistEvaluationArtifacts,
+    getResearchCapabilities,
+    runConversationBenchmark,
+    grootMemoryConnector
+  } = deps
+
+  const benchmarkUserId = `${benchmarkId}_user`
+  const benchmark = await runConversationBenchmark({
+    packId,
+    researchCapabilities: getResearchCapabilities(),
+    requestTurn: async ({ scenario, turn, history }) => {
+      const requestId = `bench_${scenario.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const scenarioUserId = `${benchmarkUserId}_${scenario.id}`
+      const context = await buildRuntimeConversationContext(turn.question, {
+        ...(turn.context || {}),
+        userId: scenarioUserId,
+        requestId,
+        evaluationMode: true,
+        evaluationScenario: scenario.id,
+        conversationHistory: history
+      })
+
+      const answer = await askGiom(turn.question, context)
+      return {
+        answer,
+        requestId,
+        metadata: {
+          scenarioUserId
+        }
+      }
+    }
+  })
+
+  for (const turn of benchmark.turns) {
+    const evaluationRequestId = turn.metadata?.requestId || `${benchmarkId}_${turn.scenarioId}`
+    await persistEvaluationArtifacts(benchmarkUserId, evaluationRequestId, turn.evaluation, {
+      mode: "benchmark_turn",
+      packId,
+      scenarioId: turn.scenarioId
+    })
+  }
+
+  await grootMemoryConnector.saveLearningPattern(
+    benchmarkUserId,
+    "conversation_benchmark_summary",
+    {
+      benchmarkId,
+      packId,
+      summary: benchmark.summary,
+      turns: benchmark.turns.map((turn) => ({
+        scenarioId: turn.scenarioId,
+        score: turn.evaluation.score,
+        issues: turn.evaluation.issues
+      }))
+    },
+    benchmark.summary.score
+  )
+
+  return {
+    success: true,
+    benchmarkId,
+    sessionId: benchmarkUserId,
+    ...benchmark
+  }
+}
+
 export function registerEnterpriseQualityRoutes(app, deps) {
   const {
     requireAdmin,
@@ -36,7 +106,8 @@ export function registerEnterpriseQualityRoutes(app, deps) {
     getResearchCapabilities,
     runConversationBenchmark,
     grootMemoryConnector,
-    askGroot
+    askGroot,
+    jobManager
   } = deps
 
   app.get("/evaluation/packs", requireAdmin, (_req, res) => {
@@ -115,71 +186,48 @@ export function registerEnterpriseQualityRoutes(app, deps) {
     try {
       const body = normalizeObject(req.body)
       const packId = String(body.packId || "core_diagnostics")
-      const benchmarkUserId = `${benchmarkId}_user`
-
-      const benchmark = await runConversationBenchmark({
-        packId,
-        researchCapabilities: getResearchCapabilities(),
-        requestTurn: async ({ scenario, turn, history }) => {
-          const requestId = `bench_${scenario.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-          const scenarioUserId = `${benchmarkUserId}_${scenario.id}`
-          const context = await buildRuntimeConversationContext(turn.question, {
-            ...(turn.context || {}),
-            userId: scenarioUserId,
-            requestId,
-            evaluationMode: true,
-            evaluationScenario: scenario.id,
-            conversationHistory: history
-          })
-
-          const answer = await askGiom(turn.question, context)
-          return {
-            answer,
-            requestId,
-            metadata: {
-              scenarioUserId
-            }
-          }
-        }
-      })
-
-      for (const turn of benchmark.turns) {
-        const evaluationRequestId = turn.metadata?.requestId || `${benchmarkId}_${turn.scenarioId}`
-        await persistEvaluationArtifacts(benchmarkUserId, evaluationRequestId, turn.evaluation, {
-          mode: "benchmark_turn",
-          packId,
-          scenarioId: turn.scenarioId
-        })
-      }
-
-      await grootMemoryConnector.saveLearningPattern(
-        benchmarkUserId,
-        "conversation_benchmark_summary",
-        {
-          benchmarkId,
-          packId,
-          summary: benchmark.summary,
-          turns: benchmark.turns.map((turn) => ({
-            scenarioId: turn.scenarioId,
-            score: turn.evaluation.score,
-            issues: turn.evaluation.issues
-          }))
-        },
-        benchmark.summary.score
-      )
-
-      res.json({
-        success: true,
-        benchmarkId,
-        sessionId: benchmarkUserId,
-        ...benchmark
-      })
+      const payload = await executeEvaluationBenchmark(packId, benchmarkId, deps)
+      res.json(payload)
     } catch (error) {
       aiGateway.logger.error(benchmarkId, "BENCHMARK_FAILED", {
         error: getErrorMessage(error)
       })
       res.status(500).json(
         buildFailurePayload(error, "Falha ao rodar benchmark do GIOM", "BENCHMARK_FAILED", benchmarkId)
+      )
+    }
+  })
+
+  app.post("/evaluation/run/async", requireAdmin, async (req, res) => {
+    const benchmarkId = buildRequestId("benchmark")
+
+    try {
+      const body = normalizeObject(req.body)
+      const packId = String(body.packId || "core_diagnostics")
+      const job = jobManager.enqueue({
+        requestId: benchmarkId,
+        ownerKey: String(req.get("X-User-Id") || "admin_benchmark"),
+        type: "evaluation_benchmark",
+        metadata: {
+          packId
+        },
+        timeoutMs: Number(body.timeoutMs || 10 * 60 * 1000),
+        handler: async () => executeEvaluationBenchmark(packId, benchmarkId, deps)
+      })
+
+      res.status(202).json({
+        success: true,
+        benchmarkId,
+        async: true,
+        statusUrl: `/runtime/jobs/${job.jobId}`,
+        job
+      })
+    } catch (error) {
+      aiGateway.logger.error(benchmarkId, "BENCHMARK_ASYNC_FAILED", {
+        error: getErrorMessage(error)
+      })
+      res.status(500).json(
+        buildFailurePayload(error, "Falha ao agendar benchmark do GIOM", "BENCHMARK_ASYNC_FAILED", benchmarkId)
       )
     }
   })

@@ -188,22 +188,46 @@ function buildWeatherLookupParts(query = "") {
     .filter(Boolean)
 }
 
+function refineWeatherLocationCandidate(value = "") {
+  const input = String(value || "").trim()
+  if (!input) {
+    return ""
+  }
+
+  const trailingLocationMatch = input.match(/(?:^|.*\b)(?:em|na|no|para)\s+([a-zà-ú0-9'.\s,-]{2,80})$/i)
+  if (trailingLocationMatch?.[1]) {
+    return String(trailingLocationMatch[1] || "").trim()
+  }
+
+  return input
+}
+
 function sanitizeWeatherLocationQuery(value = "") {
   const cleaned = normalizeWeatherText(value)
     .replace(/[?!.,;:]+$/g, "")
     .replace(/\b(?:hoje|agora|amanha|depois de amanha|esta semana|essa semana|semana|proximos dias|previsao semanal|clima|tempo|temperatura|chuva|uv|vento|momento)\b/g, " ")
     .replace(/\b(?:estado|cidade|municipio|pais|regiao|localidade)\s+(?:de|da|do|dos|das)\b/g, " ")
     .replace(/\b(?:estado|cidade|municipio|pais|regiao|localidade)\b/g, " ")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
     .replace(/\s{2,}/g, " ")
+    .replace(/^(?:\s*(?:em|de|para|na|no)\s+)+/g, "")
     .replace(/^[\s,/-]+|[\s,/-]+$/g, "")
     .trim()
-  if (!cleaned || cleaned.split(/\s+/).length > 6) return ""
-  if (/^(hoje|agora|amanha|semana|tempo real|localizacao|minha cidade|momento|aqui)$/.test(cleaned)) return ""
-  return cleaned
+  const refined = refineWeatherLocationCandidate(cleaned)
+  if (!refined || refined.split(/\s+/).length > 6) return ""
+  if (/^(hoje|agora|amanha|semana|tempo real|localizacao|minha cidade|momento|aqui)$/.test(refined)) return ""
+  return refined
 }
 
 function buildWeatherGeocodingSearchQuery(query = "", question = "") {
   const sanitizedQuery = sanitizeWeatherLocationQuery(query)
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,+/g, ", ")
+    .replace(/\s+brasil$/i, ", Brasil")
+    .replace(/,\s+Brasil$/i, ", Brasil")
+    .replace(/^,\s*/g, "")
+    .trim()
   const scopeHint = detectWeatherLocationScope(question, sanitizedQuery)
   const stateDefinition = detectBrazilStateDefinition(sanitizedQuery)
   const normalizedQuery = normalizeWeatherLookupKey(sanitizedQuery)
@@ -510,7 +534,7 @@ export function extractWeatherLocationQuery(question = "") {
   for (const pattern of patterns) {
     const match = source.match(pattern)
     if (!match?.[1]) continue
-    const candidate = sanitizeWeatherLocationQuery(match[1])
+    const candidate = sanitizeWeatherLocationQuery(refineWeatherLocationCandidate(match[1]))
     if (candidate) return candidate
   }
 
@@ -548,12 +572,68 @@ function formatWeatherWeekday(dateValue, relativeIndex) {
   return new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(new Date(`${dateValue}T12:00:00`)).replace(/\.$/, "")
 }
 
+function isWeatherFollowUpCue(question = "") {
+  const normalized = normalizeWeatherText(question)
+  return /\b(na mesma cidade|na mesma regiao|no mesmo lugar|no mesmo local|mesma cidade|mesmo lugar|mesmo local|amanha|depois de amanha|fim de semana|proximos dias)\b/.test(normalized)
+}
+
 export function isWeatherCardPreferred(question = "", context = {}) {
   const preferredVariant = String(context?.preferredResponseVariant || "").trim().toLowerCase()
   if (preferredVariant === "weather") {
     return true
   }
-  return Boolean(context?.agroWeather) && isWeatherQuestion(question)
+  return Boolean(context?.agroWeather) && (isWeatherQuestion(question) || isWeatherFollowUpCue(question))
+}
+
+function buildWeatherCalendarSnapshot(clock = null, fallbackTimezone = "Etc/UTC") {
+  if (!clock || clock.verified !== true) return null
+  const rawNowUtc = String(clock.nowUtc || "").trim()
+  const rawFetchedAt = String(clock.fetchedAt || "").trim()
+  const timezone = String(clock.timezone || fallbackTimezone || "Etc/UTC").trim() || "Etc/UTC"
+  const parsedNowMs = Date.parse(rawNowUtc)
+  const parsedFetchedAtMs = Date.parse(rawFetchedAt)
+  if (!Number.isFinite(parsedNowMs) || !Number.isFinite(parsedFetchedAtMs)) {
+    return null
+  }
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).formatToParts(new Date(parsedNowMs))
+    const year = parts.find((part) => part.type === "year")?.value
+    const month = parts.find((part) => part.type === "month")?.value
+    const day = parts.find((part) => part.type === "day")?.value
+    const hour = parts.find((part) => part.type === "hour")?.value
+    const minute = parts.find((part) => part.type === "minute")?.value
+    const second = parts.find((part) => part.type === "second")?.value
+    if (!(year && month && day && hour && minute && second)) {
+      return null
+    }
+
+    return {
+      verified: true,
+      source: String(clock.source || "worldtimeapi"),
+      timezone,
+      nowUtc: rawNowUtc,
+      fetchedAt: rawFetchedAt,
+      date: `${year}-${month}-${day}`,
+      year: Number(year),
+      month: Number(month),
+      day: Number(day),
+      hour: Number(hour),
+      minute: Number(minute),
+      second: Number(second)
+    }
+  } catch {
+    return null
+  }
 }
 
 function describeWeatherCode(code) {
@@ -572,6 +652,19 @@ function describeWeatherCode(code) {
 export function buildWeatherCardResponse(question = "", context = {}) {
   const weather = context?.agroWeather
   if (!weather || (!weather.current && !Array.isArray(weather.daily))) {
+    return null
+  }
+
+  const weatherCalendar = buildWeatherCalendarSnapshot(
+    weather?.timeVerification && typeof weather.timeVerification === "object"
+      ? weather.timeVerification
+      : null,
+    String(weather?.timezone || "Etc/UTC")
+  )
+  if (!weatherCalendar) {
+    return null
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(weather?.referenceDate || ""))) {
     return null
   }
 
@@ -598,6 +691,13 @@ export function buildWeatherCardResponse(question = "", context = {}) {
       label: formatWeatherWeekday(dateValue, relativeIndex),
       shortLabel: relativeIndex === 0 ? "Hoje" : formatWeatherWeekday(dateValue, relativeIndex),
       isoDate: dateValue,
+      calendar: /^\d{4}-\d{2}-\d{2}$/.test(dateValue)
+        ? {
+          year: Number(dateValue.slice(0, 4)),
+          month: Number(dateValue.slice(5, 7)),
+          day: Number(dateValue.slice(8, 10))
+        }
+        : null,
       dayNumber: new Intl.DateTimeFormat("pt-BR", { day: "2-digit" }).format(new Date(`${dateValue}T12:00:00`)),
       temperature: entry.tempMax ?? entry.tempMin ?? "--",
       high: entry.tempMax ?? "--",
@@ -623,7 +723,15 @@ export function buildWeatherCardResponse(question = "", context = {}) {
       requestedQuery: weather.requestedQuery || null,
       coordinates: weather.coordinates || null,
       forecastDays: weather.forecastDays || null,
+      calendar: weatherCalendar,
       dateLabel: "Hoje",
+      date: weatherCalendar.date,
+      year: weatherCalendar.year,
+      month: weatherCalendar.month,
+      day: weatherCalendar.day,
+      hour: weatherCalendar.hour,
+      minute: weatherCalendar.minute,
+      second: weatherCalendar.second,
       temperature: weather.current?.temperature ?? currentDay?.tempMax ?? "--",
       unit: "C",
       condition: describeWeatherCode(currentWeatherCode),
@@ -656,6 +764,7 @@ export function buildWeatherCardResponse(question = "", context = {}) {
         note: noteParts.join(" | "),
         fetchedAt: weather.fetchedAt || null,
         observedAt: weather.current?.observedAt || null,
+        calendar: weatherCalendar,
         timezone: weather.timezone || "auto",
         referenceDate: weather.referenceDate || null,
         timeVerification: weather.timeVerification || null,
@@ -683,11 +792,15 @@ export function buildWeatherCardResponse(question = "", context = {}) {
 }
 
 export function buildWeatherIntentFallback(context = {}) {
-  if (context?.weatherLocationQuery && context?.weatherLocationError === "WEATHER_LOCATION_NOT_FOUND") {
-    return `Nao encontrei a localidade ${context.weatherLocationQuery}. Para eu conferir o clima com seguranca, envie cidade, estado ou pais de forma completa, como "Sao Paulo, Brasil" ou "Bahia, Brasil".`
+  const locationQuery = String(context?.weatherLocationQuery || "")
+    .replace(/^(?:em|na|no|para|de|do|da)\s+/i, "")
+    .trim()
+
+  if (locationQuery && context?.weatherLocationError === "WEATHER_LOCATION_NOT_FOUND") {
+    return `Nao encontrei a localidade ${locationQuery}. Para eu conferir o clima com seguranca, envie cidade, estado ou pais de forma completa, como "Sao Paulo, Brasil" ou "Bahia, Brasil".`
   }
-  if (context?.weatherLocationQuery) {
-    return `Nao consegui localizar ${context.weatherLocationQuery} agora. Para evitar clima errado, tente novamente em instantes ou envie cidade, estado ou pais com mais contexto.`
+  if (locationQuery) {
+    return `Nao consegui localizar ${locationQuery} agora. Para evitar clima errado, tente novamente em instantes ou envie cidade, estado ou pais com mais contexto.`
   }
   if (context?.weatherLocation?.latitude != null && context?.weatherLocation?.longitude != null) {
     return "Nao consegui consultar o clima ao vivo agora. Para evitar informacao errada, tente novamente em instantes."
@@ -699,6 +812,7 @@ export function isAgroWeatherRelevant(question = "", context = {}) {
   const input = normalizeWeatherText(question)
   const activeModules = Array.isArray(context?.activeModules) ? context.activeModules : []
   if (activeModules.includes("agribusiness")) return true
+  if (context?.agroWeather && isWeatherFollowUpCue(input)) return true
   if (isWeatherQuestion(input)) return true
   return /\b(agro|agric|soja|safra|talhao|colheita|plantio|pulverizacao|gps agricola|rtk|telemetria|armazenagem|secagem|fila de descarga|clima|chuva|janela operacional|fazenda)\b/.test(input)
 }

@@ -1,75 +1,33 @@
-﻿import { chromium } from "@playwright/test"
-import { spawn } from "node:child_process"
+import { chromium } from "@playwright/test"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import "dotenv/config"
+import {
+  formatRecentLogs,
+  startNodeProcess,
+  startNpmProcess,
+  stopChildProcess,
+  waitForAnyUrl,
+  waitForUrl
+} from "./runtime-qa-support.mjs"
 
-const FRONTEND_URL = "http://localhost:3002"
-const BACKEND_URL = "http://localhost:3000"
+const frontendPort = Number(process.env.QA_FRONTEND_PORT || process.env.WEB_PORT || 3003)
+const backendPort = Number(process.env.QA_BACKEND_PORT || process.env.API_PORT || process.env.PORT || 3001)
+const FRONTEND_URL = process.env.QA_FRONTEND_URL || `http://localhost:${frontendPort}`
+const BACKEND_URL = process.env.QA_BACKEND_URL || `http://localhost:${backendPort}`
 const REPORT_PATH = path.join(process.cwd(), "reports", "runtime-ux-stress.json")
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function spawnCommand(command, args, options = {}) {
-  if (process.platform === "win32") {
-    const comspec = process.env.ComSpec || "C:\\Windows\\System32\\cmd.exe"
-    return spawn(comspec, ["/d", "/s", "/c", [command, ...args].join(" ")], options)
-  }
-
-  return spawn(command, args, options)
-}
-
-async function waitForServer(url, timeoutMs = 45000) {
-  const startedAt = Date.now()
-  while (Date.now() - startedAt < timeoutMs) {
-    try {
-      const response = await fetch(url)
-      if (response.ok) return true
-    } catch {
-      // keep waiting
-    }
-    await sleep(500)
-  }
-  return false
-}
-
-async function waitForAnyServer(urls, timeoutMs = 45000) {
-  const startedAt = Date.now()
-  while (Date.now() - startedAt < timeoutMs) {
-    for (const url of urls) {
-      try {
-        const response = await fetch(url)
-        if (response.ok) {
-          return true
-        }
-      } catch {
-        // keep waiting
-      }
-    }
-    await sleep(500)
-  }
-  return false
-}
-
-function startNpmScript(scriptName) {
-  const child = spawnCommand("npm", ["run", scriptName], {
-    cwd: process.cwd(),
-    stdio: "pipe",
-    env: process.env
-  })
-
-  child.stdout.on("data", () => { })
-  child.stderr.on("data", () => { })
-  return child
-}
 
 function issue(problem, cause, fix, validate) {
   return { problem, cause, fix, validate }
 }
 
-async function waitComposerReady(page, timeout = 120000) {
+async function persistReport(report) {
+  await fs.mkdir(path.dirname(REPORT_PATH), { recursive: true })
+  await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8")
+}
+
+async function waitComposerReady(page, timeout = 120_000) {
   await page.waitForFunction(() => {
     const msg = document.querySelector("#msg")
     return Boolean(msg && !msg.disabled)
@@ -85,57 +43,109 @@ async function sendMessage(page, text) {
 async function sendWithAttachment(page, filePath, text) {
   await waitComposerReady(page)
   await page.setInputFiles("#fileInput", filePath)
-  await page.waitForSelector(".composer-selected-file", { timeout: 20000 })
+  await page.waitForSelector(".composer-selected-file", { timeout: 20_000 })
   await page.locator("#msg").fill(text)
   await page.locator("#sendBtn").click()
+}
+
+function createReport(checks, issues, steps, extras = {}) {
+  return {
+    generatedAt: new Date().toISOString(),
+    baseUrl: FRONTEND_URL,
+    backendUrl: BACKEND_URL,
+    checks,
+    issues,
+    steps,
+    summary: {
+      totalChecks: checks.length,
+      passed: checks.filter((entry) => entry.ok).length,
+      failed: checks.filter((entry) => !entry.ok).length
+    },
+    ...extras
+  }
 }
 
 async function run() {
   const checks = []
   const issues = []
-  let frontendServer = null
-  let backendServer = null
+  const steps = []
+  const diagnostics = {}
+  let frontendRuntime = null
+  let backendRuntime = null
+  let browser = null
+  let context = null
+  let mobile = null
 
-  try {
-    const backendUpInitially = await waitForAnyServer([
-      `${BACKEND_URL}/capabilities`,
-      `${BACKEND_URL}/config`,
-      `${BACKEND_URL}/health`
-    ], 8000)
+  const markStep = (name, details = "ok") => {
+    steps.push({
+      name,
+      details,
+      at: new Date().toISOString()
+    })
+    console.log(`[STRESS] ${name} -> ${details}`)
+  }
+
+  const backendReadyUrls = [
+    `${BACKEND_URL}/capabilities`,
+    `${BACKEND_URL}/config`,
+    `${BACKEND_URL}/health`
+  ]
+
+  const execute = async () => {
+    const backendUpInitially = await waitForAnyUrl(backendReadyUrls, {
+      timeoutMs: 8_000,
+      accept: (response) => response.status >= 200 && response.status < 600
+    })
 
     if (!backendUpInitially) {
-      backendServer = startNpmScript("dev:api")
-      const backendUp = await waitForAnyServer([
-        `${BACKEND_URL}/capabilities`,
-        `${BACKEND_URL}/config`,
-        `${BACKEND_URL}/health`
-      ], 90000)
+      backendRuntime = startNodeProcess("apps/api/src/server.js", {
+        label: "stress-backend",
+        env: {
+          PORT: String(backendPort),
+          API_PORT: String(backendPort),
+          NODE_ENV: "test"
+        }
+      })
+      markStep("backend_start", `spawned pid=${backendRuntime.child.pid}`)
+
+      const backendUp = await waitForAnyUrl(backendReadyUrls, {
+        timeoutMs: 90_000,
+        accept: (response) => response.status >= 200 && response.status < 600
+      })
 
       if (!backendUp) {
         throw new Error("Backend nao subiu em tempo habil")
       }
+    } else {
+      markStep("backend_start", "reusing existing backend")
     }
 
-    const frontendUpInitially = await waitForServer(FRONTEND_URL, 8000)
+    const frontendUpInitially = await waitForUrl(FRONTEND_URL, { timeoutMs: 8_000 })
     if (!frontendUpInitially) {
-      frontendServer = startNpmScript("dev:web")
-      const frontendUp = await waitForServer(FRONTEND_URL, 90000)
+      frontendRuntime = startNpmProcess(["--workspace", "web-next", "run", "dev", "--", "-p", String(frontendPort)], {
+        label: "stress-frontend"
+      })
+      markStep("frontend_start", `spawned pid=${frontendRuntime.child.pid}`)
+
+      const frontendUp = await waitForUrl(FRONTEND_URL, { timeoutMs: 120_000 })
       if (!frontendUp) {
         throw new Error("Frontend nao subiu em tempo habil")
       }
+    } else {
+      markStep("frontend_start", "reusing existing frontend")
     }
 
-    const browser = await chromium.launch({ headless: true })
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    browser = await chromium.launch({ headless: true })
+    context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await context.newPage()
 
     await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" })
-    await page.waitForSelector("#chat", { timeout: 30000 })
+    await page.waitForSelector("#chat", { timeout: 30_000 })
     await waitComposerReady(page)
+    markStep("desktop_ready")
 
     const beforeCount = await page.evaluate(() => document.querySelectorAll(".message").length)
 
-    // 1) Sequencia de mensagens normais
     for (let i = 1; i <= 3; i += 1) {
       await sendMessage(page, `Stress mensagem ${i}`)
     }
@@ -154,7 +164,6 @@ async function run() {
       ))
     }
 
-    // 2) Rajada de Enter: nao deve criar multiplos thinking simultaneos
     await waitComposerReady(page)
     await page.locator("#msg").fill("Stress rajada enter")
     for (let i = 0; i < 3; i += 1) {
@@ -174,7 +183,6 @@ async function run() {
       ))
     }
 
-    // 3) Envio com anexos repetidos
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "groot-stress-"))
     const fileA = path.join(tempDir, "stress-a.txt")
     const fileB = path.join(tempDir, "stress-b.txt")
@@ -201,29 +209,62 @@ async function run() {
       ))
     }
 
-    // 4) Responsividade funcional rapida
-    const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    mobile = await browser.newContext({ viewport: { width: 390, height: 844 } })
     const mobilePage = await mobile.newPage()
     await mobilePage.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" })
+    await waitComposerReady(mobilePage, 30_000)
 
     let mobileFlowOk = false
     try {
-      await mobilePage.waitForSelector("#mobileMenuBtn", { timeout: 15000 })
+      await mobilePage.waitForSelector("#mobileMenuBtn", { timeout: 15_000 })
+      await mobilePage.evaluate(() => {
+        const button = document.querySelector("#mobileMenuBtn")
+        if (!button) return
+        button.setAttribute("data-debug-clicks", "0")
+        button.addEventListener("click", (event) => {
+          const current = Number(button.getAttribute("data-debug-clicks") || "0")
+          button.setAttribute("data-debug-clicks", String(current + 1))
+          document.body.setAttribute("data-last-mobile-click-target", (event?.target && event.target.id) || "unknown")
+        })
+      })
+      diagnostics.mobileBefore = await mobilePage.evaluate(() => ({
+        buttonRect: document.querySelector("#mobileMenuBtn")?.getBoundingClientRect().toJSON?.() || null,
+        appShellClass: document.querySelector("#appShell")?.className || "",
+        scrimClass: document.querySelector("#sidebarScrim")?.className || "",
+        buttonDisplay: getComputedStyle(document.querySelector("#mobileMenuBtn")).display,
+        buttonVisibility: getComputedStyle(document.querySelector("#mobileMenuBtn")).visibility,
+        sidebarTransform: getComputedStyle(document.querySelector("#sidebar")).transform,
+        hitTargetAtCenter: (() => {
+          const button = document.querySelector("#mobileMenuBtn")
+          if (!button) return ""
+          const rect = button.getBoundingClientRect()
+          const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+          return target instanceof HTMLElement ? `${target.tagName.toLowerCase()}#${target.id}.${target.className}` : ""
+        })()
+      }))
       await mobilePage.click("#mobileMenuBtn")
       await mobilePage.waitForFunction(() => {
         const shell = document.querySelector("#appShell")
         return Boolean(shell && shell.classList.contains("sidebar-open"))
-      }, undefined, { timeout: 10000 })
+      }, undefined, { timeout: 10_000 })
 
       await mobilePage.click("#sidebarScrim")
       await mobilePage.waitForFunction(() => {
         const shell = document.querySelector("#appShell")
         return Boolean(shell && !shell.classList.contains("sidebar-open"))
-      }, undefined, { timeout: 10000 })
+      }, undefined, { timeout: 10_000 })
 
       mobileFlowOk = true
     } catch {
       mobileFlowOk = false
+    } finally {
+      diagnostics.mobileAfter = await mobilePage.evaluate(() => ({
+        appShellClass: document.querySelector("#appShell")?.className || "",
+        scrimClass: document.querySelector("#sidebarScrim")?.className || "",
+        sidebarTransform: getComputedStyle(document.querySelector("#sidebar")).transform,
+        buttonDebugClicks: document.querySelector("#mobileMenuBtn")?.getAttribute("data-debug-clicks") || "0",
+        lastMobileClickTarget: document.body.getAttribute("data-last-mobile-click-target") || ""
+      })).catch(() => null)
     }
 
     checks.push({ name: "mobile_open_close_quick", ok: mobileFlowOk })
@@ -235,60 +276,56 @@ async function run() {
         "Em 390x844, abrir por botao e fechar por scrim com sucesso."
       ))
     }
+  }
 
-    await mobile.close()
-    await context.close()
-    await browser.close()
+  try {
+    await execute()
 
-    const report = {
-      generatedAt: new Date().toISOString(),
-      baseUrl: FRONTEND_URL,
-      checks,
-      issues,
-      summary: {
-        totalChecks: checks.length,
-        passed: checks.filter((entry) => entry.ok).length,
-        failed: checks.filter((entry) => !entry.ok).length
-      }
-    }
-
-    await fs.mkdir(path.dirname(REPORT_PATH), { recursive: true })
-    await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8")
+    const report = createReport(checks, issues, steps, { diagnostics })
+    await persistReport(report)
 
     console.log(`Runtime stress checks: ${report.summary.passed}/${report.summary.totalChecks} passed`)
     console.log(`Issues found: ${issues.length}`)
+  } catch (error) {
+    const report = createReport(
+      checks,
+      [
+        ...issues,
+        issue(
+          "Falha ao executar stress runtime.",
+          error instanceof Error ? error.message : "Erro inesperado",
+          "Verificar readiness do backend/frontend e sincronismo de eventos do frontend sob carga.",
+          "Executar npm run qa:stress-runtime e analisar logs recentes do report."
+        )
+      ],
+      steps,
+      {
+        diagnostics: {
+          ...diagnostics,
+          backendLogs: formatRecentLogs(backendRuntime?.logs, 30),
+          frontendLogs: formatRecentLogs(frontendRuntime?.logs, 30)
+        }
+      }
+    )
+
+    await persistReport(report)
+    throw error
   } finally {
-    if (frontendServer && !frontendServer.killed) {
-      frontendServer.kill()
+    if (mobile) {
+      await mobile.close().catch(() => {})
     }
-    if (backendServer && !backendServer.killed) {
-      backendServer.kill()
+    if (context) {
+      await context.close().catch(() => {})
     }
+    if (browser) {
+      await browser.close().catch(() => {})
+    }
+    await stopChildProcess(frontendRuntime?.child).catch(() => {})
+    await stopChildProcess(backendRuntime?.child).catch(() => {})
   }
 }
 
-run().catch(async (error) => {
-  const report = {
-    generatedAt: new Date().toISOString(),
-    baseUrl: FRONTEND_URL,
-    checks: [],
-    issues: [
-      issue(
-        "Falha ao executar stress runtime.",
-        error.message || "Erro inesperado",
-        "Verificar servidor local e dependencias do Playwright.",
-        "Executar npm run qa:stress-runtime e analisar logs."
-      )
-    ],
-    summary: {
-      totalChecks: 0,
-      passed: 0,
-      failed: 1
-    }
-  }
-
-  await fs.mkdir(path.dirname(REPORT_PATH), { recursive: true })
-  await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8")
+run().catch((error) => {
   console.error(error)
   process.exit(1)
 })

@@ -24,26 +24,55 @@ const PROTESTANT_SOURCE_SIGNALS = [
   "pentecostal"
 ]
 
+const THEOLOGY_DOMAIN_SIGNALS = [
+  "biblia", "bíblia", "bible", "westminster", "confession", "confissao", "confissão", "reformada",
+  "teologia", "theology", "igreja", "church", "protestant", "catecismo", "catechism",
+  "escatologia", "apocalipse", "milenio", "milênio", "arrebatamento", "angelologia", "angeologia",
+  "anjos", "doutrina", "evangelho", "cristo", "jesus", "pais da igreja", "patristica", "patrística"
+]
+
+const HISTORY_DOMAIN_SIGNALS = [
+  "arqueologia", "arquiologia", "historia", "história", "historia da igreja", "história da igreja",
+  "arqueologia biblica", "arqueologia bíblica", "moises", "moisés", "exodo", "êxodo",
+  "segundo templo", "epigrafia", "manuscrito", "inscricao", "inscrição", "levant", "egito", "mesopotamia"
+]
+
+const LANGUAGE_DOMAIN_SIGNALS = [
+  "hebraico", "hebrew", "grego", "greek", "aramaico", "aramaic", "lexico", "léxico", "koine"
+]
+
+const DEVELOPER_DOMAIN_SIGNALS = [
+  "codigo", "código", "bug", "erro", "api", "sql", "react", "node", "typescript", "python", "deploy"
+]
+
+function normalizePromptText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function containsAnyNormalizedSignal(text = "", signals = []) {
+  const normalizedText = normalizePromptText(text)
+  return signals.some(signal => normalizedText.includes(normalizePromptText(signal)))
+}
+
 function detectPromptDomains(task = "") {
-  const text = String(task || "").toLowerCase()
   const domains = new Set()
 
-  if ([
-    "biblia", "bíblia", "bible", "westminster", "confession", "confissao", "confissão", "reformada",
-    "teologia", "theology", "igreja", "church", "protestant", "catecismo", "catechism"
-  ].some(signal => text.includes(signal))) {
+  if (containsAnyNormalizedSignal(task, THEOLOGY_DOMAIN_SIGNALS)) {
     domains.add("theology")
   }
 
-  if ([
-    "hebraico", "hebrew", "grego", "greek", "aramaico", "aramaic", "lexico", "léxico", "koine"
-  ].some(signal => text.includes(signal))) {
+  if (containsAnyNormalizedSignal(task, HISTORY_DOMAIN_SIGNALS)) {
+    domains.add("history")
+  }
+
+  if (containsAnyNormalizedSignal(task, LANGUAGE_DOMAIN_SIGNALS)) {
     domains.add("languages")
   }
 
-  if ([
-    "codigo", "código", "bug", "erro", "api", "sql", "react", "node", "typescript", "python", "deploy"
-  ].some(signal => text.includes(signal))) {
+  if (containsAnyNormalizedSignal(task, DEVELOPER_DOMAIN_SIGNALS)) {
     domains.add("developer")
   }
 
@@ -51,8 +80,7 @@ function detectPromptDomains(task = "") {
 }
 
 function detectProtestantFocus(task = "") {
-  const text = String(task || "").toLowerCase()
-  return PROTESTANT_TEXT_SIGNALS.some(signal => text.includes(signal))
+  return containsAnyNormalizedSignal(task, PROTESTANT_TEXT_SIGNALS)
 }
 
 function getKnowledgeCategories(item = {}) {
@@ -99,6 +127,9 @@ function knowledgeMatchesPromptDomains(item, domains, options = {}) {
     "bible", "tanakh", "theology", "theology_protestant", "church_history",
     "biblical_history", "biblical_archaeology", "judaism", "creeds_confessions"
   ].includes(category))
+  const hasHistory = Array.from(categories).some(category => [
+    "church_history", "biblical_history", "biblical_archaeology", "history_archaeology", "archaeology"
+  ].includes(category))
   const hasLanguages = Array.from(categories).some(category => [
     "languages", "hebrew", "aramaic", "greek", "biblical_hebrew"
   ].includes(category))
@@ -107,7 +138,9 @@ function knowledgeMatchesPromptDomains(item, domains, options = {}) {
   ].includes(category))
 
   if (domains.has("developer")) return hasDeveloper
+  if (domains.has("history") && domains.has("theology")) return hasHistory || hasTheology || hasLanguages
   if (domains.has("languages") && domains.has("theology")) return hasLanguages || hasTheology
+  if (domains.has("history")) return hasHistory || hasTheology
   if (domains.has("languages")) return hasLanguages
   if (domains.has("theology")) {
     if (strictProtestant) {
@@ -174,6 +207,7 @@ export async function buildAssistantPromptContext(task, context = {}, options = 
   /** @type {PromptBuilderMemoryContext} */
   const memoryContext = await grootMemoryConnector.getContextForPrompt(userId, {
     limit,
+    sessionId: context.sessionId || null,
     activeModules: requestedModules,
     bibleStudyModules: requestedBibleStudyModules,
     conversationHistory: Array.isArray(context.conversationHistory) ? context.conversationHistory : []

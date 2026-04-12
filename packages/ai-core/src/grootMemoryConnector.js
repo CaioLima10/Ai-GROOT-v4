@@ -30,7 +30,10 @@ const CONTEXT_STOPWORDS = new Set([
   "muito", "muita", "muitas", "muitos", "hoje", "amanha", "amanhã", "agora", "depois", "antes",
   "ja", "já", "ainda", "tambem", "também", "me", "te", "se", "eu", "voce", "você", "ele", "ela",
   "eles", "elas", "meu", "minha", "meus", "minhas", "seu", "sua", "seus", "suas", "nosso", "nossa",
-  "nossos", "nossas", "resposta", "respostas", "giom"
+  "nossos", "nossas", "resposta", "respostas", "giom", "assunto", "tema", "topico", "topicos",
+  "tópico", "tópicos", "ponto", "pontos", "trecho", "texto", "livro", "passagem", "versiculo",
+  "versículo", "continue", "continua", "continuando", "retoma", "retomando", "volta", "voltando",
+  "resuma", "resumir", "explique", "explica"
 ])
 
 const CONVERSATION_INTENT_PATTERNS = [
@@ -49,11 +52,21 @@ const CONVERSATION_DOMAIN_PATTERNS = [
   { label: "codigo", regex: /\b(codigo|código|api|node|next|erro|bug|deploy|teste|prompt)\b/i }
 ]
 
+const CONVERSATION_REFERENCE_PATTERNS = [
+  /\b(continue|continua|continuando|retome|retoma|retomando|volta|voltando|mesmo assunto|mesmo tema|mesmo contexto|sem mudar de assunto)\b/i,
+  /\b(isso|isto|esse ponto|essa parte|esse assunto|esse tema|essa ideia|essa resposta|esse texto|esse trecho|esse livro|essa passagem|sobre isso|sobre esse ponto|sobre esse assunto|nisso|neste ponto|nesse caso|depois disso)\b/i,
+  /\b(e quanto a isso|e no caso disso|nessa linha|nesse sentido)\b/i
+]
+
+const EXPLICIT_TOPIC_SHIFT_PATTERNS = [
+  /\b(mudando de assunto|mudar de assunto|outro assunto|novo assunto|nova pergunta|agora outra coisa|agora outro tema|agora falando de outra coisa|trocando de assunto)\b/i
+]
+
 const FACT_PATTERNS = [
   {
     key: "name",
     label: "Nome",
-    regex: /(?:^|[.!?,]\s*|\se\s+)meu nome (?:e|é)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40})(?=[,.!?]|$)/i
+    regex: /(?:^|[.!?,]\s*)meu nome (?:e|é)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40}?)(?=\s+e\s+(?:eu|estou|estamos|quero|prefiro|trabalho|atuo|minha|pode|costumo|uso)\b|[,.!?]|$)/i
   },
   {
     key: "workDomain",
@@ -73,7 +86,7 @@ const FACT_PATTERNS = [
   {
     key: "preferredName",
     label: "Como chamar",
-    regex: /(?:^|[.!?,]\s*|\se\s+)(?:pode me chamar de|me chame de|quero que me chame de)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40})(?=[,.!?]|$)/i
+    regex: /(?:^|[.!?,]\s*)(?:pode me chamar de|me chame de|quero que me chame de)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40}?)(?=\s+e\s+(?:eu|estou|estamos|quero|prefiro|trabalho|atuo|minha|pode|costumo|uso)\b|[,.!?]|$)/i
   },
   {
     key: "bibleVersion",
@@ -83,23 +96,28 @@ const FACT_PATTERNS = [
   {
     key: "currentGoal",
     label: "Objetivo atual",
-    regex: /(?:^|[.!?,]\s*|\se\s+)(?:estou estudando|estou aprendendo|quero estudar|quero aprender)\s+([^.,\n]{3,80}?)(?=[.,\n]|$)/i
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:estou estudando|estamos estudando|estou aprendendo|estamos aprendendo|quero estudar|quero aprender|estou tratando de|estamos tratando de|estou falando de|estamos falando de|minha prioridade e|minha prioridade é|meu foco atual e|meu foco atual é)\s+([^.,\n]{3,80}?)(?=[.,\n]|$)/i
   }
 ]
 
 const SUSPICIOUS_FACT_VALUE_PATTERNS = [
+  /^\s*(?:qual|quem|onde|quando|como|porque|por que|o que|quais|me diga|diga|responda|continue|explique)\b/i,
   /\bagora diga\b/i,
   /\bqual (?:e|é)\b/i,
   /\bcomo prefiro\b/i,
   /\buma unica frase\b/i,
   /\buma única frase\b/i,
-  /\blembra\b/i
+  /\blembra\b/i,
+  /\?/
 ]
+
+const FACT_KEYS = FACT_PATTERNS.map(({ key }) => key)
 
 function normalizeHistoryOptions(limitOrOptions = 10, maybeOptions = {}) {
   if (typeof limitOrOptions === "object" && limitOrOptions !== null) {
     return {
       limit: Number(limitOrOptions.limit || 10),
+      sessionId: limitOrOptions.sessionId ? String(limitOrOptions.sessionId) : null,
       activeModules: Array.isArray(limitOrOptions.activeModules) ? limitOrOptions.activeModules : [],
       bibleStudyModules: Array.isArray(limitOrOptions.bibleStudyModules) ? limitOrOptions.bibleStudyModules : []
     }
@@ -107,6 +125,7 @@ function normalizeHistoryOptions(limitOrOptions = 10, maybeOptions = {}) {
 
   return {
     limit: Number(limitOrOptions || 10),
+    sessionId: maybeOptions.sessionId ? String(maybeOptions.sessionId) : null,
     activeModules: Array.isArray(maybeOptions.activeModules) ? maybeOptions.activeModules : [],
     bibleStudyModules: Array.isArray(maybeOptions.bibleStudyModules) ? maybeOptions.bibleStudyModules : []
   }
@@ -128,6 +147,13 @@ function matchesSelections(metadata = {}, activeModules = [], bibleStudyModules 
   }
 
   return recordBibleModules.length === 0 || recordBibleModules.some(moduleId => bibleStudyModules.includes(moduleId))
+}
+
+function matchesSession(metadata = {}, sessionId = null) {
+  if (!sessionId) return true
+
+  const recordSessionId = String(metadata?.session_id || metadata?.sessionId || "").trim()
+  return recordSessionId === String(sessionId).trim()
 }
 
 function buildConversationMetadata(metadata = {}) {
@@ -206,9 +232,43 @@ function sanitizeKnownFacts(facts = {}) {
       return acc
     }
 
+    if (
+      (key === "name" || key === "preferredName")
+      && normalizedValue.split(/\s+/).filter(Boolean).length > 4
+    ) {
+      return acc
+    }
+
     acc[key] = normalizedValue
     return acc
   }, {})
+}
+
+function normalizeProfilePreferences(preferences = {}) {
+  const sanitizedPreferences = sanitizeProfilePreferences(preferences)
+  const knownFacts = sanitizedPreferences?.knownFacts && typeof sanitizedPreferences.knownFacts === "object"
+    ? sanitizedPreferences.knownFacts
+    : {}
+  const topLevelFacts = FACT_KEYS.reduce((acc, key) => {
+    if (typeof sanitizedPreferences?.[key] === "string" && sanitizedPreferences[key].trim()) {
+      acc[key] = sanitizedPreferences[key]
+    }
+    return acc
+  }, {})
+  const normalizedPreferences = {
+    ...sanitizedPreferences,
+    knownFacts: mergeKnownFacts(knownFacts, topLevelFacts)
+  }
+
+  FACT_KEYS.forEach((key) => {
+    delete normalizedPreferences[key]
+  })
+
+  if (Object.keys(normalizedPreferences.knownFacts || {}).length === 0) {
+    delete normalizedPreferences.knownFacts
+  }
+
+  return normalizedPreferences
 }
 
 function extractFactsFromText(text = "") {
@@ -273,6 +333,35 @@ function detectConversationDomains(text = "") {
     .map(pattern => pattern.label)
 }
 
+function detectConversationReferenceSignals(text = "") {
+  const input = String(text || "")
+
+  return uniqueValues(
+    CONVERSATION_REFERENCE_PATTERNS
+      .map(pattern => input.match(pattern)?.[0] || "")
+      .map(match => String(match || "").toLowerCase().trim())
+      .filter(Boolean)
+  )
+}
+
+function detectExplicitTopicShift(text = "") {
+  const input = String(text || "")
+  return EXPLICIT_TOPIC_SHIFT_PATTERNS.some(pattern => pattern.test(input))
+}
+
+function describeConversationMode(mode = "new_topic") {
+  switch (mode) {
+    case "follow_up":
+      return "continuidade real"
+    case "topic_shift":
+      return "mudanca de assunto"
+    case "new_topic":
+      return "novo topico"
+    default:
+      return "inicio de conversa"
+  }
+}
+
 function truncateSummaryText(text = "", maxLength = 140) {
   const normalized = String(text || "").replace(/\s+/g, " ").trim()
   if (normalized.length <= maxLength) {
@@ -328,6 +417,129 @@ function summarizeLearningPatterns(patterns = []) {
     })
     .filter(Boolean)
     .join(" | ")
+}
+
+function resolveConversationFocus(latestMessage = "", priorMessages = [], knownFacts = {}) {
+  const safeFacts = sanitizeKnownFacts(knownFacts)
+  const referenceSignals = detectConversationReferenceSignals(latestMessage)
+
+  if (referenceSignals.length > 0) {
+    if (safeFacts.currentGoal) return safeFacts.currentGoal
+    if (safeFacts.workDomain) return safeFacts.workDomain
+  }
+
+  const messages = [latestMessage, ...priorMessages.slice().reverse()]
+  for (const message of messages) {
+    const extractedFacts = extractFactsFromText(message)
+    if (extractedFacts.currentGoal) {
+      return extractedFacts.currentGoal
+    }
+  }
+
+  const candidate = priorMessages
+    .slice()
+    .reverse()
+    .map(message => truncateSummaryText(message, 96))
+    .find(Boolean)
+
+  if (candidate) {
+    return candidate
+  }
+
+  const latestTopics = extractTopicKeywords(latestMessage, 4)
+  return latestTopics.join(", ")
+}
+
+function buildConversationState(history = [], knownFacts = {}) {
+  const recentUserMessages = Array.isArray(history)
+    ? history
+      .filter(entry => entry?.role === "user")
+      .map(entry => String(entry.content || "").trim())
+      .filter(Boolean)
+      .slice(-6)
+    : []
+
+  if (recentUserMessages.length === 0) {
+    return {
+      mode: "new_conversation",
+      latestIntent: "",
+      latestDomains: [],
+      latestTopics: [],
+      priorTopics: [],
+      referenceSignals: [],
+      explicitTopicShift: false,
+      resolvedFocus: "",
+      summary: "Estado conversacional: inicio de conversa"
+    }
+  }
+
+  const latestMessage = recentUserMessages[recentUserMessages.length - 1] || ""
+  const priorMessages = recentUserMessages.slice(0, -1)
+  const latestTopics = uniqueValues(extractTopicKeywords(latestMessage, 6)).slice(0, 6)
+  const priorTopics = uniqueValues(
+    priorMessages.flatMap(message => extractTopicKeywords(message, 5))
+  ).slice(0, 8)
+  const latestIntent = detectConversationIntent(latestMessage)
+  const latestDomains = uniqueValues(detectConversationDomains(latestMessage)).slice(0, 3)
+  const priorDomains = uniqueValues(priorMessages.flatMap(message => detectConversationDomains(message))).slice(0, 3)
+  const referenceSignals = detectConversationReferenceSignals(latestMessage)
+  const explicitTopicShift = detectExplicitTopicShift(latestMessage)
+  const overlappingTopics = latestTopics.filter(topic => priorTopics.includes(topic))
+  const overlappingDomains = latestDomains.filter(domain => priorDomains.includes(domain))
+
+  const isFollowUp = priorMessages.length > 0 && (
+    referenceSignals.length > 0
+    || latestIntent === "acompanhamento continuo"
+    || overlappingTopics.length > 0
+  )
+
+  const isTopicShift = priorMessages.length > 0 && (
+    explicitTopicShift
+    || (
+      referenceSignals.length === 0
+      && latestTopics.length >= 2
+      && overlappingTopics.length === 0
+      && latestDomains.length > 0
+      && priorDomains.length > 0
+      && overlappingDomains.length === 0
+    )
+  )
+
+  const mode = priorMessages.length === 0
+    ? "new_conversation"
+    : (isTopicShift ? "topic_shift" : (isFollowUp ? "follow_up" : "new_topic"))
+  const resolvedFocus = resolveConversationFocus(latestMessage, priorMessages, knownFacts)
+  const summaryParts = [`Estado conversacional: ${describeConversationMode(mode)}`]
+
+  if (resolvedFocus) {
+    summaryParts.push(`Foco resolvido: ${truncateSummaryText(resolvedFocus, 120)}`)
+  }
+
+  if (latestDomains.length > 0) {
+    summaryParts.push(`Dominio atual: ${latestDomains.join(", ")}`)
+  }
+
+  if (referenceSignals.length > 0) {
+    summaryParts.push(`Referencias detectadas: ${referenceSignals.join(", ")}`)
+  }
+
+  if (priorTopics.length > 0 && mode === "topic_shift") {
+    summaryParts.push(`Tema anterior: ${priorTopics.slice(0, 4).join(", ")}`)
+  }
+
+  summaryParts.push(`Ultimo turno: ${truncateSummaryText(latestMessage, 120)}`)
+
+  return {
+    mode,
+    latestIntent,
+    latestDomains,
+    latestTopics,
+    priorTopics,
+    referenceSignals,
+    explicitTopicShift,
+    resolvedFocus,
+    summary: summaryParts.join(" | ")
+  }
 }
 
 export class GrootMemoryConnector {
@@ -418,15 +630,22 @@ export class GrootMemoryConnector {
         ? Math.max(options.limit * 5, 30)
         : options.limit
 
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from("conversations")
         .select("*")
         .eq("user_id", userId)
+
+      if (options.sessionId) {
+        query = query.eq("metadata->>session_id", String(options.sessionId))
+      }
+
+      const { data, error } = await query
         .order("created_at", { ascending: false })
         .limit(fetchLimit)
 
       if (error) throw error
       return (data || [])
+        .filter(entry => matchesSession(entry.metadata, options.sessionId))
         .filter(entry => matchesSelections(entry.metadata, options.activeModules, options.bibleStudyModules))
         .slice(0, options.limit)
         .reverse()
@@ -438,7 +657,7 @@ export class GrootMemoryConnector {
   }
 
   async updateUserProfile(userId, preferences) {
-    const safePreferences = sanitizeProfilePreferences(preferences)
+    const safePreferences = normalizeProfilePreferences(preferences)
 
     if (!this.isConnected || !this.supabase) {
       console.warn("⚠️ Supabase não conectado - usando fallback local")
@@ -461,7 +680,7 @@ export class GrootMemoryConnector {
       console.log("✅ Perfil atualizado na Supabase")
       return {
         ...data[0],
-        preferences: sanitizeProfilePreferences(data?.[0]?.preferences || {})
+        preferences: normalizeProfilePreferences(data?.[0]?.preferences || {})
       }
     } catch (error) {
       console.error("❌ Erro ao atualizar perfil:", error)
@@ -489,7 +708,7 @@ export class GrootMemoryConnector {
 
       return {
         ...data,
-        preferences: sanitizeProfilePreferences(data.preferences || {})
+        preferences: normalizeProfilePreferences(data.preferences || {})
       }
     } catch (error) {
       console.error("❌ Erro ao buscar perfil:", error)
@@ -673,6 +892,7 @@ export class GrootMemoryConnector {
     const data = this.localMemory.get(storageKey) || []
 
     return data
+      .filter(entry => matchesSession(entry.metadata, options.sessionId))
       .filter(entry => matchesSelections(entry.metadata, options.activeModules, options.bibleStudyModules))
       .slice(-options.limit)
       .map(item => sanitizeConversationRow(item))
@@ -681,15 +901,16 @@ export class GrootMemoryConnector {
   updateLocalProfile(userId, preferences) {
     const storageKey = `groot_profile_${userId}`
     const existing = this.localMemory.get(storageKey) || {}
+    const safePreferences = normalizeProfilePreferences(preferences)
 
     this.localMemory.set(storageKey, {
       ...existing,
-      preferences: sanitizeProfilePreferences(preferences),
+      preferences: safePreferences,
       updated_at: new Date().toISOString()
     })
 
     console.log("✅ Perfil atualizado localmente (fallback)")
-    return { preferences: sanitizeProfilePreferences(preferences) }
+    return { preferences: safePreferences }
   }
 
   getLocalProfile(userId) {
@@ -701,7 +922,7 @@ export class GrootMemoryConnector {
 
     return {
       ...data,
-      preferences: sanitizeProfilePreferences(data.preferences || {})
+      preferences: normalizeProfilePreferences(data.preferences || {})
     }
   }
 
@@ -780,6 +1001,7 @@ export class GrootMemoryConnector {
       const [history, profile, summary, patterns] = await Promise.all([
         this.getRecentHistory(userId, {
           limit: historyLimit,
+          sessionId: options.sessionId || null,
           activeModules: options.activeModules || [],
           bibleStudyModules: options.bibleStudyModules || []
         }),
@@ -797,6 +1019,7 @@ export class GrootMemoryConnector {
         (profile?.preferences && typeof profile.preferences.knownFacts === "object") ? sanitizeKnownFacts(profile.preferences.knownFacts) : {},
         extractKnownFactsFromHistory(mergedTurns)
       )
+      const conversationState = buildConversationState(mergedTurns, knownFacts)
 
       return {
         history: history.map(item => ({
@@ -808,6 +1031,7 @@ export class GrootMemoryConnector {
         recentConversationText: buildRecentConversationText(mergedTurns, Math.max(historyLimit, 8)),
         userProfile: profile.preferences,
         contextSummary: this.generateContextSummary(history, options, mergedTurns),
+        conversationState,
         learningSummary: summarizeLearningPatterns(patterns),
         learningPatterns: patterns,
         knownFacts,
@@ -822,6 +1046,17 @@ export class GrootMemoryConnector {
         recentConversationText: "",
         userProfile: { style: "natural" },
         contextSummary: "Início de conversa",
+        conversationState: {
+          mode: "new_conversation",
+          latestIntent: "",
+          latestDomains: [],
+          latestTopics: [],
+          priorTopics: [],
+          referenceSignals: [],
+          explicitTopicShift: false,
+          resolvedFocus: "",
+          summary: "Estado conversacional: inicio de conversa"
+        },
         knownFacts: {},
         knownFactsText: "",
         summary: ""

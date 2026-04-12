@@ -50,10 +50,10 @@ npm run dev
 
 Isso sobe backend + frontend novo:
 
-- Frontend: <http://localhost:3001>
-- Backend API: <http://localhost:3000>
+- Frontend: <http://localhost:3003>
+- Backend API: <http://localhost:3001>
 
-Acesse o chat em <http://localhost:3001>.
+Acesse o chat em <http://localhost:3003>.
 
 ### Scripts Úteis
 
@@ -82,6 +82,7 @@ npm run electron
 - Estrutura, portas e conexões: `docs/PROJECT-STRUCTURE-PORTS.md`
 - Playbook interno de bugs: `docs/INTERNAL-BUG-PLAYBOOK.md`
 - Operação diária e runbook: `docs/OPERATIONS-GIOM.md`
+- Roadmap oficial de evolução para "IA de verdade": `docs/AI-IMPLEMENTATION-ROADMAP.md`
 
 ## 🏗️ Estrutura do Projeto
 
@@ -108,7 +109,7 @@ Ai-GROOT/
 ## 🔍 Fluxo de Funcionamento
 
 1. Usuário digita pergunta na interface
-2. Frontend Next envia requisições para `/backend/*` (rewrite para API em `localhost:3000`)
+2. Frontend Next envia requisições para `/backend/*` (rewrite para API em `localhost:3001`)
 3. Backend em `apps/api/src/server.js` valida e processa a requisição
 4. aiBrain.js formata o prompt com contexto
 5. multiAI.js envia para API Groq com retry automático

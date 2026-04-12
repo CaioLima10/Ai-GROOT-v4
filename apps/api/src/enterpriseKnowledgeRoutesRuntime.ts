@@ -13,6 +13,7 @@ type GrootAdvancedRagLike = {
 type EnterpriseKnowledgeRouteDeps = {
   grootAdvancedRAG: GrootAdvancedRagLike
   AI_KNOWLEDGE_SERVICE_SLUG: string
+  listBibleLearningTracks: () => unknown
   listBibleStudyModules: () => unknown
 }
 
@@ -24,8 +25,24 @@ export function registerEnterpriseKnowledgeRoutes(app: Express, deps: Enterprise
   const {
     grootAdvancedRAG,
     AI_KNOWLEDGE_SERVICE_SLUG,
+    listBibleLearningTracks,
     listBibleStudyModules
   } = deps
+
+  app.get("/knowledge/curriculum", (_req, res) => {
+    try {
+      res.json({
+        service: AI_KNOWLEDGE_SERVICE_SLUG,
+        tracks: listBibleLearningTracks(),
+        bibleStudyModules: listBibleStudyModules()
+      })
+    } catch (error) {
+      res.status(500).json({
+        error: "Falha ao obter curriculo biblico",
+        details: process.env.NODE_ENV === "development" ? getErrorMessage(error) : undefined
+      })
+    }
+  })
 
   app.get("/knowledge/status", async (_req, res) => {
     try {
@@ -33,6 +50,7 @@ export function registerEnterpriseKnowledgeRoutes(app: Express, deps: Enterprise
       res.json({
         service: AI_KNOWLEDGE_SERVICE_SLUG,
         stats,
+        bibleLearningTracks: listBibleLearningTracks(),
         bibleStudyModules: listBibleStudyModules()
       })
     } catch (error) {

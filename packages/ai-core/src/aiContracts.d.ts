@@ -88,9 +88,24 @@ export interface PromptBuilderRuntimeContext extends GIOMAskContext {
 
 export interface PromptBuilderKnownFacts {
   name?: string;
+  preferredName?: string;
   workDomain?: string;
   responseStyle?: string;
   role?: string;
+  bibleVersion?: string;
+  currentGoal?: string;
+}
+
+export interface PromptBuilderConversationState {
+  mode?: "new_conversation" | "follow_up" | "topic_shift" | "new_topic";
+  summary?: string;
+  resolvedFocus?: string;
+  latestIntent?: string;
+  latestDomains?: string[];
+  latestTopics?: string[];
+  priorTopics?: string[];
+  referenceSignals?: string[];
+  explicitTopicShift?: boolean;
 }
 
 export interface PromptBuilderUserProfile extends Record<string, unknown> {
@@ -107,6 +122,7 @@ export interface PromptBuilderUserProfile extends Record<string, unknown> {
 
 export interface PromptBuilderMemoryContext extends Record<string, unknown> {
   contextSummary?: string;
+  conversationState?: PromptBuilderConversationState;
   recentConversationText?: string;
   knownFactsText?: string;
   knownFacts?: PromptBuilderKnownFacts;

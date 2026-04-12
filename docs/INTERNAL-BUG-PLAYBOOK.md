@@ -8,9 +8,9 @@ Guia prático para reproduzir, diagnosticar e resolver os incidentes mais comuns
 
 Sempre validar no caminho canônico:
 
-- Frontend: `http://localhost:3001`
+- Frontend: `http://localhost:3003`
 - API via proxy: `/backend/*`
-- Backend real: `http://localhost:3000`
+- Backend real: `http://localhost:3001`
 
 Rodar antes de qualquer hipótese longa:
 
@@ -58,19 +58,19 @@ Rodar antes de qualquer hipótese longa:
 
 1. Verificar se frontend está chamando `/backend/...` e não URL direta errada.
 2. Confirmar rewrite em `apps/web-next/next.config.ts`.
-3. Confirmar backend escutando porta 3000.
+3. Confirmar backend escutando porta 3001.
 4. Revisar CORS apenas quando houver acesso cross-origin real.
 
 ### Causas comuns (Incidente B)
 
 - Backend parado.
-- Porta trocada (`3000`/`3001`) ou rewrite incorreto.
+- Porta trocada (`3001`/`3003`/`3004`) ou rewrite incorreto.
 - Falha TLS/proxy local.
 
 ### Correção padrão (Incidente B)
 
 1. Reiniciar `npm run dev`.
-2. Corrigir rewrite para `http://localhost:3000/:path*`.
+2. Corrigir rewrite para `http://localhost:3001/:path*`.
 3. Evitar fallback direto para backend no browser, salvo flag explícita.
 
 ---

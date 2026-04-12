@@ -314,6 +314,57 @@ function buildKnownFactsSummary(memoryContext = {}) {
   return lines.join(" | ")
 }
 
+function describeConversationMode(mode = "new_conversation") {
+  switch (mode) {
+    case "follow_up":
+      return "follow-up com continuidade real"
+    case "topic_shift":
+      return "mudanca clara de assunto"
+    case "new_topic":
+      return "novo topico dentro da conversa"
+    default:
+      return "inicio de conversa"
+  }
+}
+
+function buildConversationContinuitySection(memoryContext = {}) {
+  const state = memoryContext?.conversationState
+  if (!state || typeof state !== "object") {
+    return ""
+  }
+
+  const lines = [
+    "CONTINUIDADE CONVERSACIONAL:",
+    `- Estado atual: ${describeConversationMode(String(state.mode || "new_conversation"))}.`
+  ]
+
+  if (state.resolvedFocus) {
+    lines.push(`- Foco resolvido para este turno: ${String(state.resolvedFocus).trim()}.`)
+  }
+
+  if (Array.isArray(state.referenceSignals) && state.referenceSignals.length > 0) {
+    lines.push(`- Referencias implicitas detectadas: ${state.referenceSignals.join(", ")}.`)
+  }
+
+  if (Array.isArray(state.latestDomains) && state.latestDomains.length > 0) {
+    lines.push(`- Dominio atual: ${state.latestDomains.join(", ")}.`)
+  }
+
+  if (Array.isArray(state.priorTopics) && state.priorTopics.length > 0) {
+    lines.push(`- Topico anterior util: ${state.priorTopics.slice(0, 4).join(", ")}.`)
+  }
+
+  if (state.summary) {
+    lines.push(`- Resumo operacional: ${String(state.summary).trim()}.`)
+  }
+
+  lines.push("- Se o estado indicar follow-up, resolva pronomes, elipses e referencias curtas usando o historico recente antes de pedir clarificacao.")
+  lines.push("- Se o estado indicar mudanca de assunto, abandone o foco anterior com naturalidade e responda ao novo tema sem arrastar contexto velho.")
+  lines.push("- Se houver foco resolvido e o usuario nao o substituir explicitamente, trate esse foco como ancora primaria da resposta atual.")
+
+  return `\n${lines.join("\n")}`
+}
+
 function buildWeatherAndLocationReasoningSection() {
   return [
     "CLIMA, LOCALIDADES E CONTINUIDADE:",
@@ -535,6 +586,7 @@ export function buildAssistantPrompt({ task = "", context = {}, memoryContext = 
   const recentConversation = memoryContext?.recentConversationText
     ? `Trecho recente da conversa:\n${memoryContext.recentConversationText}`
     : "Sem trecho recente adicional da conversa."
+  const conversationContinuitySection = buildConversationContinuitySection(memoryContext)
   const knownFactsSummary = buildKnownFactsSummary(memoryContext)
   const learnedSummary = buildLearningSummary(memoryContext)
 
@@ -590,11 +642,13 @@ IDENTIDADE E TOM:
 - Descricao: ${profile.summary}
 - Tom base: ${profile.tone}
 - Seja genuino, fluido e tecnicamente forte. Soe como um especialista real: seguro no que sabe, honesto no que nao sabe.
+- Use portugues profissional, limpo e conversativo por padrao. So acompanhe giria ou informalidade se o usuario puxar claramente esse registro.
 - Adapte energia, ritmo e profundidade ao contexto e ao tom que o usuario trouxer.
 - Nao abra com autoapresentacao. Tambem nao comece resposta com "Claro!", "Certamente!", "Otima pergunta!", "Com prazer!" ou "Excelente!".
 - Nunca encerre com formulas vazias: sem "Estou aqui se precisar", "Fico a disposicao", "Qualquer duvida e so perguntar".
 - Uma resposta curta e precisa vale mais do que um bloco longo e generico.
 - Varie a estrutura: paragrafo fluido, lista, codigo ou misto - escolha o que comunica melhor, nao o que parece mais completo.
+- Faça transicoes curtas e naturais entre contexto, resposta e proximo passo quando isso ajudar a leitura.
 - Reconheca o estado emocional do usuario quando ele existir. Nao force empatia artificial, mas nao ignore o que a pessoa esta sentindo.
 - Em conversa continua, trate o historico como real. Nao recomece o relacionamento a cada turno, nao se apresente de novo, nao recontextualize o que ja e sabido.
 - Deixe assuntos dificeis ficar acessiveis sem infantilizar. Se o usuario pedir profundidade, entregue substancia, nao so volume.
@@ -634,6 +688,7 @@ ${researchCapabilities.lines.map(item => `- ${item}`).join("\n")}
   - ${memorySummary}
   - ${knownFactsSummary ? `Fatos explicitos do usuario aprendidos: ${knownFactsSummary}.` : "Sem fatos explicitos do usuario confirmados ainda."}
   - ${recentConversation}
+${conversationContinuitySection}
   - ${learnedSummary}
   - ${ragSummary}
 ${ragEvidenceSection}
@@ -657,6 +712,9 @@ REGRAS DE SAIDA:
 - Respostas de 1 a 3 sentencas sao totalmente validas quando o contexto nao pede mais.
 - Se o usuario for casual, responda casual. Se for tecnico, va tecnico. Se vier com emocao, reconheca antes de responder.
 - Em conversa comum, prefira ritmo humano: frases naturais, menos estrutura artificial e transicoes fluidas.
+- Resolva referencias implicitas como "isso", "esse ponto", "essa passagem", "esse texto", "esse livro" e "depois disso" pelo historico recente quando houver base suficiente.
+- Se o usuario mudar claramente de assunto, acompanhe a virada com naturalidade e responda ao novo foco sem reaproveitar contexto antigo por inercia.
+- Se a pergunta trouxer referencias extras, notas coladas, trechos citados ou objetos mencionados indiretamente, ancore a resposta no referente valido mais recente antes de expandir.
 - Antes de listar topicos, considere se uma resposta direta em texto corrido comunica melhor.
 - Se a intencao do usuario estiver ambigua, faca uma pergunta curta de clarificacao antes de assumir um caminho.
 - Quando um card visual fizer claramente mais sentido do que texto corrido, voce pode responder com JSON puro e nada alem do JSON.

@@ -706,6 +706,36 @@ function buildPromptDocument(value: string): PromptDocumentSection[] {
   return sections;
 }
 
+function buildReadableSnippet(value: unknown, limit = 180) {
+  const cleaned = cleanPlainText(String(value ?? "")).replace(/\s+/g, " ").trim();
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned.length > limit ? `${cleaned.slice(0, limit).trim()}...` : cleaned;
+}
+
+function buildDocumentSummaryText(doc: { title?: string; sections?: Array<{ body?: string }> }) {
+  const title = cleanPlainText(String(doc?.title || "Documento GIOM"));
+  const primarySection = Array.isArray(doc?.sections)
+    ? doc.sections.find((section) => buildReadableSnippet(section?.body || "", 220))
+    : null;
+  const preview = buildReadableSnippet(primarySection?.body || "", 220);
+  return preview ? `Arquivo pronto: ${title}. ${preview}` : `Arquivo pronto: ${title}.`;
+}
+
+function buildTableSummaryText(content: TableContent) {
+  const columnLabel = content.columns.filter(Boolean).join(", ");
+  const rowCount = content.rows.length;
+  if (!rowCount) {
+    return columnLabel ? `Tabela pronta com as colunas ${columnLabel}.` : "Tabela pronta para preenchimento.";
+  }
+
+  return columnLabel
+    ? `Tabela pronta com ${rowCount} ${rowCount === 1 ? "linha" : "linhas"} e colunas ${columnLabel}.`
+    : `Tabela pronta com ${rowCount} ${rowCount === 1 ? "linha" : "linhas"}.`;
+}
+
 function formatLanguageLabel(language = "") {
   const normalized = String(language || "text").trim().toLowerCase();
   if (!normalized) return "Texto";
@@ -793,12 +823,13 @@ export function DocumentBlock({ message, onCopy, onEdit }: MessageRendererProps)
     : (message.content as { title?: string; sections?: Array<{ heading?: string; body?: string }> });
 
   const plain = JSON.stringify(doc, null, 2);
+  const documentSummary = buildDocumentSummaryText(doc);
 
   const [previewOpen, setPreviewOpen] = useState(false);
 
   return (
     <BlockFrame
-      title="Documento"
+      title="Arquivo pronto"
       icon={<IconDocument />}
       onCopy={onCopy ? () => onCopy(plain) : undefined}
       onEdit={onEdit ? () => onEdit(plain) : undefined}
@@ -834,10 +865,10 @@ export function DocumentBlock({ message, onCopy, onEdit }: MessageRendererProps)
         </button>
       }
     >
-      <h3 className={styles.documentTitle}>{doc.title || "Documento GIOM"}</h3>
+      <p className={styles.text}>{documentSummary}</p>
       {(doc.sections || []).map((section, index) => (
         <article key={`${message.id}-section-${index}`} className={styles.documentSection}>
-          <h4>{cleanPlainText(section.heading || `Secao ${index + 1}`)}</h4>
+          <h4>{cleanPlainText(section.heading || `Parte ${index + 1}`)}</h4>
           <p>{cleanPlainText(section.body || "")}</p>
         </article>
       ))}
@@ -857,12 +888,12 @@ export function PromptBlock({ message, onCopy, onEdit }: MessageRendererProps) {
       <header className={styles.promptShellHeader}>
         <span className={styles.promptShellTitle}>
           <IconPrompt />
-          PROMPT PRONTO (COPIA E COLA)
+          Prompt pronto
         </span>
       </header>
       <article className={styles.promptCard}>
         <div className={styles.promptTopBar}>
-          <small className={styles.promptEyebrow}>Escrita</small>
+          <small className={styles.promptEyebrow}>Copie, ajuste e siga daqui</small>
           {onCopy && (
             <button
               type="button"
@@ -876,6 +907,7 @@ export function PromptBlock({ message, onCopy, onEdit }: MessageRendererProps) {
             </button>
           )}
         </div>
+        <p className={styles.text}>Use este prompt como base para manter a continuidade da conversa.</p>
         <div className={styles.promptDocument}>
           {promptSections.map((section, sectionIndex) => (
             <section key={`${message.id}-prompt-section-${sectionIndex}`} className={styles.promptSection}>
@@ -997,6 +1029,7 @@ export function TableBlock({ message, onCopy, onEdit }: MessageRendererProps) {
       rows: Array.isArray(value.rows) ? value.rows : []
     } as TableContent;
   }, [message.content]);
+  const tableSummary = useMemo(() => buildTableSummaryText(content), [content]);
 
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -1008,6 +1041,7 @@ export function TableBlock({ message, onCopy, onEdit }: MessageRendererProps) {
       onEdit={onEdit ? () => onEdit(JSON.stringify(content, null, 2)) : undefined}
       onPreview={() => setPreviewOpen((current) => !current)}
     >
+      <p className={styles.text}>{tableSummary}</p>
       <div className={styles.tableScroll}>
         <table className={styles.table}>
           <thead>
@@ -1538,6 +1572,12 @@ export function DataBlock({ message, onCopy, onEdit }: MessageRendererProps) {
       return (compact || value.slice(0, 2) || "--").toUpperCase();
     };
 
+    const fixtureSummary = compactUnavailable
+      ? `Consulta esportiva de ${teamName || league || "agenda esportiva"} sem horario confirmado agora.`
+      : selectedHasScore
+        ? `${selectedHomeTeam} ${String(selectedHomeScore)} x ${String(selectedAwayScore)} ${selectedAwayTeam} pela ${league}.`
+        : `Proximo jogo de ${teamName || selectedHomeTeam} pela ${league}: ${selectedHomeTeam} x ${selectedAwayTeam}, ${selectedDateLabel || "em breve"}${selectedKickoff && selectedKickoff !== "--:--" ? `, ${selectedKickoff}` : ""}.`;
+
     const renderFixtureTeamMark = (name: string, badgeUrl: string) => (
       <span className={`${styles.fixtureTeamMark} ${badgeUrl ? styles.fixtureTeamMarkImage : ""}`.trim()}>
         {badgeUrl ? (
@@ -1591,6 +1631,7 @@ export function DataBlock({ message, onCopy, onEdit }: MessageRendererProps) {
     return (
       <section className={styles.fixtureShell}>
         <article className={styles.fixtureWidget}>
+          <p className={styles.fixtureMetaLine}>{fixtureSummary}</p>
           <div className={styles.fixtureWidgetHeader}>
             <div className={styles.fixtureLeagueCluster}>
               <span className={styles.fixtureLeagueDot} aria-hidden="true">
@@ -1604,7 +1645,7 @@ export function DataBlock({ message, onCopy, onEdit }: MessageRendererProps) {
                     className={styles.fixtureLeagueBadge}
                   />
                 ) : (
-                  "🏆"
+                  buildBadgeLabel(teamName || league || "Agenda esportiva")
                 )}
               </span>
               <div className={styles.fixtureLeagueText}>
