@@ -8,5 +8,4 @@ export { registerEnterpriseMediaRoutes } from "./enterpriseMediaRoutesRuntime.js
 export { registerEnterprisePublicRoutes } from "./enterprisePublicRoutesRuntime.js"
 export { registerEnterpriseQualityRoutes } from "./enterpriseQualityRoutesRuntime.js"
 export { registerEnterpriseResearchRoutes } from "./enterpriseResearchRoutesRuntime.js"
-// @ts-expect-error JS-only runtime module is loaded intentionally from source.
-export { registerEnterpriseVoiceRoutes } from "../src/enterpriseVoiceRoutesRuntime.js"
+export { registerEnterpriseVoiceRoutes } from "./enterpriseVoiceRoutesRuntime.js"
