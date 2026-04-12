@@ -42,7 +42,7 @@ const MASCOT_CONTENT: Record<BibleMascotMode, MascotContent> = {
   celebrating: {
     badge: "Concluido",
     title: "Mais uma etapa foi vencida na trilha biblica",
-    body: "A celebracao reforca progresso visivel no desktop sem depender do padrao mobile do Duolingo.",
+    body: "A celebracao reforca progresso visivel, medalha liberada e ritmo constante de estudo.",
     sprite: "/branding/fale-biblico/sprites/poses/thumbs-up.png",
   },
 };

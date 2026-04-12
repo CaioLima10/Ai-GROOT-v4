@@ -13,7 +13,7 @@ const webRoot = path.join(repoRoot, "apps", "web-next");
 const nextBin = path.join(repoRoot, "node_modules", "next", "dist", "bin", "next");
 const port = String(process.argv[2] || resolveGiomWebPreviewPort(process.env));
 const backendTarget = resolveGiomBackendProxyTarget(process.env);
-const logPath = path.join(repoRoot, "reports", "front-preview.log");
+const logPath = path.join(repoRoot, "reports", `front-preview-${port}.log`);
 const out = openSync(logPath, "a");
 
 const child = spawn(process.execPath, [nextBin, "start", "-p", port], {
@@ -22,7 +22,8 @@ const child = spawn(process.execPath, [nextBin, "start", "-p", port], {
   stdio: ["ignore", out, out],
   env: {
     ...process.env,
-    NEXT_PUBLIC_BACKEND_PROXY_TARGET: process.env.NEXT_PUBLIC_BACKEND_PROXY_TARGET || backendTarget
+    NEXT_PUBLIC_BACKEND_PROXY_TARGET: process.env.NEXT_PUBLIC_BACKEND_PROXY_TARGET || backendTarget,
+    WEB_PREVIEW_PORT: port
   }
 });
 

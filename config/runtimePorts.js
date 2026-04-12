@@ -54,9 +54,9 @@ export function listGiomFrontendBaseUrls(env = process.env) {
   const webPort = resolveGiomWebPort(env)
 
   return [
-    `http://127.0.0.1:${previewPort}`,
-    `http://127.0.0.1:${webPort}`,
     `http://localhost:${previewPort}`,
-    `http://localhost:${webPort}`
+    `http://localhost:${webPort}`,
+    `http://127.0.0.1:${previewPort}`,
+    `http://127.0.0.1:${webPort}`
   ].map(normalizeUrl)
 }

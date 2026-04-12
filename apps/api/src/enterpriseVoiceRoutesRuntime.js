@@ -87,6 +87,79 @@ function buildSpeechManifest(body = {}) {
   }
 }
 
+function normalizeVoiceTranscriptText(text = "", language = "pt-BR") {
+  const normalizedLanguage = String(language || "pt-BR").trim().toLowerCase()
+  let normalized = String(text || "").trim()
+  if (!normalized) {
+    return ""
+  }
+
+  const replacements = [
+    [/\b(?:gion|guiom|jiom|gi on|jeom|geom)\b/gi, "GIOM"],
+    [/\b(?:dy?ana|di ana|deana|dianaa)\b/gi, "DIANA"],
+    [/\bvoz vocal\b/gi, "voz local"]
+  ]
+
+  if (normalizedLanguage.startsWith("pt")) {
+    for (const [pattern, replacement] of replacements) {
+      normalized = normalized.replace(pattern, replacement)
+    }
+  }
+
+  return normalized.replace(/\s+/g, " ").trim()
+}
+
+function stripVoiceSourceFooter(text = "") {
+  return String(text || "")
+    .replace(/\n+\s*Base(?:\s+biblica)?\s+consultada:[^\n]*/gi, "")
+    .replace(/\n+\s*Base(?:\s+b[ií]blica)?\s+consultada:[^\n]*/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function isVoiceRuntimeStatusQuestion(text = "") {
+  const input = String(text || "").trim()
+  if (!input) {
+    return false
+  }
+
+  const mentionsVoiceRuntime = /\b(voz|audio|áudio|tts|stt|microfone|transcri[cç][aã]o|fala)\b/i.test(input)
+  const asksStatus = /\b(status|estado|como esta|como está|funciona|funcionando|dispon[ií]vel|pronta|ativo|ativa|local)\b/i.test(input)
+  return mentionsVoiceRuntime && asksStatus
+}
+
+function buildVoiceRuntimeStatusResponse(inputText = "", localVoiceRuntime) {
+  if (!isVoiceRuntimeStatusQuestion(inputText) || !localVoiceRuntime?.getStatus) {
+    return ""
+  }
+
+  const status = normalizeObject(localVoiceRuntime.getStatus())
+  const stt = normalizeObject(status.stt)
+  const tts = normalizeObject(status.tts)
+  const personas = normalizeArray(status.personas).filter((persona) => normalizeObject(persona).serverAudioAvailable !== false)
+  const personaLabels = personas
+    .map((persona) => String(persona.label || persona.id || "").trim())
+    .filter(Boolean)
+
+  const sttLine = stt.available
+    ? `A transcricao server-side esta ativa via ${String(stt.id || "stt").trim() || "stt"}.`
+    : "A transcricao server-side nao esta pronta nesta runtime."
+  const ttsLine = tts.available
+    ? `A sintese de voz esta ativa via ${String(tts.id || "tts").trim() || "tts"}.`
+    : "A sintese de voz nao esta pronta nesta runtime."
+  const personaLine = personaLabels.length > 0
+    ? `As personas ${personaLabels.join(" e ")} estao disponiveis com audio no servidor.`
+    : "Nenhuma persona de voz esta pronta com audio no servidor."
+
+  return [
+    "Hoje a voz local esta pronta para conversa.",
+    sttLine,
+    ttsLine,
+    personaLine,
+    "Se quiser, faca uma pergunta curta e eu respondo em modo voz."
+  ].join(" ")
+}
+
 function splitRealtimeResponseText(text = "", maxChunkChars = 120) {
   const normalized = String(text || "").trim()
   if (!normalized) {
@@ -280,6 +353,14 @@ async function runRealtimeTranscription({
     })
     : buildTranscriptionPayload(body)
 
+  const normalizedText = normalizeVoiceTranscriptText(
+    payload.text,
+    payload.language || body.language || body.locale || "pt-BR"
+  )
+  if (normalizedText) {
+    payload.text = normalizedText
+  }
+
   if (!payload.text) {
     const error = new Error("Informe transcript/text, segments ou audio para normalizar a transcricao.")
     error.code = "TRANSCRIPTION_TEXT_REQUIRED"
@@ -319,6 +400,7 @@ async function executeRealtimeVoiceResponse({
     voiceRuntime,
     askGiom,
     buildRuntimeConversationContext,
+    postProcessAssistantResponse,
     traceStore,
     longMemoryRuntime,
     localVoiceRuntime
@@ -370,29 +452,37 @@ async function executeRealtimeVoiceResponse({
     conversationHistory
   })
 
-  const responseText = traceStore
-    ? await traceStore.withTrace({
-      requestId,
-      traceId: traceContext.traceId || null,
-      name: "voice.realtime.respond",
-      kind: "voice",
-      timeoutMs: Math.max(5_000, Number(body.timeoutMs || 90_000) || 90_000),
-      metadata: {
-        sessionId: session.sessionId,
-        transport: session.transport
-      }
-    }, () => askGiom(inputText, {
-      ...context,
-      requestId,
-      userId: session.userId,
-      sessionId: session.sessionId
-    }))
-    : await askGiom(inputText, {
-      ...context,
-      requestId,
-      userId: session.userId,
-      sessionId: session.sessionId
-    })
+  const directVoiceResponse = buildVoiceRuntimeStatusResponse(inputText, localVoiceRuntime)
+  const rawResponseText = directVoiceResponse || (
+    traceStore
+      ? await traceStore.withTrace({
+        requestId,
+        traceId: traceContext.traceId || null,
+        name: "voice.realtime.respond",
+        kind: "voice",
+        timeoutMs: Math.max(5_000, Number(body.timeoutMs || 90_000) || 90_000),
+        metadata: {
+          sessionId: session.sessionId,
+          transport: session.transport
+        }
+      }, () => askGiom(inputText, {
+        ...context,
+        requestId,
+        userId: session.userId,
+        sessionId: session.sessionId
+      }))
+      : await askGiom(inputText, {
+        ...context,
+        requestId,
+        userId: session.userId,
+        sessionId: session.sessionId
+      })
+  )
+
+  const processedResponseText = typeof postProcessAssistantResponse === "function"
+    ? postProcessAssistantResponse(inputText, String(rawResponseText || "").trim(), context)
+    : String(rawResponseText || "").trim()
+  const responseText = stripVoiceSourceFooter(processedResponseText)
 
   let localSpeech = null
   if (body.returnAudio !== false && localVoiceRuntime?.hasServerSpeech?.()) {
@@ -497,6 +587,7 @@ export function registerEnterpriseVoiceRoutes(app, deps) {
     writeSSE,
     askGiom,
     buildRuntimeConversationContext,
+    postProcessAssistantResponse,
     traceStore,
     longMemoryRuntime,
     localVoiceRuntime
@@ -873,6 +964,7 @@ export function registerEnterpriseVoiceRoutes(app, deps) {
           voiceRuntime,
           askGiom,
           buildRuntimeConversationContext,
+          postProcessAssistantResponse,
           traceStore,
           longMemoryRuntime,
           localVoiceRuntime
@@ -919,6 +1011,7 @@ export function registerEnterpriseVoiceRoutes(app, deps) {
           voiceRuntime,
           askGiom,
           buildRuntimeConversationContext,
+          postProcessAssistantResponse,
           traceStore,
           longMemoryRuntime,
           localVoiceRuntime

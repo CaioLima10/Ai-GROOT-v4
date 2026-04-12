@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { createClient, type Provider, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { createClient, type Provider, type SupabaseClient } from "@supabase/supabase-js";
 import { usePathname } from "next/navigation";
 import { AuthModal } from "@/components/chat/AuthModal";
 import { BibleStudyHero } from "@/components/chat/BibleStudyHero";
@@ -33,6 +33,21 @@ import {
   normalizeGiomMessageType,
   sanitizeAskContext
 } from "@/lib/runtimeContracts";
+import {
+  buildAbsoluteAuthRedirectUrl,
+  createGuestIdentity,
+  getScopeId,
+  getWorkspaceEntryPath,
+  isRuntimeAuthEnabled,
+  mapSupabaseUser,
+  normalizeEmail,
+  readLocalAccounts,
+  readLocalSession,
+  resolveSupabaseIdentity,
+  writeLocalAccounts,
+  writeLocalSession,
+  type LocalAuthAccount
+} from "@/lib/authSession";
 import {
   parseAskResponsePayload,
   parseRealtimeSessionEnvelopePayload,
@@ -143,13 +158,6 @@ type RuntimeConfig = {
 };
 
 type ToolMode = "image" | "document";
-
-type LocalAuthAccount = {
-  id: string;
-  email: string;
-  fullName: string;
-  password: string;
-};
 
 type UsageRecord = {
   dateKey: string;
@@ -395,9 +403,6 @@ type SpeechRecognitionConstructorLike = new () => SpeechRecognitionLike;
 
 const AUTO_SCROLL_THRESHOLD = 96;
 const THREADS_STORAGE_KEY = "giom-web-next-threads";
-const SCOPE_STORAGE_KEY = "giom-web-next-scope";
-const LOCAL_AUTH_ACCOUNTS_KEY = "giom-web-next-auth-accounts";
-const LOCAL_AUTH_SESSION_KEY = "giom-web-next-auth-session";
 const USAGE_STORAGE_KEY = "giom-web-next-usage";
 const WEATHER_LOCATION_STORAGE_KEY = "giom-web-next-weather-location";
 const VOICE_SETTINGS_STORAGE_KEY = "giom-web-next-voice-settings";
@@ -629,15 +634,6 @@ function extractAssistantResponseMetadata(payload: Record<string, unknown>) {
   } satisfies AssistantResponseMetadata;
 }
 
-function getScopeId() {
-  if (typeof window === "undefined") return "web-next-local";
-  const existing = window.localStorage.getItem(SCOPE_STORAGE_KEY);
-  if (existing) return existing;
-  const created = makeId("scope");
-  window.localStorage.setItem(SCOPE_STORAGE_KEY, created);
-  return created;
-}
-
 function getThreadStorageOwnerKey(identity: AuthIdentity | null) {
   if (!identity || identity.source === "guest") {
     return `guest:${identity?.id || getScopeId()}`;
@@ -723,10 +719,6 @@ function getTodayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function normalizeEmail(value: string) {
-  return String(value || "").trim().toLowerCase();
-}
-
 function getInitials(identity: AuthIdentity | null) {
   if (!identity) return "GI";
   const source = identity.fullName || identity.email || "GI";
@@ -737,27 +729,6 @@ function getInitials(identity: AuthIdentity | null) {
 
   if (!pieces.length) return "GI";
   return pieces.map((part) => part[0]?.toUpperCase() || "").join("");
-}
-
-function createGuestIdentity(): AuthIdentity {
-  return {
-    id: getScopeId(),
-    email: "guest@local",
-    fullName: "Convidado",
-    plan: "Free",
-    source: "guest"
-  };
-}
-
-function mapSupabaseUser(user: User): AuthIdentity {
-  const fullName = String(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "Usuario");
-  return {
-    id: user.id,
-    email: String(user.email || ""),
-    fullName,
-    plan: "Free",
-    source: "supabase"
-  };
 }
 
 function formatRelativeDate(value: string) {
@@ -1014,48 +985,6 @@ function getMessageUploadPreviews(
   previewMap: Record<string, MessageUploadPreview[]>
 ) {
   return previewMap[message.id] || [];
-}
-
-function readLocalAccounts() {
-  if (typeof window === "undefined") return [] as LocalAuthAccount[];
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_AUTH_ACCOUNTS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as LocalAuthAccount[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalAccounts(accounts: LocalAuthAccount[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(LOCAL_AUTH_ACCOUNTS_KEY, JSON.stringify(accounts));
-}
-
-function readLocalSession() {
-  if (typeof window === "undefined") return null as AuthIdentity | null;
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_AUTH_SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as AuthIdentity;
-    return parsed?.id ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeLocalSession(identity: AuthIdentity | null) {
-  if (typeof window === "undefined") return;
-
-  if (!identity) {
-    window.localStorage.removeItem(LOCAL_AUTH_SESSION_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(LOCAL_AUTH_SESSION_KEY, JSON.stringify(identity));
 }
 
 function readUsageStorage() {
@@ -1337,6 +1266,28 @@ function buildApiUrl(base: string, route: string) {
   return `${base}${route.startsWith("/") ? route : `/${route}`}`;
 }
 
+function resolveRequestedDocumentFormat(question: string, availableDocFormats: string[]) {
+  const normalized = String(question || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const requestedFormats = [
+    { format: "xlsx", pattern: /\b(planilha|spreadsheet|excel|xlsx)\b/ },
+    { format: "pptx", pattern: /\b(slides?|apresentacao|apresentacao de slides|powerpoint|pptx)\b/ },
+    { format: "docx", pattern: /\b(docx|word|documento editavel|relatorio editavel|contrato|ata|manual)\b/ },
+    { format: "pdf", pattern: /\b(pdf)\b/ }
+  ];
+
+  for (const request of requestedFormats) {
+    if (request.pattern.test(normalized) && availableDocFormats.includes(request.format)) {
+      return request.format;
+    }
+  }
+
+  return availableDocFormats.find((item) => normalized.includes(item.toLowerCase())) || DEFAULT_DOC_FORMAT;
+}
+
 function detectToolIntent(question: string, availableDocFormats: string[]) {
   const trimmed = question.trim();
   const lowered = trimmed.toLowerCase();
@@ -1356,7 +1307,7 @@ function detectToolIntent(question: string, availableDocFormats: string[]) {
   }
 
   if (slashDocumentPrompt) {
-    const format = availableDocFormats.find((item) => lowered.includes(item.toLowerCase())) || DEFAULT_DOC_FORMAT;
+    const format = resolveRequestedDocumentFormat(trimmed, availableDocFormats);
     return { mode: "document" as ToolMode, prompt: slashDocumentPrompt, format };
   }
 
@@ -1378,7 +1329,7 @@ function detectToolIntent(question: string, availableDocFormats: string[]) {
   }
 
   if (documentRequest.test(normalized) || (softDocumentIntent.test(normalized) && explicitExportIntent.test(normalized))) {
-    const format = availableDocFormats.find((item) => lowered.includes(item.toLowerCase())) || DEFAULT_DOC_FORMAT;
+    const format = resolveRequestedDocumentFormat(trimmed, availableDocFormats);
     return {
       mode: "document" as ToolMode,
       prompt: trimmed,
@@ -2616,7 +2567,14 @@ export default function Home() {
 
         return right.stepIndex - left.stepIndex;
       })
-      .map(({ checkpoint, stepIndex, updatedAtValue, ...entry }) => entry);
+      .map((entry) => ({
+        id: entry.id,
+        trackId: entry.trackId,
+        trackLabel: entry.trackLabel,
+        stepId: entry.stepId,
+        stepLabel: entry.stepLabel,
+        medalLabel: entry.medalLabel
+      }));
   }, [bibleLearningTracks, studyProgress]);
   const studyMedalSummary = useMemo(() => {
     const total = bibleLearningTracks.reduce((sum, track) => {
@@ -3260,7 +3218,12 @@ export default function Home() {
       || config.features.documentGeneration !== false
     )
   );
-  const authSupportsMagicLink = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+  const authSupportsMagicLink = isRuntimeAuthEnabled(config);
+  const workspaceEntryPath = useMemo(() => getWorkspaceEntryPath(pathname), [pathname]);
+  const authRedirectTarget = useMemo(
+    () => buildAbsoluteAuthRedirectUrl(workspaceEntryPath),
+    [workspaceEntryPath]
+  );
 
   const availableDocFormats = useMemo(() => {
     const configured = config?.ai?.documentGeneration?.formats;
@@ -3538,7 +3501,7 @@ export default function Home() {
 
     setAuthReady(false);
 
-    const authEnabled = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+    const authEnabled = isRuntimeAuthEnabled(config);
     if (!authEnabled || !config?.supabaseUrl || !config?.supabaseAnonKey) {
       supabaseRef.current = null;
       setAuthUser(readLocalSession() || createGuestIdentity());
@@ -3546,14 +3509,19 @@ export default function Home() {
       return;
     }
 
-    const client = createClient(String(config.supabaseUrl), String(config.supabaseAnonKey));
+    const client = createClient(String(config.supabaseUrl), String(config.supabaseAnonKey), {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true
+      }
+    });
     supabaseRef.current = client;
 
-    void client.auth.getUser()
-      .then(({ data }) => {
-        const nextIdentity = data.user ? mapSupabaseUser(data.user) : createGuestIdentity();
-        writeLocalSession(data.user ? nextIdentity : null);
-        setAuthUser(nextIdentity);
+    void resolveSupabaseIdentity(client)
+      .then((identity) => {
+        writeLocalSession(identity);
+        setAuthUser(identity || createGuestIdentity());
         setAuthReady(true);
       })
       .catch(() => {
@@ -3565,9 +3533,9 @@ export default function Home() {
     const {
       data: { subscription }
     } = client.auth.onAuthStateChange((_event, session) => {
-      const nextIdentity = session?.user ? mapSupabaseUser(session.user) : createGuestIdentity();
-      writeLocalSession(session?.user ? nextIdentity : null);
-      setAuthUser(nextIdentity);
+      const nextIdentity = session?.user ? mapSupabaseUser(session.user) : null;
+      writeLocalSession(nextIdentity);
+      setAuthUser(nextIdentity || createGuestIdentity());
       setAuthReady(true);
     });
 
@@ -4346,7 +4314,7 @@ export default function Home() {
           email,
           options: {
             shouldCreateUser: authMode === "sign-up",
-            emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+            emailRedirectTo: authRedirectTarget,
             data: {
               full_name: displayName || email
             }
@@ -4425,12 +4393,11 @@ export default function Home() {
 
     setAuthError(null);
     setOauthLoading(provider);
-    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo
+        redirectTo: authRedirectTarget
       }
     });
 
@@ -4442,6 +4409,7 @@ export default function Home() {
   }
 
   function continueAsGuest() {
+    writeLocalSession(null);
     setAuthUser(createGuestIdentity());
     setShowAuthScreen(false);
   }
@@ -4453,6 +4421,7 @@ export default function Home() {
 
     if (supabase) {
       await supabase.auth.signOut();
+      writeLocalSession(null);
       setAuthUser(createGuestIdentity());
       return;
     }
@@ -4466,11 +4435,6 @@ export default function Home() {
   }
 
   function handleHeaderAuthAction(mode: AuthMode) {
-    if (typeof window !== "undefined") {
-      window.location.assign(`/login?mode=${mode}&next=${encodeURIComponent("/chat")}`);
-      return;
-    }
-
     setAuthMode(mode);
     setAuthError(null);
     setAuthNotice(null);
@@ -5032,6 +4996,8 @@ export default function Home() {
     event?.preventDefault();
     if (isSending || !activeThread || !authUser) return;
 
+    const sendStartedAt = Date.now();
+
     const typedQuestion = input.trim();
     const submittedFiles = pendingFiles.slice();
     const hasPendingUploads = submittedFiles.length > 0;
@@ -5328,6 +5294,11 @@ export default function Home() {
         )
       }));
     } finally {
+      const loadingFeedbackFloorMs = 320;
+      const elapsedMs = Date.now() - sendStartedAt;
+      if (elapsedMs < loadingFeedbackFloorMs) {
+        await new Promise((resolve) => window.setTimeout(resolve, loadingFeedbackFloorMs - elapsedMs));
+      }
       setIsSending(false);
     }
   }

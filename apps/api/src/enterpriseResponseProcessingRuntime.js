@@ -21,7 +21,10 @@ export function resolveDeterministicFixtureResponseCore(question = "", context =
     return null
   }
 
-  const fixtureCard = buildFixtureCardResponse(context)
+  const fixtureCard = buildFixtureCardResponse({
+    ...context,
+    originalQuestion: question
+  })
   if (fixtureCard) {
     return fixtureCard
   }

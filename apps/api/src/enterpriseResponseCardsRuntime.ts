@@ -219,9 +219,9 @@ export function buildPromptCardResponse(responseText = "", question = "", contex
 }
 
 function buildCalendarFromClockMeta(clock: Record<string, any> | null, fallbackTimezone = "Etc/UTC") {
-  if (!clock || clock.verified !== true) return null
-  const nowUtc = String(clock.nowUtc || "").trim()
-  const fetchedAt = String(clock.fetchedAt || "").trim()
+  if (!clock || typeof clock !== "object") return null
+  const nowUtc = String(clock.nowUtc || clock.fetchedAt || "").trim()
+  const fetchedAt = String(clock.fetchedAt || clock.nowUtc || "").trim()
   const timezone = String(clock.timezone || fallbackTimezone || "Etc/UTC").trim() || "Etc/UTC"
   const parsedNowMs = Date.parse(nowUtc)
   const parsedFetchedAtMs = Date.parse(fetchedAt)
@@ -249,7 +249,7 @@ function buildCalendarFromClockMeta(clock: Record<string, any> | null, fallbackT
     if (!(year && month && day && hour && minute && second)) return null
 
     return {
-      verified: true,
+      verified: clock.verified === true,
       source: String(clock.source || "worldtimeapi"),
       timezone,
       nowUtc,
@@ -295,13 +295,14 @@ export function buildFixtureCardResponse(context: Record<string, any> = {}): str
   const timeVerification = fixture.timeVerification || fixture.verification?.clock || null
   const calendar = buildCalendarFromClockMeta(timeVerification, "Etc/UTC")
   if (!calendar) {
-    return buildFixtureIntentFallback("", {
+    const fallbackQuestion = String(context?.originalQuestion || context?.question || "").trim()
+    return buildFixtureIntentFallback(fallbackQuestion, {
       liveFixture: {
         ...fixture,
         hasUpcomingFixture: false,
         wantsHistory: false,
-        nextMatches: [],
-        recentMatches: []
+        nextMatches: Array.isArray(fixture?.nextMatches) ? fixture.nextMatches : [],
+        recentMatches: Array.isArray(fixture?.recentMatches) ? fixture.recentMatches : []
       }
     })
   }
@@ -428,12 +429,19 @@ export function buildFixtureIntentFallback(question = "", context: Record<string
   const hasRecentMatches = Array.isArray(liveFixture?.recentMatches) && liveFixture.recentMatches.length > 0
   const teamLabel = inferFixtureSubjectLabel(question, context)
   const subjectDetail = teamLabel && teamLabel !== "Agenda esportiva" ? ` de ${teamLabel}` : ""
+  const recognizedSubject = Boolean(teamLabel && teamLabel !== "Agenda esportiva")
   const note = !String(question || "").trim()
-    ? "Me diga o time, clube ou selecao para eu abrir o card esportivo."
+    ? recognizedSubject
+      ? `Nao encontrei horario confirmado${subjectDetail} agora. Se quiser, eu tambem posso tentar por campeonato ou adversario.`
+      : "Me diga o time, clube ou selecao para eu abrir o card esportivo."
     : (!liveFixture || liveFixture.error)
-      ? `Nao consegui confirmar a agenda ao vivo${subjectDetail} agora. Para evitar data errada, este widget fica em modo seguro ate a proxima consulta.`
+      ? recognizedSubject
+        ? `Nao consegui confirmar o proximo jogo${subjectDetail} agora. Para evitar horario errado, mantive o card em modo seguro ate a proxima consulta.`
+        : `Nao consegui confirmar a agenda ao vivo${subjectDetail} agora. Para evitar data errada, este widget fica em modo seguro ate a proxima consulta.`
       : !liveFixture.hasUpcomingFixture && !hasRecentMatches
-        ? `Nao encontrei confronto confirmado${subjectDetail} ou historico recente nesta consulta ao vivo.`
+        ? recognizedSubject
+          ? `No momento nao encontrei partida confirmada${subjectDetail} nesta consulta ao vivo. Se quiser, eu tambem posso tentar por campeonato ou adversario.`
+          : `Nao encontrei confronto confirmado${subjectDetail} ou historico recente nesta consulta ao vivo.`
         : `Nao consegui montar o card esportivo completo${subjectDetail} agora.`
 
   return JSON.stringify({

@@ -53,6 +53,7 @@
     "smoke:safety": "node scripts/smoke-safety.mjs",
     "smoke:voice": "node scripts/voice-runtime-smoke.mjs",
     "smoke:voice:http": "node scripts/voice-http-smoke.mjs",
+    "smoke:voice:preview": "node scripts/voice-http-preview-check.mjs",
     "voice:bootstrap:windows": "node scripts/bootstrap-local-voice-windows.mjs",
     "qa:documents-runtime": "npm run build:api-ts && node scripts/evaluate-document-runtime.mjs",
     "eval:giom": "npm run build:api-ts && node scripts/evaluate-giom-conversation.mjs",

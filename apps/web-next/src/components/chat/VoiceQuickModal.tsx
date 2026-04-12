@@ -66,8 +66,12 @@ export function VoiceQuickModal({
 
   useEffect(() => {
     if (!open) {
-      setStage("intro");
-      setSelectedPersonaId(personaId);
+      const timer = window.setTimeout(() => {
+        setStage("intro");
+        setSelectedPersonaId(personaId);
+      }, 0);
+
+      return () => window.clearTimeout(timer);
     }
   }, [open, personaId]);
 

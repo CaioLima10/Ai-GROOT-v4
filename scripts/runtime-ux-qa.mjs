@@ -17,6 +17,8 @@ const backendPort = Number(process.env.QA_BACKEND_PORT || process.env.API_PORT |
 const FRONTEND_URL = process.env.QA_FRONTEND_URL || `http://localhost:${frontendPort}`
 const BACKEND_URL = process.env.QA_BACKEND_URL || `http://localhost:${backendPort}`
 const REPORT_PATH = path.join(process.cwd(), "reports", "runtime-ux-qa.json")
+const WEB_ROOT = path.join(process.cwd(), "apps", "web-next")
+const NEXT_BIN = path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next")
 
 function createIssue(problem, cause, fix, validate) {
   return {
@@ -38,6 +40,15 @@ async function waitComposerReady(page, timeout = 20_000) {
     const fileInput = document.querySelector("#fileInput")
     return Boolean(msg && !msg.disabled && fileInput)
   }, undefined, { timeout })
+}
+
+async function hasProductionFrontendBuild() {
+  try {
+    await fs.access(path.join(WEB_ROOT, ".next", "BUILD_ID"))
+    return true
+  } catch {
+    return false
+  }
 }
 
 function createRuntimeSummary(checks, issues, steps, extras = {}) {
@@ -114,12 +125,39 @@ async function run() {
 
     const frontendUpInitially = await waitForUrl(FRONTEND_URL, { timeoutMs: 8_000 })
     if (!frontendUpInitially) {
-      frontendRuntime = startNpmProcess(["--workspace", "web-next", "run", "dev", "--", "-p", String(frontendPort)], {
-        label: "qa-frontend"
-      })
-      markStep("frontend_start", `spawned pid=${frontendRuntime.child.pid}`)
+      const frontendEnv = {
+        NEXT_PUBLIC_BACKEND_PROXY_TARGET: BACKEND_URL,
+        WEB_PREVIEW_PORT: String(frontendPort)
+      }
+      const useProductionBuild = await hasProductionFrontendBuild()
 
-      const frontendUp = await waitForUrl(FRONTEND_URL, { timeoutMs: 120_000 })
+      if (useProductionBuild) {
+        frontendRuntime = startNodeProcess(NEXT_BIN, {
+          cwd: WEB_ROOT,
+          label: "qa-frontend",
+          args: ["start", "-p", String(frontendPort)],
+          env: frontendEnv
+        })
+        markStep("frontend_start", `spawned next-start pid=${frontendRuntime.child.pid}`)
+      } else {
+        frontendRuntime = startNpmProcess(["--workspace", "web-next", "run", "dev", "--", "-p", String(frontendPort)], {
+          label: "qa-frontend",
+          env: frontendEnv
+        })
+        markStep("frontend_start", `spawned next-dev pid=${frontendRuntime.child.pid}`)
+      }
+
+      let frontendUp = await waitForUrl(FRONTEND_URL, { timeoutMs: useProductionBuild ? 60_000 : 120_000 })
+      if (!frontendUp && useProductionBuild) {
+        await stopChildProcess(frontendRuntime?.child).catch(() => {})
+        frontendRuntime = startNpmProcess(["--workspace", "web-next", "run", "dev", "--", "-p", String(frontendPort)], {
+          label: "qa-frontend",
+          env: frontendEnv
+        })
+        markStep("frontend_start_fallback", `spawned next-dev pid=${frontendRuntime.child.pid}`)
+        frontendUp = await waitForUrl(FRONTEND_URL, { timeoutMs: 120_000 })
+      }
+
       if (!frontendUp) {
         throw new Error(`Frontend nao subiu em tempo habil em ${FRONTEND_URL}`)
       }

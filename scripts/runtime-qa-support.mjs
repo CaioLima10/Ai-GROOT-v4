@@ -1,5 +1,9 @@
 import { spawn } from "node:child_process"
 
+const TASKKILL_PATH = process.env.SystemRoot
+  ? `${process.env.SystemRoot}\\System32\\taskkill.exe`
+  : "C:\\Windows\\System32\\taskkill.exe"
+
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -25,12 +29,13 @@ function attachLogs(child, logs, label = "runtime") {
 
 export function startNodeProcess(entry, options = {}) {
   const {
+    args = [],
     cwd = process.cwd(),
     env = {},
     label = "node-process"
   } = options
 
-  const child = spawn(process.execPath, [entry], {
+  const child = spawn(process.execPath, [entry, ...args.map((value) => String(value))], {
     cwd,
     env: {
       ...process.env,
@@ -124,6 +129,34 @@ export async function stopChildProcess(child, options = {}) {
     return
   }
 
+  if (process.platform === "win32") {
+    await new Promise((resolve) => {
+      const finalize = () => {
+        clearTimeout(exitGuardTimer)
+        resolve()
+      }
+
+      const exitGuardTimer = setTimeout(finalize, forceAfterMs + 1_500)
+
+      child.once("exit", finalize)
+
+      try {
+        const killer = spawn(TASKKILL_PATH, ["/PID", String(child.pid), "/T", "/F"], {
+          stdio: "ignore",
+          windowsHide: true
+        })
+
+        killer.once("error", finalize)
+        killer.once("exit", () => {
+          setTimeout(finalize, 250)
+        })
+      } catch {
+        finalize()
+      }
+    })
+    return
+  }
+
   await new Promise((resolve) => {
     const finalize = () => {
       clearTimeout(forceTimer)
@@ -133,14 +166,7 @@ export async function stopChildProcess(child, options = {}) {
 
     const forceTimer = setTimeout(() => {
       try {
-        if (process.platform === "win32") {
-          spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
-            shell: true,
-            stdio: "ignore"
-          })
-        } else {
-          child.kill("SIGKILL")
-        }
+        child.kill("SIGKILL")
       } catch {
         // noop
       }
@@ -151,14 +177,7 @@ export async function stopChildProcess(child, options = {}) {
     child.once("exit", finalize)
 
     try {
-      if (process.platform === "win32") {
-        spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
-          shell: true,
-          stdio: "ignore"
-        })
-      } else {
-        child.kill("SIGTERM")
-      }
+      child.kill("SIGTERM")
     } catch {
       finalize()
     }

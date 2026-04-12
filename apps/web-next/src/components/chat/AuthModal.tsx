@@ -81,15 +81,18 @@ export function AuthModal({
     return null;
   }
 
+  const alternateMode = authMode === "sign-in" ? "sign-up" : "sign-in";
+  const alternateModeLabel = authMode === "sign-in" ? "Criar conta" : "Entrar";
+
   return (
-    <div className="auth-overlay" onClick={onClose}>
+    <div id="authModal" className="auth-overlay" onClick={onClose}>
       <div
         className="auth-centered-modal"
         role="dialog"
         aria-label="Entrar ou cadastrar-se"
         onClick={(event) => event.stopPropagation()}
       >
-        <button type="button" className="auth-close-btn" onClick={onClose} aria-label="Fechar">
+        <button id="closeAuthModalBtn" type="button" className="auth-close-btn" onClick={onClose} aria-label="Fechar">
           <IconClose />
         </button>
 
@@ -171,6 +174,15 @@ export function AuthModal({
         <p className="auth-centered-footer">
           Ao enviar mensagens para o ChatGPT, voce aceita nossos Termos e reconhece nossa Politica de Privacidade.
         </p>
+
+        <div className="auth-centered-social">
+          <button type="button" className="auth-centered-back" onClick={() => onAuthModeChange(alternateMode)}>
+            {alternateModeLabel}
+          </button>
+          <button type="button" className="auth-centered-back" onClick={onContinueAsGuest}>
+            Continuar como convidado
+          </button>
+        </div>
       </div>
     </div>
   );

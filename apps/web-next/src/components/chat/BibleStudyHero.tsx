@@ -63,12 +63,12 @@ export function BibleStudyHero({
         <article className="study-hero-card">
           <span className="study-hero-card-label">Fluxo</span>
           <strong>Trilha, conversa e revisao no mesmo lugar</strong>
-          <p>O desktop pode mostrar objetivo, etapa atual e tutor ao mesmo tempo sem copiar a navegacao mobile.</p>
+          <p>Cada etapa vira uma licao curta com mapa, tutor, conversa guiada e revisao sem sair do chat.</p>
         </article>
         <article className="study-hero-card">
           <span className="study-hero-card-label">Configuracao</span>
           <strong>{formatDepthLabel(depthPreference)} + {formatMinistryLabel(ministryFocus)}</strong>
-          <p>{moduleCount} modulos ativos para manter o estudo alinhado ao seu contexto de leitura.</p>
+          <p>{moduleCount} modulos ativos para manter o estudo alinhado ao seu momento, quase como uma trilha gamificada.</p>
         </article>
         <article className="study-hero-card">
           <span className="study-hero-card-label">Proximo passo</span>

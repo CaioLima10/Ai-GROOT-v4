@@ -148,6 +148,18 @@ export function BibleStudyPanel({
   const highlightedModules = activeTrack
     ? moduleCatalog.filter((module) => activeTrack.bibleStudyModules.includes(module.id))
     : [];
+  const streakDays = Math.max(1, completedCheckpointCount + (studyModeEnabled ? 1 : 0));
+  const earnedXp = completedCount * 18 + (studyModeEnabled ? 12 : 0);
+  const currentLessonLabel = currentStepLabel || "Escolha a primeira licao";
+  const leagueLabel = completionRate >= 85
+    ? "Coroa dourada"
+    : completionRate >= 50
+      ? "Liga sabedoria"
+      : "Liga semente";
+  const missionLabel = nextCheckpoint
+    ? `Feche ${nextCheckpoint.label} e avance para a proxima medalha.`
+    : "Complete a trilha atual para abrir uma nova rodada de revisao."
+  const energyLabel = mascotVoiceEnabled ? "Escuta + voz prontas" : "Texto guiado pronto";
 
   return (
     <section
@@ -165,6 +177,29 @@ export function BibleStudyPanel({
         <button type="button" className="study-mode-toggle" onClick={onToggleStudyMode}>
           {modeLocked ? "Ativo neste workspace" : studyModeEnabled ? "Ativo" : "Ativar"}
         </button>
+      </div>
+
+      <div className="study-quest-strip" aria-label="Resumo gamificado da trilha">
+        <article className="study-quest-card streak">
+          <span>Sequencia</span>
+          <strong>{streakDays} dias</strong>
+          <small>ritmo de estudo</small>
+        </article>
+        <article className="study-quest-card xp">
+          <span>XP biblico</span>
+          <strong>{earnedXp}</strong>
+          <small>acumulado na trilha</small>
+        </article>
+        <article className="study-quest-card lesson">
+          <span>Licao atual</span>
+          <strong>{currentLessonLabel}</strong>
+          <small>{energyLabel}</small>
+        </article>
+        <article className="study-quest-card league">
+          <span>Liga</span>
+          <strong>{leagueLabel}</strong>
+          <small>{missionLabel}</small>
+        </article>
       </div>
 
       <BibleMascotPanel

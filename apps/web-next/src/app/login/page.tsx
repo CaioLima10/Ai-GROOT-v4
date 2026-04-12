@@ -1,10 +1,25 @@
 "use client";
 
-import { createClient, type Provider, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { createClient, type Provider, type SupabaseClient } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { AuthModal } from "@/components/chat/AuthModal";
-import type { AuthIdentity, AuthMode, AuthStep } from "@/components/chat/types";
+import type { AuthMode, AuthStep } from "@/components/chat/types";
+import {
+  buildAbsoluteAuthRedirectUrl,
+  createGuestIdentity,
+  isRuntimeAuthEnabled,
+  makeBrowserId,
+  mapSupabaseUser,
+  normalizeEmail,
+  normalizeNextPath,
+  readLocalAccounts,
+  readLocalSession,
+  resolveSupabaseIdentity,
+  writeLocalAccounts,
+  writeLocalSession,
+  type LocalAuthAccount
+} from "@/lib/authSession";
 import { resilientFetch } from "@/lib/resilientFetch";
 import { parseRuntimeConfigPayload } from "@groot/shared-config/src/runtimeSchemas.js";
 
@@ -15,131 +30,6 @@ type RuntimeConfig = {
     auth?: boolean;
   };
 };
-
-type LocalAuthAccount = {
-  id: string;
-  email: string;
-  fullName: string;
-  password: string;
-};
-
-const SCOPE_STORAGE_KEY = "giom-web-next-scope";
-const LOCAL_AUTH_ACCOUNTS_KEY = "giom-web-next-auth-accounts";
-const LOCAL_AUTH_SESSION_KEY = "giom-web-next-auth-session";
-
-function makeId(prefix = "auth") {
-  const uuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-
-  return `${prefix}-${uuid}`;
-}
-
-function getScopeId() {
-  if (typeof window === "undefined") {
-    return "web-next-local";
-  }
-
-  const existing = window.localStorage.getItem(SCOPE_STORAGE_KEY);
-  if (existing) {
-    return existing;
-  }
-
-  const created = makeId("scope");
-  window.localStorage.setItem(SCOPE_STORAGE_KEY, created);
-  return created;
-}
-
-function normalizeEmail(value: string) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function createGuestIdentity(): AuthIdentity {
-  return {
-    id: getScopeId(),
-    email: "guest@local",
-    fullName: "Convidado",
-    plan: "Free",
-    source: "guest"
-  };
-}
-
-function mapSupabaseUser(user: User): AuthIdentity {
-  const fullName = String(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "Usuario");
-  return {
-    id: user.id,
-    email: String(user.email || ""),
-    fullName,
-    plan: "Free",
-    source: "supabase"
-  };
-}
-
-function readLocalAccounts() {
-  if (typeof window === "undefined") {
-    return [] as LocalAuthAccount[];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_AUTH_ACCOUNTS_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as LocalAuthAccount[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalAccounts(accounts: LocalAuthAccount[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(LOCAL_AUTH_ACCOUNTS_KEY, JSON.stringify(accounts));
-}
-
-function readLocalSession() {
-  if (typeof window === "undefined") {
-    return null as AuthIdentity | null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_AUTH_SESSION_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw) as AuthIdentity;
-    return parsed?.id ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeLocalSession(identity: AuthIdentity | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!identity) {
-    window.localStorage.removeItem(LOCAL_AUTH_SESSION_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(LOCAL_AUTH_SESSION_KEY, JSON.stringify(identity));
-}
-
-function normalizeNextPath(value: string | null) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
-    return "/chat";
-  }
-
-  return trimmed;
-}
 
 function LoginPageFallback() {
   return (
@@ -173,14 +63,8 @@ function LoginPageContent() {
     () => normalizeNextPath(searchParams.get("next")),
     [searchParams]
   );
-  const redirectTarget = useMemo(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
-
-    return new URL(nextPath, window.location.origin).toString();
-  }, [nextPath]);
-  const authSupportsMagicLink = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+  const redirectTarget = useMemo(() => buildAbsoluteAuthRedirectUrl(nextPath), [nextPath]);
+  const authSupportsMagicLink = isRuntimeAuthEnabled(config);
 
   useEffect(() => {
     const routeMode = searchParams.get("mode") === "sign-up" ? "sign-up" : "sign-in";
@@ -237,7 +121,7 @@ function LoginPageContent() {
     }
 
     const localSession = readLocalSession();
-    const authEnabled = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+    const authEnabled = isRuntimeAuthEnabled(config);
 
     if (!authEnabled && localSession && localSession.source !== "guest") {
       router.replace(nextPath);
@@ -248,13 +132,19 @@ function LoginPageContent() {
       return;
     }
 
-    const client = createClient(String(config?.supabaseUrl), String(config?.supabaseAnonKey));
+    const client = createClient(String(config?.supabaseUrl), String(config?.supabaseAnonKey), {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true
+      }
+    });
     supabaseRef.current = client;
 
-    void client.auth.getUser()
-      .then(({ data }) => {
-        if (data.user) {
-          writeLocalSession(mapSupabaseUser(data.user));
+    void resolveSupabaseIdentity(client)
+      .then((identity) => {
+        if (identity) {
+          writeLocalSession(identity);
           router.replace(nextPath);
           return;
         }
@@ -277,7 +167,7 @@ function LoginPageContent() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [config?.features?.auth, config?.supabaseAnonKey, config?.supabaseUrl, configReady, nextPath, router]);
+  }, [config, configReady, nextPath, router]);
 
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -350,7 +240,7 @@ function LoginPageContent() {
           }
 
           const created: LocalAuthAccount = {
-            id: makeId("local-user"),
+            id: makeBrowserId("local-user"),
             email,
             fullName: displayName || email,
             password

@@ -79,7 +79,7 @@ export function ChatComposer({
   const composerSignalLevel = Math.max(0, Math.min(Math.round(inlineVoiceSignalLevel), 5));
   const sendReady = Boolean(input.trim() || pendingFiles.length);
   const useVoicePill = isGuest && !sendReady && !isConversationMode && !inlineVoiceActive;
-  const showSendButton = !isGuest || sendReady || pendingFiles.length > 0 || isConversationMode || showVoicePersonaButton;
+  const showSendButton = isSending || !isGuest || sendReady || pendingFiles.length > 0 || isConversationMode || showVoicePersonaButton;
 
   useEffect(() => {
     previewsRef.current = previews;

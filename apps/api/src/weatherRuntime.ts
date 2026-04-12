@@ -205,9 +205,9 @@ function isWeatherFollowUpCue(question = ""): boolean {
 }
 
 function buildWeatherCalendarSnapshot(clock: Record<string, unknown> | null, fallbackTimezone = "Etc/UTC") {
-  if (!clock || clock.verified !== true) return null
-  const rawNowUtc = String(clock.nowUtc || "").trim()
-  const rawFetchedAt = String(clock.fetchedAt || "").trim()
+  if (!clock || typeof clock !== "object") return null
+  const rawNowUtc = String(clock.nowUtc || clock.fetchedAt || "").trim()
+  const rawFetchedAt = String(clock.fetchedAt || clock.nowUtc || "").trim()
   const timezone = String(clock.timezone || fallbackTimezone || "Etc/UTC").trim() || "Etc/UTC"
   const parsedNowMs = Date.parse(rawNowUtc)
   const parsedFetchedAtMs = Date.parse(rawFetchedAt)
@@ -238,7 +238,7 @@ function buildWeatherCalendarSnapshot(clock: Record<string, unknown> | null, fal
     }
 
     return {
-      verified: true,
+      verified: clock.verified === true,
       source: String(clock.source || "worldtimeapi"),
       timezone,
       nowUtc: rawNowUtc,

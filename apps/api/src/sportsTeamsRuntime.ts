@@ -178,7 +178,17 @@ function sanitizeMediaUrl(value = ""): string {
 export function extractTeamSearchQuery(question = ""): string | null {
   const directSubject = extractSportsSubjectPhrase(question)
   if (directSubject) {
-    return resolveTeamAliasEntry(directSubject)?.query || directSubject
+    const directAlias = resolveTeamAliasEntry(directSubject)
+    if (directAlias?.query) {
+      return directAlias.query
+    }
+
+    const embeddedAlias = TEAM_SEARCH_ALIASES
+      .flatMap((entry) => entry.aliases.map((alias) => ({ entry, alias })))
+      .sort((left, right) => right.alias.length - left.alias.length)
+      .find((candidate) => matchAliasInQuestion(directSubject, candidate.alias))
+
+    return embeddedAlias?.entry?.query || directSubject
   }
 
   const sortedAliases = TEAM_SEARCH_ALIASES

@@ -1382,6 +1382,7 @@ registerEnterpriseVoiceRoutes(app, {
   writeSSE,
   askGiom,
   buildRuntimeConversationContext,
+  postProcessAssistantResponse,
   traceStore,
   longMemoryRuntime,
   localVoiceRuntime

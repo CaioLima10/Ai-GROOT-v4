@@ -148,6 +148,22 @@ function refineWeatherLocationCandidate(value = ""): string {
   return input
 }
 
+function normalizeBrazilCityStateQuery(value = ""): string {
+  const input = String(value || "").trim()
+  if (!input) return ""
+
+  const cityStateCountryMatch = input.match(/^(.+?)[\s-]+([a-z]{2})[\s,]+(brasil|brazil)$/i)
+  if (cityStateCountryMatch?.[1] && cityStateCountryMatch?.[2]) {
+    const city = String(cityStateCountryMatch[1]).replace(/[-,\s]+$/g, "").trim()
+    const state = String(cityStateCountryMatch[2]).trim().toUpperCase()
+    if (city) {
+      return `${city}, ${state}, Brasil`
+    }
+  }
+
+  return input
+}
+
 export function sanitizeWeatherLocationQuery(value = ""): string {
   const cleaned = normalizeWeatherText(value)
     .replace(/[?!.,;:]+$/g, "")
@@ -160,37 +176,42 @@ export function sanitizeWeatherLocationQuery(value = ""): string {
     .replace(/^(?:\s*(?:em|de|para|na|no)\s+)+/g, "")
     .replace(/^[\s,/-]+|[\s,/-]+$/g, "")
     .trim()
-  const refined = refineWeatherLocationCandidate(cleaned)
+  const refined = normalizeBrazilCityStateQuery(refineWeatherLocationCandidate(cleaned))
   if (!refined || refined.split(/\s+/).length > 6) return ""
   if (/^(hoje|agora|amanha|semana|tempo real|localizacao|minha cidade|momento|aqui)$/.test(refined)) return ""
   return refined
 }
 
 export function buildWeatherGeocodingSearchQuery(query = "", question = ""): string {
-  const sanitizedQuery = sanitizeWeatherLocationQuery(query)
+  const baseQuery = sanitizeWeatherLocationQuery(query)
     .replace(/\s*,\s*/g, ", ")
     .replace(/,\s*,+/g, ", ")
-    .replace(/\s+brasil$/i, ", Brasil")
-    .replace(/,\s+Brasil$/i, ", Brasil")
     .replace(/^,\s*/g, "")
     .trim()
+  const sanitizedQuery = /\bbrasil$/i.test(baseQuery)
+    ? `${baseQuery.replace(/\s*brasil$/i, "").replace(/,\s*$/g, "").trim()}, Brasil`
+    : baseQuery
+  const brazilCityStateMatch = sanitizedQuery.match(/^(.+?),\s*([a-z]{2}),\s*Brasil$/i)
+  const geocodingQuery = brazilCityStateMatch?.[1]
+    ? `${String(brazilCityStateMatch[1]).trim()}, Brasil`
+    : sanitizedQuery
   const scopeHint = detectWeatherLocationScope(question, sanitizedQuery)
   const stateDefinition = detectBrazilStateDefinition(sanitizedQuery)
-  const normalizedQuery = normalizeWeatherLookupKey(sanitizedQuery)
+  const normalizedQuery = normalizeWeatherLookupKey(geocodingQuery)
 
   if (stateDefinition && (!isAmbiguousBrazilStateName(stateDefinition) || questionExplicitlyRequestsState(question))) {
     return `${stateDefinition.name}, Brasil`
   }
 
   if (normalizedQuery.endsWith(" brasil")) {
-    return sanitizedQuery.replace(/\s+brasil$/i, ", Brasil")
+    return geocodingQuery.replace(/(?:,\s*|\s+)brasil$/i, ", Brasil")
   }
 
   if (scopeHint === "country" && /^(brasil|brazil)$/i.test(sanitizedQuery)) {
     return "Brasil"
   }
 
-  return sanitizedQuery
+  return geocodingQuery
 }
 
 export function shouldRestrictWeatherLookupToBrazil(query = "", question = ""): boolean {
