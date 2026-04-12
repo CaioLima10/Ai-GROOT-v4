@@ -135,7 +135,7 @@ function writeLocalSession(identity: AuthIdentity | null) {
 function normalizeNextPath(value: string | null) {
   const trimmed = String(value || "").trim();
   if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
-    return "/";
+    return "/chat";
   }
 
   return trimmed;

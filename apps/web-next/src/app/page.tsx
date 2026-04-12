@@ -4467,7 +4467,7 @@ export default function Home() {
 
   function handleHeaderAuthAction(mode: AuthMode) {
     if (typeof window !== "undefined") {
-      window.location.assign(`/login?mode=${mode}&next=/`);
+      window.location.assign(`/login?mode=${mode}&next=${encodeURIComponent("/chat")}`);
       return;
     }
 
