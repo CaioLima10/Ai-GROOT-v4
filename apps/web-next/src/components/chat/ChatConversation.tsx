@@ -3,20 +3,40 @@ import type { MessageUploadPreview } from "@/lib/uploadPreviews";
 import { IconFile } from "./ChatIcons";
 import type { ChatMessage } from "./types";
 
+type WorkspaceSurface = "chat" | "study";
+
 type ChatConversationProps = {
   chatRef: RefObject<HTMLElement | null>;
   getMessageUploads: (message: ChatMessage) => string[];
   getMessageUploadPreviews: (message: ChatMessage) => MessageUploadPreview[];
   landingGreeting: {
+    suffix?: string;
     title: string;
     subtitle: string;
   };
   messages: ChatMessage[];
   onChatScroll: () => void;
   onScrollToBottom: () => void;
+  onSuggestionClick?: (text: string) => void;
   renderAssistantMessage: (message: ChatMessage) => ReactNode;
   stickToBottom: boolean;
+  studyHero?: ReactNode;
+  surface?: WorkspaceSurface;
 };
+
+const CHAT_SUGGESTIONS = [
+  { icon: "IA", label: "Explique um conceito", text: "Explique de forma clara e objetiva o que e inteligencia artificial" },
+  { icon: "TXT", label: "Escreva um texto", text: "Escreva um email profissional de apresentacao" },
+  { icon: "DATA", label: "Analise dados", text: "Analise os pros e contras de trabalhar remotamente" },
+  { icon: "JS", label: "Gere codigo", text: "Crie um componente React de formulario de contato com validacao" }
+];
+
+const STUDY_SUGGESTIONS = [
+  { icon: "ROM", label: "Estude uma passagem", text: "Faca uma analise exegetica de Romanos 8:28-30" },
+  { icon: "SLM", label: "Devocional", text: "Prepare um devocional sobre o Salmo 23 para estudo em grupo" },
+  { icon: "PA", label: "Teologia", text: "Explique a doutrina da justificacao pela fe em Paulo" },
+  { icon: "EX", label: "Contexto historico", text: "Descreva o contexto historico do exilio babilonico" }
+];
 
 export function ChatConversation({
   chatRef,
@@ -26,10 +46,15 @@ export function ChatConversation({
   messages,
   onChatScroll,
   onScrollToBottom,
+  onSuggestionClick,
   renderAssistantMessage,
-  stickToBottom
+  stickToBottom,
+  studyHero,
+  surface
 }: ChatConversationProps) {
   const [expandedImage, setExpandedImage] = useState<{ name: string; src: string } | null>(null);
+  const landingSuffix = landingGreeting.suffix || "Peca no chat o que quiser. Se voce pedir imagem, documento ou codigo, o GIOM entende e gera sem mostrar menu de ferramenta.";
+  const suggestions = surface === "study" ? STUDY_SUGGESTIONS : CHAT_SUGGESTIONS;
 
   useEffect(() => {
     if (!expandedImage) {
@@ -51,13 +76,58 @@ export function ChatConversation({
       <section id="chat" className="chat-stream" ref={chatRef} onScroll={onChatScroll}>
         <div id="chatStreamInner" className="chat-stream-inner">
           {messages.length === 0 ? (
-            <section className="hero-launch" aria-label="Mensagem inicial do GIOM">
-              <div className="hero-copy-stack">
-                <h1 className="hero-title">{landingGreeting.title}</h1>
-                <p className="hero-subtitle">
-                  {landingGreeting.subtitle} Peca no chat o que quiser. Se voce pedir imagem, documento ou codigo, o GIOM entende e gera sem mostrar menu de ferramenta.
-                </p>
-              </div>
+            <section
+              className={`hero-launch ${surface === "chat" ? "hero-launch-chatgpt" : ""} ${surface === "study" ? "hero-launch-study" : ""}`}
+              aria-label="Mensagem inicial do chat"
+            >
+              {surface === "study" && studyHero ? (
+                <>
+                  {studyHero}
+                  {onSuggestionClick ? (
+                    <div className="hero-suggestions" aria-label="Sugestoes de conversa">
+                      {suggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.label}
+                          type="button"
+                          className="hero-suggestion-card"
+                          onClick={() => onSuggestionClick(suggestion.text)}
+                        >
+                          <span className="hero-suggestion-icon" aria-hidden="true">{suggestion.icon}</span>
+                          <span className="hero-suggestion-label">{suggestion.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="hero-copy-stack">
+                    <h1 className="hero-title">{landingGreeting.title}</h1>
+                    {(surface === "chat" || landingGreeting.subtitle) ? (
+                      <p className="hero-subtitle">
+                        {surface === "chat"
+                          ? [landingGreeting.subtitle, landingSuffix].filter(Boolean).join(" ")
+                          : landingGreeting.subtitle}
+                      </p>
+                    ) : null}
+                  </div>
+                  {surface !== "chat" && onSuggestionClick ? (
+                    <div className="hero-suggestions" aria-label="Sugestoes de conversa">
+                      {suggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.label}
+                          type="button"
+                          className="hero-suggestion-card"
+                          onClick={() => onSuggestionClick(suggestion.text)}
+                        >
+                          <span className="hero-suggestion-icon" aria-hidden="true">{suggestion.icon}</span>
+                          <span className="hero-suggestion-label">{suggestion.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </section>
           ) : (
             messages.map((message) => {
@@ -94,6 +164,7 @@ export function ChatConversation({
                                 title={`Abrir ${preview.name} em tamanho original`}
                                 aria-label={`Abrir ${preview.name} em tamanho original`}
                               >
+                                {/* eslint-disable-next-line @next/next/no-img-element -- upload previews use local blob/data URLs */}
                                 <img
                                   className="sent-image-card-image"
                                   src={preview.src}
@@ -106,7 +177,7 @@ export function ChatConversation({
                         )}
 
                         {uploadPreviews.length > 0 ? (
-                          nonImagePreviews.length > 0 && (
+                          nonImagePreviews.length > 0 ? (
                             <div className="sent-file-list" aria-label="Arquivos enviados">
                               {nonImagePreviews.map((preview, index) => (
                                 <article key={`${message.id}-file-preview-${index}`} className="sent-file-card">
@@ -118,12 +189,15 @@ export function ChatConversation({
                                     ].filter(Boolean).join(" ")}
                                   >
                                     {preview.src ? (
-                                      <img
-                                        className="sent-file-card-image"
-                                        src={preview.src}
-                                        alt={`Preview de ${preview.name}`}
-                                        loading="lazy"
-                                      />
+                                      <>
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- upload previews use local blob/data URLs */}
+                                        <img
+                                          className="sent-file-card-image"
+                                          src={preview.src}
+                                          alt={`Preview de ${preview.name}`}
+                                          loading="lazy"
+                                        />
+                                      </>
                                     ) : (
                                       <span className="sent-file-card-fallback" aria-hidden="true">
                                         {preview.badge}
@@ -137,7 +211,7 @@ export function ChatConversation({
                                 </article>
                               ))}
                             </div>
-                          )
+                          ) : null
                         ) : (
                           <div className="sent-file-list" aria-label="Arquivos enviados">
                             {uploads.map((fileName, index) => {
@@ -178,13 +252,13 @@ export function ChatConversation({
         </div>
       </section>
 
-      {!stickToBottom && (
+      {!stickToBottom ? (
         <button id="scrollBottomBtn" className="jump-bottom" type="button" onClick={onScrollToBottom}>
           Ir para o fim
         </button>
-      )}
+      ) : null}
 
-      {expandedImage && (
+      {expandedImage ? (
         <div
           className="image-lightbox"
           role="dialog"
@@ -201,6 +275,7 @@ export function ChatConversation({
           >
             ×
           </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- lightbox renders a local blob/data URL */}
           <img
             className="image-lightbox-image"
             src={expandedImage.src}
@@ -208,7 +283,7 @@ export function ChatConversation({
             onClick={(event) => event.stopPropagation()}
           />
         </div>
-      )}
+      ) : null}
     </>
   );
 }

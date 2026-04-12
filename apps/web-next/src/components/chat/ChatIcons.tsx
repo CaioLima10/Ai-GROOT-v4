@@ -20,6 +20,14 @@ export const IconMic = () => (
   </svg>
 );
 
+export const IconVolume = () => (
+  <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+    <path d="M5 10h4l5-4v12l-5-4H5Z" strokeLinejoin="round" />
+    <path d="M18 9a4 4 0 0 1 0 6" strokeLinecap="round" />
+    <path d="M20.5 6.5a7.5 7.5 0 0 1 0 11" strokeLinecap="round" />
+  </svg>
+);
+
 export const IconFile = () => (
   <svg className="file-chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
     <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" strokeLinejoin="round" />

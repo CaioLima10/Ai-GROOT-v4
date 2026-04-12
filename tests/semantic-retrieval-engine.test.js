@@ -132,9 +132,10 @@ test("semantic retrieval returns meaningful top hits with hybrid diagnostics", a
   assert.ok(first.diagnostics.semantic.semanticSelected > 0)
   assert.ok(first.diagnostics.semantic.maxSemanticScore > 0)
   assert.ok(first.diagnostics.semantic.retrievalAccuracyProxy >= 0)
-
-  const hasSemanticAnnotatedTurn = first.conversationTurns.some(turn => Number(turn.semanticScore || 0) > 0)
-  assert.equal(hasSemanticAnnotatedTurn, true)
+  assert.equal(
+    first.conversationTurns.some((turn) => /^Nome:/i.test(String(turn.content || ""))),
+    false
+  )
 
   const second = await retrieval.retrieveRelevant({
     userId: "u_sem",
@@ -249,4 +250,68 @@ test("semantic retrieval uses distributed cache across adapter instances", async
 
   assert.equal(second.diagnostics.cacheHit, true)
   assert.equal(second.diagnostics.cacheLayer, "distributed")
+})
+
+test("semantic retrieval does not replay known facts as synthetic user turns", async () => {
+  const semanticStore = createSemanticMemoryStore({
+    embeddingProvider,
+    ttlMs: 24 * 60 * 60 * 1000,
+    maxItemsPerBucket: 500
+  })
+
+  const connector = {
+    async getContextForPrompt() {
+      return {
+        contextSummary: "Topicos: genesis, memoria",
+        summary: "Usuario quer continuidade correta",
+        knownFactsText: "Nome: Gabriel | Objetivo atual: Livro de Genesis",
+        conversationTurns: [
+          {
+            role: "user",
+            content: "Meu nome e Gabriel e estamos estudando o Livro de Genesis.",
+            created_at: "2026-04-02T10:00:00.000Z"
+          },
+          {
+            role: "assistant",
+            content: "Entendido.",
+            created_at: "2026-04-02T10:00:01.000Z"
+          }
+        ],
+        history: [],
+        userProfile: {
+          style: "natural",
+          knownFacts: {
+            name: "Gabriel",
+            currentGoal: "Livro de Genesis"
+          }
+        }
+      }
+    }
+  }
+
+  const retrieval = createGrootMemoryRetrievalAdapter({
+    connector,
+    embeddingProvider,
+    semanticStore,
+    cacheTtlMs: 30_000,
+    cacheMaxEntries: 50
+  })
+
+  const result = await retrieval.retrieveRelevant({
+    userId: "u_facts",
+    sessionId: "s_facts",
+    query: "Qual e meu nome e qual livro estamos estudando agora?",
+    limit: 6,
+    topic: "general",
+    intent: "fallback_ai",
+    activeModules: [],
+    bibleStudyModules: [],
+    conversationHistory: []
+  })
+
+  assert.equal(result.knownFactsText, "Nome: Gabriel | Objetivo atual: Livro de Genesis")
+  assert.equal(
+    result.conversationTurns.some((turn) => /^Nome:/i.test(String(turn.content || ""))),
+    false
+  )
 })

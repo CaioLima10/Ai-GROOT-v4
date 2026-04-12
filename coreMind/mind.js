@@ -470,7 +470,7 @@ export class Mind {
 
       // Salvar online se muito bem sucedido
       if (decision.confidence > 0.9) {
-        await supabaseMemory.save(
+        await this.supabaseMemory.save(
           `High-quality thinking: ${prompt}\n${thought.content}`,
           'thinking',
           {
@@ -548,3 +548,4 @@ export class Mind {
 }
 
 export const mind = new Mind()
+export default mind

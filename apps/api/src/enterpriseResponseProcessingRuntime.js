@@ -71,7 +71,132 @@ export function requiresVerifiedFreshDataCore(question = "", context = {}, deps 
   return /\b(agora|ao vivo|tempo real|ultim[oa]s?|atualizad[oa]|confirm[ea]|fonte|horario exato|horário exato|placar exato|preco|preço|cotacao|cotação|noticia|notícia)\b/i.test(normalizedQuestion)
 }
 
+function resolveExplicitShortReply(question = "", deps = {}) {
+  const input = String(question || "").trim()
+  if (!input) {
+    return null
+  }
+
+  const safety = typeof deps.detectSafetyRisk === "function"
+    ? deps.detectSafetyRisk(input)
+    : null
+  if (safety?.triggered) {
+    return null
+  }
+
+  const patterns = [
+    /\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\s*:\s*(.+)$/i,
+    /\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\s+["'“”]?([^"'“”\n\r]+)["'“”]?\s*$/i
+  ]
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern)
+    const reply = String(match?.[1] || "")
+      .trim()
+      .replace(/^["'“”]+|["'“”]+$/g, "")
+      .trim()
+
+    if (!reply) {
+      continue
+    }
+
+    if (reply.length > 120 || /[\n\r]/.test(reply)) {
+      return null
+    }
+
+    return reply
+  }
+
+  return null
+}
+
+function countKnownFacts(context = {}) {
+  const buckets = [
+    context?.knownFacts,
+    context?.memoryProfile?.knownFacts,
+    context?.profile?.knownFacts
+  ]
+
+  let count = 0
+  for (const bucket of buckets) {
+    if (Array.isArray(bucket)) {
+      count += bucket.filter(Boolean).length
+      continue
+    }
+
+    if (bucket && typeof bucket === "object") {
+      count += Object.keys(bucket).length
+    }
+  }
+
+  return count
+}
+
+function hasMeaningfulConversationContext(context = {}) {
+  const historyBuckets = [
+    context?.conversationHistory,
+    context?.history,
+    context?.recentConversationTurns,
+    context?.recentMessages
+  ]
+
+  const historyCount = historyBuckets.reduce((total, bucket) => {
+    if (!Array.isArray(bucket)) {
+      return total
+    }
+
+    return total + bucket.filter((entry) => entry && (entry.content || entry.text || entry.message || entry.role)).length
+  }, 0)
+
+  if (historyCount > 0) {
+    return true
+  }
+
+  if (countKnownFacts(context) > 0) {
+    return true
+  }
+
+  const summary = String(context?.memorySummary || context?.summary || "").trim()
+  return Boolean(summary) && !/^in[ií]cio de conversa\b/i.test(summary)
+}
+
+function isConversationRecallQuestion(question = "") {
+  const input = String(question || "")
+  return /\b(qual e meu nome|qual é meu nome|meu nome|quem sou eu|lembra|voce lembra|você lembra|eu ja te falei|eu já te falei|o que eu te disse|o que eu falei|o que eu pedi|qual foi meu pedido|qual foi a pergunta anterior|qual era o assunto|nessa conversa|nesta conversa|nessa thread|nesta thread|no chat anterior|na conversa anterior)\b/i.test(input)
+}
+
+function buildMissingConversationContextResponse(question = "") {
+  const input = String(question || "")
+
+  if (/\b(qual e meu nome|qual é meu nome|meu nome|quem sou eu)\b/i.test(input)) {
+    return "Voce ainda nao me disse seu nome nesta conversa."
+  }
+
+  if (/\b(qual foi meu pedido|o que eu pedi|o que eu te disse|o que eu falei|assunto|pergunta anterior)\b/i.test(input)) {
+    return "Voce ainda nao me passou esse contexto nesta conversa."
+  }
+
+  return "Ainda nao tenho esse contexto nesta conversa. Se quiser, me diga de novo e eu continuo daqui."
+}
+
+function shouldUseMissingConversationContextFallback(question = "", context = {}) {
+  return isConversationRecallQuestion(question) && !hasMeaningfulConversationContext(context)
+}
+
+function isGenericUnknownResponse(text = "") {
+  return /\b(nao consegui responder a esta pergunta no momento|não consegui responder a esta pergunta no momento|tente novamente em alguns instantes|nao tenho essa informacao|não tenho essa informação)\b/i.test(String(text || ""))
+}
+
 export function buildUnknownInformationResponseCore(question = "", context = {}, options = {}, deps = {}) {
+  const explicitShortReply = resolveExplicitShortReply(question, deps)
+  if (explicitShortReply) {
+    return explicitShortReply
+  }
+
+  if (shouldUseMissingConversationContextFallback(question, context)) {
+    return buildMissingConversationContextResponse(question)
+  }
+
   const includeReason = options.includeReason !== false
   const details = []
 
@@ -133,6 +258,14 @@ function shouldAppendKnowledgeSources(question = "", context = {}, text = "") {
     return false
   }
 
+  if (/\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\b/i.test(String(question || ""))) {
+    return false
+  }
+
+  if (isConversationRecallQuestion(question)) {
+    return false
+  }
+
   if (/^\s*\{[\s\S]*\}\s*$/m.test(String(text || ""))) {
     return false
   }
@@ -148,6 +281,87 @@ function shouldAppendKnowledgeSources(question = "", context = {}, text = "") {
   return true
 }
 
+const INTERNAL_CONTEXT_LEAK_PATTERN = /\b(com o contexto que eu tenho agora|ponto principal e este|topicos recentes|t[oó]picos recentes|[uú]ltimo pedido|ultimo pedido|se quiser, eu continuo a partir daqui|ainda nao tenho essa informacao|pergunte denovo|validacao da solucao|valida[cç][aã]o da solu[cç][aã]o|no estado atual desta execucao|limite operacional)\b/i
+const INTERNAL_PROMPT_SCAFFOLD_PATTERN = /\[\s*(System Prompt|Memoria relevante|Contexto do RAG|Pergunta do usuario)\s*\]/i
+const INTERNAL_OPERATIONAL_DUMP_PATTERN = /\b(estou em modo de contingencia operacional|pergunta recebida:|estado dos providers:)\b/i
+const INTERNAL_REASONING_DUMP_PATTERN = /\b(score geral:\s*\d|intent detectada:|abordagem recomendada:)\b/i
+
+function buildSanitizedLeakFallback(question = "", context = {}, deps = {}) {
+  const {
+    detectGreetingSignals,
+    buildGreetingResponse,
+    buildGospelCoreFallback,
+    resolveDeterministicUploadResponseRuntime,
+    deterministicUploadResponseDeps,
+    resolveDeterministicBibleGuidanceResponse,
+    isPromptCardPreferred,
+    buildPromptCardResponse,
+    isTableCardPreferred,
+    buildTableCardResponse,
+    resolveDeterministicWeatherResponse,
+    runtimeIsWeatherCardPreferred,
+    runtimeBuildWeatherCardResponse,
+    runtimeBuildWeatherIntentFallback,
+    resolveDeterministicFixtureResponse
+  } = deps
+
+  const greetingSignals = detectGreetingSignals(question)
+  if (greetingSignals.isGreetingOnly) {
+    return buildGreetingResponse(question, context)
+  }
+
+  const gospelFallback = buildGospelCoreFallback(question, context)
+  if (gospelFallback) return gospelFallback
+
+  const uploadResponseClean = resolveDeterministicUploadResponseRuntime(question, context, deterministicUploadResponseDeps)
+  if (uploadResponseClean) return uploadResponseClean
+
+  const bibleFallback = resolveDeterministicBibleGuidanceResponse(question, context)
+  if (bibleFallback) return bibleFallback
+
+  if (typeof isPromptCardPreferred === "function" && typeof buildPromptCardResponse === "function" && isPromptCardPreferred(context)) {
+    const promptCard = buildPromptCardResponse("", question, context)
+    if (promptCard) return promptCard
+  }
+
+  if (typeof isTableCardPreferred === "function" && typeof buildTableCardResponse === "function" && isTableCardPreferred(context)) {
+    const tableCard = buildTableCardResponse("", question, context)
+    if (tableCard) return tableCard
+  }
+
+  const deterministicWeatherResponse = resolveDeterministicWeatherResponse(question, context)
+  if (deterministicWeatherResponse) {
+    return deterministicWeatherResponse
+  }
+
+  if (runtimeIsWeatherCardPreferred(question, context)) {
+    const weatherCard = runtimeBuildWeatherCardResponse(question, context)
+    if (weatherCard) {
+      return weatherCard
+    }
+
+    const weatherFallback = runtimeBuildWeatherIntentFallback(context)
+    if (weatherFallback) {
+      return weatherFallback
+    }
+  }
+
+  const deterministicFixtureResponse = resolveDeterministicFixtureResponse(question, context)
+  if (deterministicFixtureResponse) {
+    return deterministicFixtureResponse
+  }
+
+  return "Nao consegui processar sua pergunta neste momento. Tente novamente em alguns instantes."
+}
+
+function hasInternalResponseLeak(text = "") {
+  const source = String(text || "")
+  return INTERNAL_CONTEXT_LEAK_PATTERN.test(source)
+    || INTERNAL_PROMPT_SCAFFOLD_PATTERN.test(source)
+    || INTERNAL_OPERATIONAL_DUMP_PATTERN.test(source)
+    || INTERNAL_REASONING_DUMP_PATTERN.test(source)
+}
+
 export function postProcessAssistantResponseCore(question = "", responseText = "", context = {}, deps = {}) {
   const {
     detectGreetingSignals,
@@ -159,6 +373,8 @@ export function postProcessAssistantResponseCore(question = "", responseText = "
     resolveDeterministicBibleGuidanceResponse,
     isPromptCardPreferred,
     buildPromptCardResponse,
+    isTableCardPreferred,
+    buildTableCardResponse,
     resolveDeterministicWeatherResponse,
     runtimeIsWeatherCardPreferred,
     runtimeBuildWeatherCardResponse,
@@ -174,23 +390,34 @@ export function postProcessAssistantResponseCore(question = "", responseText = "
     return text
   }
 
+  const explicitShortReply = resolveExplicitShortReply(question, deps)
+  if (explicitShortReply) {
+    return explicitShortReply
+  }
+
   // Interceptar vazamento de dados internos de memoria/contexto ANTES de qualquer outro processamento
-  const INTERNAL_CONTEXT_LEAK_PATTERN = /\b(com o contexto que eu tenho agora|ponto principal e este|topicos recentes|t[oó]picos recentes|[uú]ltimo pedido|ultimo pedido|se quiser, eu continuo a partir daqui|ainda nao tenho essa informacao|pergunte denovo|validacao da solucao|valida[cç][aã]o da solu[cç][aã]o|no estado atual desta execucao|limite operacional)\b/i
-  if (INTERNAL_CONTEXT_LEAK_PATTERN.test(text)) {
-    const greetingSignals2 = detectGreetingSignals(question)
-    if (greetingSignals2.isGreetingOnly) {
-      return buildGreetingResponse(question, context)
-    }
-    const gospelFallback = buildGospelCoreFallback(question, context)
-    if (gospelFallback) return gospelFallback
+  if (hasInternalResponseLeak(text)) {
+    return buildSanitizedLeakFallback(question, context, {
+      detectGreetingSignals,
+      buildGreetingResponse,
+      buildGospelCoreFallback,
+      resolveDeterministicUploadResponseRuntime,
+      deterministicUploadResponseDeps,
+      resolveDeterministicBibleGuidanceResponse,
+      isPromptCardPreferred,
+      buildPromptCardResponse,
+      isTableCardPreferred,
+      buildTableCardResponse,
+      resolveDeterministicWeatherResponse,
+      runtimeIsWeatherCardPreferred,
+      runtimeBuildWeatherCardResponse,
+      runtimeBuildWeatherIntentFallback,
+      resolveDeterministicFixtureResponse
+    })
+  }
 
-    const uploadResponseClean = resolveDeterministicUploadResponseRuntime(question, context, deterministicUploadResponseDeps)
-    if (uploadResponseClean) return uploadResponseClean
-
-    const bibleFallback = resolveDeterministicBibleGuidanceResponse(question, context)
-    if (bibleFallback) return bibleFallback
-
-    return "Nao consegui processar sua pergunta neste momento. Tente novamente em alguns instantes."
+  if (isGenericUnknownResponse(text) && shouldUseMissingConversationContextFallback(question, context)) {
+    return buildMissingConversationContextResponse(question)
   }
 
   const greetingSignals = detectGreetingSignals(question)
@@ -223,10 +450,17 @@ export function postProcessAssistantResponseCore(question = "", responseText = "
     return deterministicBibleGuidance
   }
 
-  if (isPromptCardPreferred(context)) {
-    const promptCard = buildPromptCardResponse(text)
+  if (typeof isPromptCardPreferred === "function" && typeof buildPromptCardResponse === "function" && isPromptCardPreferred(context)) {
+    const promptCard = buildPromptCardResponse(text, question, context)
     if (promptCard) {
       return promptCard
+    }
+  }
+
+  if (typeof isTableCardPreferred === "function" && typeof buildTableCardResponse === "function" && isTableCardPreferred(context)) {
+    const tableCard = buildTableCardResponse(text, question, context)
+    if (tableCard) {
+      return tableCard
     }
   }
 

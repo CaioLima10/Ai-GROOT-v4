@@ -8,11 +8,55 @@ const MODEL_TIER = (process.env.GROOT_MODEL_TIER || "balanced").toLowerCase()
 const PRIMARY_PROVIDER = (process.env.GROOT_AI_PROVIDER || "auto").toLowerCase()
 const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "")
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")
-const OPENROUTER_KEY = process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY
 const AI_PROVIDER_AUTH_COOLDOWN_MS = Number(process.env.AI_PROVIDER_AUTH_COOLDOWN_MS || 15 * 60 * 1000)
 const AI_PROVIDER_RATE_LIMIT_COOLDOWN_MS = Number(process.env.AI_PROVIDER_RATE_LIMIT_COOLDOWN_MS || 30 * 1000)
 const AI_PROVIDER_TRANSIENT_COOLDOWN_MS = Number(process.env.AI_PROVIDER_TRANSIENT_COOLDOWN_MS || 8 * 1000)
 const AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS = Number(process.env.AI_PROVIDER_TRANSIENT_MAX_COOLDOWN_MS || 60 * 1000)
+
+function normalizeProviderSecret(value) {
+  return String(value || "").trim()
+}
+
+function isPlaceholderProviderSecret(value) {
+  const normalized = normalizeProviderSecret(value)
+  if (!normalized) return false
+
+  const lower = normalized.toLowerCase()
+  return (
+    lower.includes("dummy")
+    || lower.includes("placeholder")
+    || lower.includes("changeme")
+    || lower.includes("example")
+    || lower.includes("fortesting")
+    || lower.includes("for_testing")
+    || lower.includes("for-testing")
+    || /(^|[_-])(your|sua|seu)([_-]|$)/.test(lower)
+    || lower.endsWith("_here")
+  )
+}
+
+function getConfiguredProviderSecret(value) {
+  const normalized = normalizeProviderSecret(value)
+  if (!normalized) return ""
+  if (isPlaceholderProviderSecret(normalized)) return ""
+  return normalized
+}
+
+function warnIgnoredPlaceholderSecret(providerName, rawValue) {
+  const normalized = normalizeProviderSecret(rawValue)
+  if (!normalized || !isPlaceholderProviderSecret(normalized)) return
+  console.warn(`[aiProviders] Ignorando ${providerName}: valor placeholder/dummy detectado no .env.`)
+}
+
+const OPENROUTER_KEY = getConfiguredProviderSecret(process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY)
+const GROQ_API_KEY = getConfiguredProviderSecret(process.env.GROQ_API_KEY)
+const GEMINI_API_KEY = getConfiguredProviderSecret(process.env.GEMINI_API_KEY)
+const OPENAI_API_KEY = getConfiguredProviderSecret(process.env.OPENAI_API_KEY)
+
+warnIgnoredPlaceholderSecret("Groq", process.env.GROQ_API_KEY)
+warnIgnoredPlaceholderSecret("OpenRouter", process.env.OPENROUTER_KEY || process.env.OPENROUTER_API_KEY)
+warnIgnoredPlaceholderSecret("Google Gemini", process.env.GEMINI_API_KEY)
+warnIgnoredPlaceholderSecret("OpenAI", process.env.OPENAI_API_KEY)
 
 const SYSTEM_PROMPT = `
 Voce e GIOM.
@@ -281,7 +325,7 @@ export class AIProviders {
         key: "groq",
         name: "Groq",
         priority: 20,
-        enabled: !!process.env.GROQ_API_KEY,
+        enabled: !!GROQ_API_KEY,
         supports: {
           local: false,
           streaming: true,
@@ -311,7 +355,7 @@ export class AIProviders {
         key: "gemini",
         name: "Google Gemini",
         priority: 40,
-        enabled: !!process.env.GEMINI_API_KEY,
+        enabled: !!GEMINI_API_KEY,
         supports: {
           local: false,
           streaming: true,
@@ -326,7 +370,7 @@ export class AIProviders {
         key: "openai",
         name: "OpenAI",
         priority: 50,
-        enabled: !!process.env.OPENAI_API_KEY,
+        enabled: !!OPENAI_API_KEY,
         supports: {
           local: false,
           streaming: true,
@@ -636,36 +680,13 @@ export class AIProviders {
   }
 
   getFallbackResponse(question, providerSummary = []) {
-    const preview = String(question || "").slice(0, 100)
-    const providerNotes = Array.isArray(providerSummary)
-      ? providerSummary
-        .filter(provider => provider.runtimeStatus !== "ready")
-        .slice(0, 4)
-        .map(provider => {
-          if (provider.runtimeStatus === "auth_invalid") {
-            return `${provider.name}: credencial rejeitada`
-          }
-          if (provider.runtimeStatus === "cooldown") {
-            const seconds = Math.max(1, Math.ceil((provider.cooldownMsRemaining || 0) / 1000))
-            return `${provider.name}: em cooldown por ${seconds}s`
-          }
-          if (provider.runtimeStatus === "degraded") {
-            return `${provider.name}: degradado`
-          }
-          return null
-        })
-        .filter(Boolean)
-      : []
+    void question
+    void providerSummary
 
     return [
-      "Estou em modo de contingencia operacional no momento.",
-      `Pergunta recebida: "${preview}${preview.length === 100 ? "..." : ""}"`,
-      providerNotes.length > 0
-        ? `Estado dos providers: ${providerNotes.join(", ")}.`
-        : "Os providers externos nao responderam de forma confiavel nesta tentativa.",
-      "Tente novamente em alguns instantes ou revise as credenciais e limites do provider no .env.",
-      AI_ENTERPRISE_NAME
-    ].join("\n\n")
+      "Nao consegui responder agora porque a infraestrutura de IA nao ficou disponivel nesta tentativa.",
+      "Tente novamente em alguns instantes."
+    ].join(" ")
   }
 
   buildMessages(question, options = {}) {
@@ -836,7 +857,7 @@ export class AIProviders {
         this.buildOpenAICompatiblePayload(question, options, model, "groq"),
         {
           headers: {
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+            "Authorization": `Bearer ${GROQ_API_KEY}`,
             "Content-Type": "application/json"
           },
           timeout: Number(process.env.GROQ_TIMEOUT_MS || 25000)
@@ -950,7 +971,7 @@ export class AIProviders {
 
     try {
       const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
         payload,
         {
           headers: {
@@ -971,7 +992,7 @@ export class AIProviders {
 
     const sdk = await import("openai")
     this.openaiClient = new sdk.OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: OPENAI_API_KEY,
       baseURL: OPENAI_BASE_URL
     })
     return this.openaiClient

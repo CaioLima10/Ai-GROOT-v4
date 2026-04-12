@@ -6,7 +6,10 @@ import { detectSafetyRisk, buildSafetyResponse } from './safetyGuard.js'
 
 // Manter compatibilidade com a API existente
 export async function askGroot(prompt, context = {}) {
-  const safety = detectSafetyRisk(prompt)
+  const safetyInput = typeof context?.originalQuestion === 'string' && context.originalQuestion.trim()
+    ? context.originalQuestion
+    : prompt
+  const safety = detectSafetyRisk(safetyInput)
   if (safety.triggered) {
     return {
       success: true,

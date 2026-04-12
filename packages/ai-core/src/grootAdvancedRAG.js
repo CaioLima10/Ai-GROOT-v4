@@ -13,6 +13,23 @@ const SNAPSHOT_DIRS = [
   path.resolve(process.cwd(), "knowledge", "imported", "free-sources", "snapshots")
 ]
 
+const ADVANCED_STATS_TIMEOUT_MS = Number(process.env.GROOT_ADVANCED_STATS_TIMEOUT_MS || 2500)
+
+function rejectAfterTimeout(timeoutMs, label) {
+  return new Promise((_, reject) => {
+    const error = new Error(`${label} timeout after ${timeoutMs}ms`)
+    error.code = "TIMEOUT"
+    setTimeout(() => reject(error), timeoutMs)
+  })
+}
+
+async function resolveWithTimeout(promise, timeoutMs, label) {
+  return Promise.race([
+    promise,
+    rejectAfterTimeout(timeoutMs, label)
+  ])
+}
+
 function parseFrontMatter(text) {
   const match = String(text || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/i)
   if (!match) {
@@ -1125,7 +1142,15 @@ export class GrootAdvancedRAG {
   }
 
   async getAdvancedStats() {
-    await this.ensureBootstrap()
+    try {
+      await resolveWithTimeout(
+        this.ensureBootstrap(),
+        ADVANCED_STATS_TIMEOUT_MS,
+        "grootAdvancedRAG.ensureBootstrap"
+      )
+    } catch (error) {
+      console.warn("⚠️ Estatisticas avancadas usando snapshot parcial:", error.message)
+    }
 
     if (!this.enabled || !this.supabase) {
       return {
@@ -1139,10 +1164,14 @@ export class GrootAdvancedRAG {
     }
 
     try {
-      const [knowledgeCount, bugsCount] = await Promise.all([
-        this.supabase.from("knowledge_embeddings").select("count", { count: "exact" }),
-        this.supabase.from("bugs_knowledge").select("count", { count: "exact" })
-      ])
+      const [knowledgeCount, bugsCount] = await resolveWithTimeout(
+        Promise.all([
+          this.supabase.from("knowledge_embeddings").select("count", { count: "exact" }),
+          this.supabase.from("bugs_knowledge").select("count", { count: "exact" })
+        ]),
+        ADVANCED_STATS_TIMEOUT_MS,
+        "grootAdvancedRAG.getAdvancedStats"
+      )
 
       return {
         totalKnowledge: knowledgeCount.count || 0,

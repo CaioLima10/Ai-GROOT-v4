@@ -1878,11 +1878,19 @@ export class ReasoningAgent {
       return textInterpretation
     }
 
-    const recentUserMessages = this.getRecentUserMessages(memoryContext)
-    const lastUserMessage = recentUserMessages[recentUserMessages.length - 1] || ''
+    const topicContinuation = this.buildTopicContinuationFallback(task, memoryContext)
+    if (topicContinuation) {
+      return topicContinuation
+    }
 
-    if (/\b(volta|continue|continua|retoma|retomando|mesmo tom|resuma|resumir)\b/i.test(String(task || '')) && lastUserMessage) {
-      return `Continuando de onde paramos: ${lastUserMessage}. Posso seguir em formato curto, passo a passo ou com aplicacao pratica.`
+    const recentUserMessages = this.getRecentUserMessages(memoryContext)
+    const professionalContinuity = this.buildProfessionalContinuityFallback(task, memoryContext)
+    if (professionalContinuity) {
+      return professionalContinuity
+    }
+
+    if (/\b(volta|continue|continua|retoma|retomando|mesmo tom|resuma|resumir)\b/i.test(String(task || '')) && recentUserMessages.length > 0) {
+      return 'Posso continuar, mas preciso que voce diga em uma frase qual ponto exato quer retomar.'
     }
 
     if (this.isRealtimeOrVerificationQuestion(task)) {
@@ -2064,6 +2072,100 @@ export class ReasoningAgent {
     return null
   }
 
+  extractContinuationFocus(memoryContext = {}) {
+    const structuredFocus = String(memoryContext?.conversationState?.resolvedFocus || '').trim()
+    if (structuredFocus) {
+      return structuredFocus
+    }
+
+    const facts = this.extractKnownFacts(memoryContext)
+    const explicitGoal = String(facts.currentGoal || '').trim()
+    if (explicitGoal) {
+      return explicitGoal
+    }
+
+    const recentUserMessages = this.getRecentUserMessages(memoryContext).reverse()
+    for (const message of recentUserMessages) {
+      const bookMatch = String(message || '').match(/\blivro de\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40}?)(?=[,.!?]|$)/i)
+      if (bookMatch?.[1]) {
+        return `Livro de ${bookMatch[1].trim()}`
+      }
+
+      const studyMatch = String(message || '').match(/\b(?:estou|estamos) estudando\s+([^.!?\n]{3,80}?)(?=[.!?]|$)/i)
+      if (studyMatch?.[1]) {
+        return studyMatch[1].trim()
+      }
+    }
+
+    return ''
+  }
+
+  buildProfessionalContinuityFallback(task = '', memoryContext = {}) {
+    const normalizedTask = String(task || '').toLowerCase()
+    if (!/\b(volta|continue|continua|retoma|retomando|mesmo tom|mesmo assunto|mesmo tema|resuma|resumir)\b/i.test(normalizedTask)) {
+      return null
+    }
+
+    const focus = this.extractContinuationFocus(memoryContext)
+    if (!focus) {
+      return null
+    }
+
+    const focusLabel = focus.length > 120
+      ? `${focus.slice(0, 117).trim()}...`
+      : focus
+
+    if (/\b(aplicac|aplicação|na pratica|na prática)\b/i.test(normalizedTask)) {
+      return `Seguindo no foco de ${focusLabel}, o melhor e ligar a ideia central a uma decisao concreta, um passo executavel e um criterio simples de revisao.`
+    }
+
+    if (/\b(resuma|resumir|uma frase|em uma frase)\b/i.test(normalizedTask)) {
+      return `Em resumo, o foco continua em ${focusLabel}, com prioridade para manter o contexto principal, destacar a ideia central e so depois abrir novas ramificacoes.`
+    }
+
+    return `Seguindo no foco de ${focusLabel}, vale aprofundar o ponto central, organizar os blocos principais e fechar com aplicacao pratica se isso ajudar.`
+  }
+
+  buildTopicContinuationFallback(task = '', memoryContext = {}) {
+    const normalizedTask = String(task || '').toLowerCase()
+    if (!/\b(continue|continua|retoma|retomando|mesmo assunto|mesmo tema)\b/i.test(normalizedTask)) {
+      return null
+    }
+
+    if (!/\b(topicos|tópicos|pontos|itens)\b/i.test(normalizedTask)) {
+      return null
+    }
+
+    const focus = this.extractContinuationFocus(memoryContext)
+    if (!focus) {
+      return null
+    }
+
+    const requestedCount = Math.max(1, Math.min(
+      Number(String(task || '').match(/\b(\d+)\s+(?:topicos|tópicos|pontos|itens)\b/i)?.[1] || 3),
+      5
+    ))
+
+    const genesisTopics = [
+      'Em Genesis, criacao, queda e o inicio da historia humana.',
+      'Em Genesis, a alianca com Abraao, Isaque e Jaco.',
+      'Em Genesis, Jose no Egito e a preservacao da familia da promessa.'
+    ]
+    const genericTopics = [
+      `Contexto central de ${focus}.`,
+      `Personagens, movimentos ou partes principais de ${focus}.`,
+      `Licoes e aplicacoes praticas de ${focus}.`
+    ]
+    const selectedTopics = /\bgenesis|gênesis\b/i.test(focus)
+      ? genesisTopics
+      : genericTopics
+
+    return selectedTopics
+      .slice(0, requestedCount)
+      .map((topic, index) => `${index + 1}. ${topic}`)
+      .join('\n')
+  }
+
   buildRuleBasedFallback(task, context = {}, memoryContext = {}, ragContext = {}, promptPackage = {}) {
     const directResponse = this.tryDirectOperationalResponse(task, context, memoryContext)
     if (directResponse) {
@@ -2124,6 +2226,14 @@ export class ReasoningAgent {
 
   buildKnowledgeSourcesFooter(task = '', responseText = '', ragContext = {}, promptPackage = {}) {
     if (/base consultada:|base biblica consultada:|base teologica consultada:|referencias tecnicas consultadas:|referencias linguisticas consultadas:/i.test(String(responseText || ''))) {
+      return ''
+    }
+
+    if (/\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\b/i.test(String(task || ''))) {
+      return ''
+    }
+
+    if (this.isMemoryRecallQuestion(task)) {
       return ''
     }
 

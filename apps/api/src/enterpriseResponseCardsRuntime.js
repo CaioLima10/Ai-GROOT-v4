@@ -14,13 +14,140 @@ export function isPromptCardPreferred(context = {}) {
   return String(context?.preferredResponseCard || "").trim().toLowerCase() === "prompt"
 }
 
+export function isTableCardPreferred(context = {}) {
+  return String(context?.preferredResponseCard || "").trim().toLowerCase() === "table"
+}
+
+const COMMON_SPORTS_SUBJECTS = [
+  ["selecao brasileira", "Brasil"],
+  ["selecao brasileira", "Brasil"],
+  ["brasil", "Brasil"],
+  ["botafogo", "Botafogo"],
+  ["flamengo", "Flamengo"],
+  ["palmeiras", "Palmeiras"],
+  ["corinthians", "Corinthians"],
+  ["sao paulo", "Sao Paulo"],
+  ["santos", "Santos"],
+  ["gremio", "Gremio"],
+  ["internacional", "Internacional"],
+  ["inter", "Internacional"]
+]
+
 function stripDecorativeAssistantLead(text = "") {
   return String(text || "")
     .replace(/^(?:aqui\s+esta|aqui\s+está|segue|claro|perfeito|combinado|beleza)[!,.:\s-]*/i, "")
     .replace(/^(?:vou\s+te\s+passar|posso\s+te\s+passar|te\s+passo)[!,.:\s-]*/i, "")
-    .replace(/^(?:use\s+este\s+prompt|prompt\s+pronto|prompt\s+final|prompt\s+sugerido)\s*[:\-]\s*/i, "")
+    .replace(/^(?:use\s+este\s+prompt|prompt\s+pronto(?:\s*\(copia\s+e\s+cola\))?|prompt\s+final|prompt\s+sugerido)\s*[:\-]?\s*/i, "")
     .replace(/^(?:prompt|resposta|resultado)\s*[:\-]\s*/i, "")
+    .replace(/^escrita\s*/i, "")
     .trim()
+}
+
+function stripPromptFallbackNoise(text = "") {
+  return String(text || "")
+    .replace(/\bnao consegui responder a esta pergunta no momento[\s\S]*$/i, "")
+    .replace(/\bnao consegui processar sua pergunta neste momento[\s\S]*$/i, "")
+    .trim()
+}
+
+function buildPromptContextText(context = {}) {
+  const historyBuckets = [
+    context?.requestConversationHistory,
+    context?.sessionConversationHistory,
+    context?.conversationHistory,
+    context?.history
+  ]
+
+  return historyBuckets
+    .flatMap((bucket) => Array.isArray(bucket) ? bucket : [])
+    .map((entry) => String(entry?.content || entry?.text || entry?.message || "").trim())
+    .filter(Boolean)
+    .join("\n")
+}
+
+function questionRequestsPrompt(question = "") {
+  return /\b(prompt|copia e cola|copie e cole)\b/i.test(String(question || ""))
+}
+
+function hasOnboardingPromptContext(question = "", context = {}) {
+  const source = [question, buildPromptContextText(context), context?.artifactPrompt, context?.memorySummary, context?.summary]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join("\n")
+
+  return /\b(onboarding|implantacao|implantação|kickoff|go[-\s]?live|ativacao|ativação|adocao|adoção)\b/i.test(source)
+}
+
+function questionRequestsStudyPrompt(question = "") {
+  return /\b(estudar|estudo|devocional|meditacao|meditação|reflexao|reflexão|plano de leitura)\b/i.test(String(question || ""))
+}
+
+function looksLikePromptInstructions(text = "") {
+  const trimmed = String(text || "").trim()
+  if (!trimmed) return false
+
+  const normalized = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  if (/\b(atue como|voce e|você é|sua tarefa|objetivo|entregue|responda|mantenha|use|gere|crie|foco|restricoes|restrições|contexto|tom|papel)\b/.test(normalized)) {
+    return true
+  }
+
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length >= 3 && lines.some((line) => /[:;]/.test(line))) {
+    return true
+  }
+
+  return false
+}
+
+function extractPromptObjective(question = "") {
+  return String(question || "")
+    .replace(/\b(?:ainda\s+sem\s+arquivo|sem\s+gerar\s+arquivo|no\s+mesmo\s+assunto|no\s+mesmo\s+estilo|agora|por\s+favor)\b/gi, " ")
+    .replace(/\b(?:me\s+de|me\s+d[eê]|gere|gera|crie|cria|faca|faça|monte|escreva)\b/gi, " ")
+    .replace(/\b(?:um|uma)\s+prompt(?:\s+curto)?\b/gi, " ")
+    .replace(/\b(?:copia\s+e\s+cola|copie\s+e\s+cole)\b/gi, " ")
+    .replace(/[?!.]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function buildPromptFallback(question = "", context = {}) {
+  if (!questionRequestsPrompt(question)) {
+    return null
+  }
+
+  if (hasOnboardingPromptContext(question, context)) {
+    return [
+      "Atue como analista de onboarding de clientes.",
+      "Mapeie a etapa atual, os principais bloqueios e o primeiro marco de valor esperado.",
+      "Entregue um plano curto com prioridade, responsavel, prazo e follow-up imediato.",
+      "Mantenha tom executivo, objetivo e orientado a reduzir atrito na implantacao."
+    ].join("\n")
+  }
+
+  const objective = extractPromptObjective(question)
+  if (questionRequestsStudyPrompt(question)) {
+    return [
+      "Atue como mentor biblico e guia de estudo devocional.",
+      objective ? `Monte um plano curto para ${objective}.` : "Monte um plano curto de estudo biblico com continuidade do contexto anterior.",
+      "Para cada etapa, entregue tema central, texto-base, pergunta de reflexao, aplicacao pratica e oracao curta.",
+      "Mantenha fidelidade ao texto, linguagem humana e tom pastoral."
+    ].join("\n")
+  }
+
+  return [
+    "Atue como especialista que vai assumir esta conversa em continuidade.",
+    objective ? `Tarefa: ${objective}.` : "Tarefa: assuma o contexto anterior e execute a proxima etapa pedida pelo usuario.",
+    "Entregue resposta curta, clara, acionavel e com proximo passo recomendado.",
+    "Mantenha tom humano, objetivo e sem repetir contexto desnecessario."
+  ].join("\n")
 }
 
 function unescapeJsonLikeString(value = "") {
@@ -63,29 +190,133 @@ function extractPromptContentFromJsonLike(text = "") {
   return ""
 }
 
-export function buildPromptCardResponse(responseText = "") {
+export function buildPromptCardResponse(responseText = "", question = "", context = {}) {
   const source = extractPromptContentFromJsonLike(responseText)
     || (() => {
       const blockMatch = String(responseText || "").match(/```(?:prompt|text|txt)?\s*([\s\S]*?)\s*```/i)
       return blockMatch?.[1] ? blockMatch[1] : responseText
     })()
-  const cleaned = stripDecorativeAssistantLead(source)
-  if (!cleaned) return null
+  const cleaned = stripPromptFallbackNoise(stripDecorativeAssistantLead(source))
+  const fallbackPrompt = buildPromptFallback(question, context)
+  const cleanedLooksLikePrompt = looksLikePromptInstructions(cleaned)
+  const promptBody = cleaned
+    && !/^(nao consegui responder|nao consegui processar)\b/i.test(cleaned)
+    && (!fallbackPrompt || cleanedLooksLikePrompt)
+    ? cleaned
+    : fallbackPrompt
+  if (!promptBody) return null
 
   return JSON.stringify({
     type: "prompt",
-    content: cleaned
+    content: promptBody
   })
+}
+
+function buildCalendarFromClockMeta(clock = null, fallbackTimezone = "Etc/UTC") {
+  if (!clock || clock.verified !== true) return null
+  const nowUtc = String(clock.nowUtc || "").trim()
+  const fetchedAt = String(clock.fetchedAt || "").trim()
+  const timezone = String(clock.timezone || fallbackTimezone || "Etc/UTC").trim() || "Etc/UTC"
+  const parsedNowMs = Date.parse(nowUtc)
+  const parsedFetchedAtMs = Date.parse(fetchedAt)
+  if (!Number.isFinite(parsedNowMs) || !Number.isFinite(parsedFetchedAtMs)) {
+    return null
+  }
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).formatToParts(new Date(parsedNowMs))
+    const year = parts.find((part) => part.type === "year")?.value
+    const month = parts.find((part) => part.type === "month")?.value
+    const day = parts.find((part) => part.type === "day")?.value
+    const hour = parts.find((part) => part.type === "hour")?.value
+    const minute = parts.find((part) => part.type === "minute")?.value
+    const second = parts.find((part) => part.type === "second")?.value
+    if (!(year && month && day && hour && minute && second)) return null
+
+    return {
+      verified: true,
+      source: String(clock.source || "worldtimeapi"),
+      timezone,
+      nowUtc,
+      fetchedAt,
+      date: `${year}-${month}-${day}`,
+      year: Number(year),
+      month: Number(month),
+      day: Number(day),
+      hour: Number(hour),
+      minute: Number(minute),
+      second: Number(second)
+    }
+  } catch {
+    return null
+  }
+}
+
+function enrichFixtureEntryWithCalendar(entry = {}) {
+  const timestampMs = Number(entry?.timestampMs || 0)
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
+    return null
+  }
+
+  const kickoffIso = new Date(timestampMs).toISOString()
+  return {
+    ...entry,
+    kickoffIso,
+    calendar: {
+      year: Number(kickoffIso.slice(0, 4)),
+      month: Number(kickoffIso.slice(5, 7)),
+      day: Number(kickoffIso.slice(8, 10)),
+      hour: Number(kickoffIso.slice(11, 13)),
+      minute: Number(kickoffIso.slice(14, 16)),
+      second: Number(kickoffIso.slice(17, 19))
+    }
+  }
 }
 
 export function buildFixtureCardResponse(context = {}) {
   const fixture = context?.liveFixture
   if (!fixture || fixture.error) return null
 
-  const recentMatches = Array.isArray(fixture.recentMatches) ? fixture.recentMatches : []
-  const nextMatches = Array.isArray(fixture.nextMatches) ? fixture.nextMatches : []
-  const hasUpcomingFixture = Boolean(fixture.hasUpcomingFixture)
-  const wantsHistory = Boolean(fixture.wantsHistory)
+  const timeVerification = fixture.timeVerification || fixture.verification?.clock || null
+  const calendar = buildCalendarFromClockMeta(timeVerification, "Etc/UTC")
+  if (!calendar) {
+    return buildFixtureIntentFallback("", {
+      liveFixture: {
+        ...fixture,
+        hasUpcomingFixture: false,
+        wantsHistory: false,
+        nextMatches: [],
+        recentMatches: []
+      }
+    })
+  }
+
+  const recentMatches = Array.isArray(fixture.recentMatches)
+    ? fixture.recentMatches
+      .map((entry) => enrichFixtureEntryWithCalendar(entry))
+      .filter(Boolean)
+    : []
+  const nextMatches = Array.isArray(fixture.nextMatches)
+    ? fixture.nextMatches
+      .map((entry) => enrichFixtureEntryWithCalendar(entry))
+      .filter(Boolean)
+    : []
+  const liveMatches = Array.isArray(fixture.liveMatches)
+    ? fixture.liveMatches
+      .map((entry) => enrichFixtureEntryWithCalendar(entry))
+      .filter(Boolean)
+    : []
+  const hasUpcomingFixture = Boolean(fixture.hasUpcomingFixture) && nextMatches.length > 0
+  const wantsHistory = Boolean(fixture.wantsHistory) && recentMatches.length > 0
   if (!hasUpcomingFixture && !wantsHistory) return null
 
   const fallbackMatch = !hasUpcomingFixture && wantsHistory && recentMatches.length > 0
@@ -121,11 +352,19 @@ export function buildFixtureCardResponse(context = {}) {
       venue: boardVenue,
       note: fixture.summary || boardVenue || "",
       hasUpcomingFixture,
+      calendar,
+      date: calendar.date,
+      year: calendar.year,
+      month: calendar.month,
+      day: calendar.day,
+      hour: calendar.hour,
+      minute: calendar.minute,
+      second: calendar.second,
       nextMatches,
       recentMatches,
-      liveMatches: Array.isArray(fixture.liveMatches) ? fixture.liveMatches : [],
+      liveMatches,
       verification: fixture.verification && typeof fixture.verification === "object" ? fixture.verification : null,
-      timeVerification: fixture.timeVerification || fixture.verification?.clock || null,
+      timeVerification,
       sourceLinks: Array.isArray(fixture.sourceLinks) ? fixture.sourceLinks : []
     },
     meta: {
@@ -135,35 +374,38 @@ export function buildFixtureCardResponse(context = {}) {
   })
 }
 
+function normalizeLooseText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function inferCommonSportsSubjectLabel(source = "") {
+  const normalizedSource = normalizeLooseText(source)
+  for (const [token, label] of COMMON_SPORTS_SUBJECTS) {
+    if (normalizedSource.includes(token)) {
+      return label
+    }
+  }
+
+  return ""
+}
+
 function inferFixtureSubjectLabel(question = "", context = {}) {
   const liveFixture = context?.liveFixture
   if (String(liveFixture?.teamName || "").trim()) {
     return String(liveFixture.teamName).trim()
   }
 
-  const normalizedQuestion = String(question || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
+  const questionLabel = inferCommonSportsSubjectLabel(question)
+  if (questionLabel) {
+    return questionLabel
+  }
 
-  const commonTeams = [
-    ["brasil", "Brasil"],
-    ["selecao brasileira", "Brasil"],
-    ["botafogo", "Botafogo"],
-    ["flamengo", "Flamengo"],
-    ["palmeiras", "Palmeiras"],
-    ["corinthians", "Corinthians"],
-    ["sao paulo", "Sao Paulo"],
-    ["santos", "Santos"],
-    ["gremio", "Gremio"],
-    ["internacional", "Internacional"],
-    ["inter", "Internacional"]
-  ]
-
-  for (const [token, label] of commonTeams) {
-    if (normalizedQuestion.includes(token)) {
-      return label
-    }
+  const historyLabel = inferCommonSportsSubjectLabel(buildPromptContextText(context))
+  if (historyLabel) {
+    return historyLabel
   }
 
   const extractedMatch = String(question || "").match(
@@ -179,13 +421,14 @@ export function buildFixtureIntentFallback(question = "", context = {}) {
   const liveFixture = context?.liveFixture
   const hasRecentMatches = Array.isArray(liveFixture?.recentMatches) && liveFixture.recentMatches.length > 0
   const teamLabel = inferFixtureSubjectLabel(question, context)
+  const subjectDetail = teamLabel && teamLabel !== "Agenda esportiva" ? ` de ${teamLabel}` : ""
   const note = !String(question || "").trim()
     ? "Me diga o time, clube ou selecao para eu abrir o card esportivo."
     : (!liveFixture || liveFixture.error)
-      ? "Nao consegui confirmar a agenda ao vivo agora. Para evitar data errada, este widget fica em modo seguro ate a proxima consulta."
+      ? `Nao consegui confirmar a agenda ao vivo${subjectDetail} agora. Para evitar data errada, este widget fica em modo seguro ate a proxima consulta.`
       : !liveFixture.hasUpcomingFixture && !hasRecentMatches
-        ? "Nao encontrei confronto confirmado ou historico recente nesta consulta ao vivo."
-        : "Nao consegui montar o card esportivo completo agora."
+        ? `Nao encontrei confronto confirmado${subjectDetail} ou historico recente nesta consulta ao vivo.`
+        : `Nao consegui montar o card esportivo completo${subjectDetail} agora.`
 
   return JSON.stringify({
     type: "data",
@@ -219,5 +462,121 @@ export function buildFixtureIntentFallback(question = "", context = {}) {
       variant: "fixture",
       provider: liveFixture?.provider || "sports_fallback"
     }
+  })
+}
+
+function looksLikeStructuredTableResponse(text = "") {
+  const trimmed = String(text || "").trim()
+  if (!trimmed) return false
+
+  if (/^\s*```(?:json)?[\s\S]*"type"\s*:\s*"table"/i.test(trimmed)) {
+    return true
+  }
+
+  if (/^\s*\{[\s\S]*"type"\s*:\s*"table"/i.test(trimmed)) {
+    return true
+  }
+
+  const lines = trimmed.split(/\r?\n/)
+  return lines.length >= 3
+    && lines[0].includes("|")
+    && /^\s*\|?\s*[:-]+[-| :]*\|?\s*$/.test(lines[1] || "")
+}
+
+function cleanComparisonTerm(value = "") {
+  return String(value || "")
+    .replace(/^(?:o|a|os|as|um|uma)\s+/i, "")
+    .replace(/[?.,!]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function extractComparisonTerms(question = "") {
+  const patterns = [
+    /\bcomparando\s+(.+?)\s+e\s+(.+?)(?:\s+(?:em|sobre|no contexto de)\b|[?.!,]|$)/i,
+    /\bcompare\s+(.+?)\s+e\s+(.+?)(?:\s+(?:em|sobre|no contexto de)\b|[?.!,]|$)/i,
+    /\b(.+?)\s+(?:vs|versus)\s+(.+?)(?:\s+(?:em|sobre|no contexto de)\b|[?.!,]|$)/i
+  ]
+
+  for (const pattern of patterns) {
+    const match = String(question || "").match(pattern)
+    const left = cleanComparisonTerm(match?.[1] || "")
+    const right = cleanComparisonTerm(match?.[2] || "")
+    if (left && right) {
+      return [left, right]
+    }
+  }
+
+  return null
+}
+
+function buildRomansEightComparisonTable(terms = []) {
+  const [left, right] = terms
+  if (!left || !right) return null
+
+  const normalizedLeft = normalizeLooseText(left)
+  const normalizedRight = normalizeLooseText(right)
+  const hasGuilt = normalizedLeft.includes("culpa") || normalizedRight.includes("culpa")
+  const hasSecurity = normalizedLeft.includes("seguranca") || normalizedRight.includes("seguranca")
+  if (!hasGuilt || !hasSecurity) {
+    return null
+  }
+
+  const guiltLabel = normalizedLeft.includes("culpa") ? left : right
+  const securityLabel = guiltLabel === left ? right : left
+
+  return {
+    columns: ["Aspecto", guiltLabel, securityLabel],
+    rows: [
+      ["Leitura central", "Peso da condenacao e da acusacao ligadas ao pecado.", "Seguranca de quem esta em Cristo e vive no Espirito."],
+      ["Tom dominante", "Medo, autocobranca e senso de divida moral.", "Confianca, filiacao e esperanca sustentadas por Deus."],
+      ["Base em Romanos 8", "Romanos 8 abre negando a condenacao final para quem esta em Cristo.", "Romanos 8 fecha afirmando que nada separa do amor de Deus."],
+      ["Aplicacao pratica", "Levar a culpa para a cruz e abandonar a autossuficiencia.", "Descansar na obra de Cristo e caminhar com obediencia confiante."]
+    ]
+  }
+}
+
+function buildGenericComparisonTable(question = "", terms = []) {
+  const [left, right] = terms
+  if (!left || !right) return null
+
+  const topicMatch = String(question || "").match(/\b(?:em|sobre|no contexto de)\s+([^?.!]+)$/i)
+  const topic = String(topicMatch?.[1] || "").replace(/[?.,!]+$/g, "").trim()
+  const topicSuffix = topic ? ` no contexto de ${topic}` : ""
+
+  return {
+    columns: ["Aspecto", left, right],
+    rows: [
+      ["Definicao", `${left} observado${topicSuffix}.`, `${right} observado${topicSuffix}.`],
+      ["Foco principal", `Onde ${left} ganha mais peso${topicSuffix}.`, `Onde ${right} ganha mais peso${topicSuffix}.`],
+      ["Risco ou tensao", `Qual cuidado pratico envolve ${left}.`, `Qual cuidado pratico envolve ${right}.`],
+      ["Aplicacao", `Pergunta-chave: como lidar melhor com ${left}?`, `Pergunta-chave: como fortalecer ${right}?`]
+    ]
+  }
+}
+
+export function buildTableCardResponse(responseText = "", question = "", context = {}) {
+  if (!isTableCardPreferred(context)) {
+    return null
+  }
+
+  const source = String(responseText || "").trim()
+  if (looksLikeStructuredTableResponse(source)) {
+    return source
+  }
+
+  const comparisonTerms = extractComparisonTerms(question)
+  const payload = (/\bromanos\s+8\b/i.test(String(question || "")) && comparisonTerms
+    ? buildRomansEightComparisonTable(comparisonTerms)
+    : null)
+    || buildGenericComparisonTable(question, comparisonTerms || [])
+
+  if (!payload) {
+    return null
+  }
+
+  return JSON.stringify({
+    type: "table",
+    content: payload
   })
 }

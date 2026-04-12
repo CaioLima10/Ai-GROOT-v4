@@ -1,21 +1,30 @@
 ﻿"use client";
 
 import { createClient, type Provider, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { usePathname } from "next/navigation";
 import { AuthModal } from "@/components/chat/AuthModal";
+import { BibleStudyHero } from "@/components/chat/BibleStudyHero";
+import { BibleStudyPanel } from "@/components/chat/BibleStudyPanel";
+import { BibleStudyWorkspaceBanner } from "@/components/chat/BibleStudyWorkspaceBanner";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatConversation } from "@/components/chat/ChatConversation";
 import { ChatHeader } from "@/components/chat/ChatHeader";
+import { IconSidebar } from "@/components/chat/ChatIcons";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ProfileModal } from "@/components/chat/ProfileModal";
+import { VoiceConversationOverlay } from "@/components/chat/VoiceConversationOverlay";
 import { buildUploadPreviews, revokeUploadPreviews, type MessageUploadPreview } from "@/lib/uploadPreviews";
+import { flushSync } from "react-dom";
 import type {
   AuthIdentity,
   AuthMode,
   AuthStep,
+  BibleLearningProgressState,
+  BibleLearningTrack,
+  BibleStudyModuleOption,
   ChatMessage,
   ChatThread,
   GeneratedDocument,
-  GeneratedImage
 } from "@/components/chat/types";
 import { resilientFetch } from "@/lib/resilientFetch";
 import { isLikelyWeatherQuestion } from "@/lib/questionIntents";
@@ -24,9 +33,34 @@ import {
   normalizeGiomMessageType,
   sanitizeAskContext
 } from "@/lib/runtimeContracts";
+import {
+  parseAskResponsePayload,
+  parseRealtimeSessionEnvelopePayload,
+  parseRealtimeSpeechEnvelopePayload,
+  parseRealtimeTranscriptionPayload,
+  parseRealtimeVoiceResponseEnvelopePayload,
+  parseRuntimeConfigPayload
+} from "@groot/shared-config/src/runtimeSchemas.js";
+import {
+  buildSpeechSafeText,
+  createAudioLevelMonitor,
+  createWavAudioRecorder,
+  createSilenceDetector,
+  type AudioLevelMonitorController,
+  isBrowserAudioCaptureSupported,
+  isBrowserSpeechSynthesisSupported,
+  isBrowserWavRecorderSupported,
+  speakWithBrowser,
+  type RealtimeVoiceSession,
+  type BrowserSpeechController,
+  type SilenceDetectorController,
+  type WavAudioCaptureResult,
+  type WavAudioRecorderController
+} from "@/lib/voiceRealtime";
 import { MessageRenderer } from "@/components/messages/MessageRenderer";
 import type { GIOMMessage } from "@/components/messages/types";
 import type {
+  ConversationHistoryItem,
   GIOMAskContext,
   GIOMRenderableContent,
   GIOMUploadAsset,
@@ -52,6 +86,13 @@ type RuntimeConfig = {
     streaming?: boolean;
     imageGeneration?: boolean;
     documentGeneration?: boolean;
+    voiceRealtime?: boolean;
+    audioTranscriptions?: boolean;
+    audioSpeech?: boolean;
+    browserVad?: boolean;
+    serverAudioTranscriptions?: boolean;
+    serverAudioSpeech?: boolean;
+    serverVad?: boolean;
   };
   uploads?: {
     enabled?: boolean;
@@ -59,8 +100,44 @@ type RuntimeConfig = {
     accept?: string[];
   };
   ai?: {
+    assistantProfiles?: Array<{
+      id?: string;
+      label?: string;
+      summary?: string;
+    }>;
+    bibleLearningTracks?: BibleLearningTrack[];
+    bibleStudyModules?: BibleStudyModuleOption[];
     documentGeneration?: {
-      formats?: Array<{ id?: string }>;
+      formats?: Array<{ id?: string; format?: string }>;
+    };
+    promptPacks?: Array<{
+      id?: string;
+      label?: string;
+      summary?: string;
+    }>;
+    providers?: Array<{
+      key?: string;
+      name?: string;
+      enabled?: boolean;
+      model?: string;
+      runtimeStatus?: string;
+      cooldownMsRemaining?: number;
+      consecutiveFailures?: number;
+    }>;
+  };
+  runtime?: {
+    voice?: {
+      bargeIn?: boolean;
+      defaultPersona?: string;
+      personas?: Array<{
+        id?: string;
+        label?: string;
+        voice?: string;
+        tone?: string;
+        summary?: string;
+        provider?: string | null;
+        serverAudioAvailable?: boolean;
+      }>;
     };
   };
 };
@@ -91,6 +168,202 @@ type PlanLimits = {
 };
 
 type WeatherLocationContext = SharedWeatherLocationContext;
+type VoiceStatus = "idle" | "connecting" | "listening" | "processing" | "speaking" | "paused";
+type VoiceCaptureMode = "idle" | "browser" | "server";
+type AppSurface = "chat" | "study";
+type RealtimeSpeechManifest = {
+  text: string;
+  language?: string;
+  voice?: string;
+  rate?: number;
+  pitch?: number;
+  audio?: {
+    mimeType?: string;
+    format?: string;
+    dataUrl?: string;
+    audioBase64?: string;
+    audioBytes?: number | null;
+    durationMs?: number | null;
+  } | null;
+};
+
+type VoiceOption = {
+  value: string;
+  label: string;
+  language: string;
+};
+
+type VoicePersonaId = "giom" | "diana";
+
+type VoicePersonaOption = {
+  id: VoicePersonaId;
+  label: string;
+  summary: string;
+  tone: string;
+  previewText: string;
+  rate: number;
+  pitch: number;
+  language: string;
+};
+
+type RuntimeVoicePersona = {
+  id?: string;
+  label?: string;
+  voice?: string;
+  tone?: string;
+  summary?: string;
+  provider?: string | null;
+  serverAudioAvailable?: boolean;
+};
+
+type AssistantResponseMetadata = Pick<ChatMessage, "providerAttempted" | "providerUsed" | "providerFallback" | "fallbackFrom" | "fallbackReason">;
+
+type AssistantResponseResult = {
+  answer: string;
+  metadata: AssistantResponseMetadata | null;
+};
+
+type StoredVoiceSettings = {
+  speakerEnabled?: boolean;
+  selectedVoicePersona?: VoicePersonaId;
+  selectedVoiceName?: string;
+};
+
+type MemoryProfilePayload = {
+  success?: boolean;
+  latestSummary?: string;
+  profile?: Record<string, unknown> | null;
+};
+
+type ThreadStorageBuckets = {
+  version: 2;
+  owners: Record<string, ChatThread[]>;
+};
+
+type SpeechManifestRequestOptions = {
+  forceServerAudio?: boolean;
+};
+
+type VoiceSignalMode = "idle" | "input" | "output";
+type StudyMascotMode = "idle" | "listening" | "speaking" | "celebrating";
+
+type PlaybackController = BrowserSpeechController & {
+  audioElement?: HTMLAudioElement | null;
+  sourceKind?: "server" | "browser";
+};
+
+function normalizeRealtimeSpeechManifest(input: unknown, fallbackText = ""): RealtimeSpeechManifest | null {
+  if (!input || typeof input !== "object") {
+    const text = String(fallbackText || "").trim();
+    return text ? { text } : null;
+  }
+
+  const record = input as Record<string, unknown>;
+  const text = String(record.text || fallbackText || "").trim();
+  if (!text) {
+    return null;
+  }
+
+  const rawAudio = record.audio && typeof record.audio === "object"
+    ? record.audio as Record<string, unknown>
+    : null;
+
+  return {
+    text,
+    language: String(record.language || "pt-BR"),
+    voice: String(record.voice || "browser-default"),
+    rate: Number(record.rate || 1) || 1,
+    pitch: Number(record.pitch || 1) || 1,
+    audio: rawAudio ? {
+      mimeType: String(rawAudio.mimeType || "audio/wav"),
+      format: String(rawAudio.format || "wav"),
+      dataUrl: String(rawAudio.dataUrl || "").trim() || undefined,
+      audioBase64: String(rawAudio.audioBase64 || "").trim() || undefined,
+      audioBytes: Number(rawAudio.audioBytes || 0) || null,
+      durationMs: Number(rawAudio.durationMs || 0) || null
+    } : null
+  };
+}
+
+function resolveServerAudioSource(manifest: RealtimeSpeechManifest | null | undefined) {
+  const audio = manifest?.audio;
+  if (!audio) {
+    return "";
+  }
+
+  if (audio.dataUrl) {
+    return String(audio.dataUrl).trim();
+  }
+
+  if (audio.audioBase64) {
+    return `data:${audio.mimeType || "audio/wav"};base64,${audio.audioBase64}`;
+  }
+
+  return "";
+}
+
+function toVoiceLevelBucket(level: number) {
+  const normalized = Math.max(0, Math.min(level || 0, 1));
+  if (normalized < 0.08) return 0;
+  if (normalized < 0.16) return 1;
+  if (normalized < 0.28) return 2;
+  if (normalized < 0.42) return 3;
+  if (normalized < 0.62) return 4;
+  return 5;
+}
+
+function playServerAudio(manifest: RealtimeSpeechManifest | null | undefined): PlaybackController | null {
+  const source = resolveServerAudioSource(manifest);
+  if (!source || typeof Audio === "undefined") {
+    return null;
+  }
+
+  const audio = new Audio(source);
+  audio.preload = "auto";
+
+  let settled = false;
+  let resolvePromise: () => void = () => undefined;
+  let rejectPromise: (error: Error) => void = () => undefined;
+
+  const promise = new Promise<void>((resolve, reject) => {
+    resolvePromise = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve();
+    };
+
+    rejectPromise = (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+
+    audio.onended = () => resolvePromise();
+    audio.onerror = () => rejectPromise(new Error("server_audio_playback_failed"));
+
+    const playResult = audio.play();
+    if (playResult && typeof playResult.catch === "function") {
+      playResult.catch((error: unknown) => {
+        rejectPromise(error instanceof Error ? error : new Error("server_audio_playback_failed"));
+      });
+    }
+  });
+
+  return {
+    promise,
+    audioElement: audio,
+    sourceKind: "server",
+    cancel: () => {
+      audio.pause();
+      audio.currentTime = 0;
+      resolvePromise();
+    }
+  };
+}
 
 type SpeechRecognitionResultLike = {
   transcript: string;
@@ -127,10 +400,38 @@ const LOCAL_AUTH_ACCOUNTS_KEY = "giom-web-next-auth-accounts";
 const LOCAL_AUTH_SESSION_KEY = "giom-web-next-auth-session";
 const USAGE_STORAGE_KEY = "giom-web-next-usage";
 const WEATHER_LOCATION_STORAGE_KEY = "giom-web-next-weather-location";
+const VOICE_SETTINGS_STORAGE_KEY = "giom-web-next-voice-settings";
 const WEATHER_LOCATION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const DEFAULT_DOC_FORMAT = "pdf";
 const MAX_INLINE_ATTACHMENTS = 12;
+const MAX_CONVERSATION_HISTORY_ITEMS = 10;
+const MAX_CONVERSATION_HISTORY_ITEM_CHARS = 900;
+const VOICE_PERSONA_OPTIONS: VoicePersonaOption[] = [
+  {
+    id: "giom",
+    label: "GIOM",
+    summary: "Masculina, firme e direta para conversa continua.",
+    tone: "Masculina",
+    previewText: "Shalom. Eu sou o GIOM. Vamos conversar por voz com clareza, foco e resposta direta.",
+    rate: 0.94,
+    pitch: 0.82,
+    language: "pt-BR"
+  },
+  {
+    id: "diana",
+    label: "DIANA",
+    summary: "Feminina, clara e acolhedora para conversa continua.",
+    tone: "Feminina",
+    previewText: "Oi, eu sou a DIANA. Estou pronta para conversar com voce por voz de forma natural e acolhedora.",
+    rate: 1.01,
+    pitch: 1.14,
+    language: "pt-BR"
+  }
+];
+const VOICE_MALE_HINTS = ["male", "mascul", "homem", "man", "faber", "antonio", "daniel", "ricardo", "paulo", "lucas"];
+const VOICE_FEMALE_HINTS = ["female", "femin", "mulher", "woman", "diana", "maria", "ana", "bianca", "camila", "sofia", "helena", "fernanda"];
+
 function normalizeApiBase(value: string) {
   return String(value || "").trim().replace(/\/$/, "");
 }
@@ -146,6 +447,34 @@ function shouldTryNextApiBase(error: unknown) {
     message.includes("load failed") ||
     message.includes("circuit") ||
     message.includes("timeout")
+  );
+}
+
+function isOpaqueProxyFailure(status: number, rawText = "") {
+  const normalized = String(rawText || "").trim().toLowerCase();
+  return status >= 500 && (!normalized || normalized === "internal server error");
+}
+
+function buildBackendFailureMessage(
+  route: string,
+  status: number,
+  payload: Record<string, unknown>,
+  rawText = ""
+) {
+  const rawHint = String(rawText || "").replace(/\s+/g, " ").slice(0, 180);
+
+  if (isOpaqueProxyFailure(status, rawHint)) {
+    const routeHint = route.includes("/stream")
+      ? "O proxy /backend nao conseguiu abrir o stream da API."
+      : "O proxy /backend nao conseguiu falar com a API.";
+
+    return `${routeHint} Isso normalmente significa backend offline ou porta divergente entre frontend e API. Se estiver em preview, suba os dois juntos com npm run preview:stack.`;
+  }
+
+  return String(
+    (payload as { error?: string })?.error ||
+      (payload as { details?: string })?.details ||
+      (rawHint ? `Erro HTTP ${status}: ${rawHint}` : `Erro HTTP ${status}`)
   );
 }
 
@@ -165,6 +494,54 @@ function createThread(title = "Novo chat"): ChatThread {
     updatedAt: now,
     messages: []
   };
+}
+
+function buildConversationHistoryItemContent(message: ChatMessage) {
+  const rawBaseContent = String(message.content || "").trim();
+  const baseContent = message.generatedDocument && /^documento pronto\b/i.test(rawBaseContent)
+    ? ""
+    : rawBaseContent;
+  const artifactContext: string[] = [];
+
+  if (message.generatedDocument?.previewText) {
+    artifactContext.push(
+      `Documento gerado (${message.generatedDocument.fileName}): ${sanitizeArtifactPreviewText(message.generatedDocument.previewText)}`
+    );
+  }
+
+  if (message.generatedImage) {
+    artifactContext.push(
+      message.artifactPrompt
+        ? `Imagem gerada com prompt: ${message.artifactPrompt}`
+        : "Imagem gerada nesta conversa."
+    );
+  }
+
+  if (!artifactContext.length && message.artifactPrompt && !baseContent) {
+    artifactContext.push(`Prompt do artefato: ${message.artifactPrompt}`);
+  }
+
+  return [baseContent, ...artifactContext]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, MAX_CONVERSATION_HISTORY_ITEM_CHARS);
+}
+
+function buildConversationHistory(messages: ChatMessage[]): ConversationHistoryItem[] {
+  return messages
+    .filter((message) => !message.pending)
+    .reduce<ConversationHistoryItem[]>((history, message) => {
+      const content = buildConversationHistoryItemContent(message);
+      if (!content) return history;
+
+      history.push({
+        role: message.role,
+        content
+      });
+
+      return history;
+    }, [])
+    .slice(-MAX_CONVERSATION_HISTORY_ITEMS);
 }
 
 function parseSSEPacket(packet: string) {
@@ -221,17 +598,35 @@ function shouldRetryGenericFallbackPayload(payload: Record<string, unknown>) {
   return Boolean(metadata?.fallback) && isGenericAssistantFallback(answer);
 }
 
-function readThreadsFromStorage() {
-  if (typeof window === "undefined") return null;
+function coerceMetadataValue(value: unknown) {
+  const normalized = String(value || "").trim();
+  return normalized || null;
+}
 
-  try {
-    const raw = window.localStorage.getItem(THREADS_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ChatThread[];
-    return Array.isArray(parsed) && parsed.length ? parsed : null;
-  } catch {
+function extractAssistantResponseMetadata(payload: Record<string, unknown>) {
+  const data = asRecord(payload?.data);
+  const metadata = {
+    ...asRecord(data.metadata),
+    ...asRecord(payload?.metadata)
+  };
+
+  const providerAttempted = coerceMetadataValue(metadata.providerAttempted || metadata.attemptedProvider);
+  const providerUsed = coerceMetadataValue(metadata.providerUsed || metadata.provider);
+  const fallbackFrom = coerceMetadataValue(metadata.fallbackFrom);
+  const fallbackReason = coerceMetadataValue(metadata.fallbackReason);
+  const providerFallback = Boolean(metadata.providerFallback || metadata.fallbackFromStreaming || metadata.fallback);
+
+  if (!providerAttempted && !providerUsed && !fallbackFrom && !fallbackReason && !providerFallback) {
     return null;
   }
+
+  return {
+    providerAttempted,
+    providerUsed,
+    providerFallback,
+    fallbackFrom,
+    fallbackReason
+  } satisfies AssistantResponseMetadata;
 }
 
 function getScopeId() {
@@ -241,6 +636,87 @@ function getScopeId() {
   const created = makeId("scope");
   window.localStorage.setItem(SCOPE_STORAGE_KEY, created);
   return created;
+}
+
+function getThreadStorageOwnerKey(identity: AuthIdentity | null) {
+  if (!identity || identity.source === "guest") {
+    return `guest:${identity?.id || getScopeId()}`;
+  }
+
+  return `user:${identity.id}`;
+}
+
+function normalizeThreadStorageBuckets(input: unknown, legacyOwnerKey: string): ThreadStorageBuckets {
+  if (Array.isArray(input)) {
+    return {
+      version: 2,
+      owners: {
+        [legacyOwnerKey]: input as ChatThread[]
+      }
+    };
+  }
+
+  if (!input || typeof input !== "object") {
+    return {
+      version: 2,
+      owners: {}
+    };
+  }
+
+  const record = input as Record<string, unknown>;
+  const rawOwners = record.owners && typeof record.owners === "object"
+    ? record.owners as Record<string, unknown>
+    : record.byOwner && typeof record.byOwner === "object"
+      ? record.byOwner as Record<string, unknown>
+      : null;
+
+  if (!rawOwners) {
+    return {
+      version: 2,
+      owners: {}
+    };
+  }
+
+  const owners: Record<string, ChatThread[]> = {};
+  for (const [ownerKey, threads] of Object.entries(rawOwners)) {
+    if (Array.isArray(threads)) {
+      owners[ownerKey] = threads as ChatThread[];
+    }
+  }
+
+  return {
+    version: 2,
+    owners
+  };
+}
+
+function readThreadsFromStorage(ownerKey: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(THREADS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = normalizeThreadStorageBuckets(JSON.parse(raw), ownerKey);
+    const storedThreads = parsed.owners[ownerKey];
+    return Array.isArray(storedThreads) && storedThreads.length ? storedThreads : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeThreadsToStorage(ownerKey: string, threads: ChatThread[]) {
+  if (typeof window === "undefined") return;
+
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(THREADS_STORAGE_KEY) || "null");
+  } catch {
+    parsed = null;
+  }
+
+  const buckets = normalizeThreadStorageBuckets(parsed, ownerKey);
+  buckets.owners[ownerKey] = threads;
+  window.localStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(buckets));
 }
 
 function getTodayKey() {
@@ -295,18 +771,145 @@ function formatRelativeDate(value: string) {
   }).format(date);
 }
 
-function buildLandingGreeting(userName?: string | null) {
-  const hour = new Date().getHours();
-  const periodGreeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
-  const firstName = String(userName || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)[0];
-  const safeName = firstName ? `, ${firstName}` : "";
+function normalizeStringArray(value: unknown, max = 24) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(new Set(
+    value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  )).slice(0, max);
+}
+
+function normalizeStudyDepthPreference(value: unknown) {
+  return value === "advanced" || value === "beginner" ? value : "balanced";
+}
+
+function normalizeStudyModuleIds(value: unknown, allowedIds: Set<string>, max = 12) {
+  return normalizeStringArray(value, max).filter((moduleId) => allowedIds.has(moduleId));
+}
+
+function resolveStudyModuleSelection(value: unknown, allowedIds: Set<string>, fallbackIds: string[] = []) {
+  const explicit = normalizeStudyModuleIds(value, allowedIds);
+  if (explicit.length > 0) {
+    return explicit;
+  }
+
+  return normalizeStudyModuleIds(fallbackIds, allowedIds);
+}
+
+function normalizeBibleLearningProgress(value: unknown): BibleLearningProgressState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const entries = value as Record<string, unknown>;
+  const normalized: BibleLearningProgressState = {};
+
+  for (const [trackId, rawEntry] of Object.entries(entries)) {
+    if (!rawEntry || typeof rawEntry !== "object" || Array.isArray(rawEntry)) {
+      continue;
+    }
+
+    const entry = rawEntry as Record<string, unknown>;
+    normalized[trackId] = {
+      completedStepIds: normalizeStringArray(entry.completedStepIds, 16),
+      currentStepId: String(entry.currentStepId || "").trim() || null,
+      updatedAt: String(entry.updatedAt || "").trim() || null
+    };
+  }
+
+  return normalized;
+}
+
+function ensureTrackProgressEntry(progressState: BibleLearningProgressState, track: BibleLearningTrack | null) {
+  if (!track) {
+    return progressState;
+  }
+
+  if (progressState[track.id]) {
+    return progressState;
+  }
 
   return {
-    title: `${periodGreeting}${safeName}! Tudo bem?`,
-    subtitle: "Shalom, eu sou o GIOM. O que podemos fazer hoje?"
+    ...progressState,
+    [track.id]: {
+      completedStepIds: [],
+      currentStepId: track.steps[0]?.id || null,
+      updatedAt: null
+    }
+  };
+}
+
+function isStudyCheckpointStep(stepIndex: number, totalSteps: number) {
+  return (stepIndex + 1) % 3 === 0 || stepIndex === totalSteps - 1;
+}
+
+function getStudyCheckpointLabel(stepIndex: number, totalSteps: number) {
+  if (stepIndex === totalSteps - 1) {
+    return "Conclusao";
+  }
+
+  return `Bloco ${Math.floor(stepIndex / 3) + 1}`;
+}
+
+function buildProviderResilienceLabel(providers: RuntimeConfig["ai"] extends infer T
+  ? T extends { providers?: infer U } ? U | undefined : never
+  : never) {
+  const providerList = Array.isArray(providers) ? providers : [];
+  if (providerList.length <= 1) {
+    return null;
+  }
+
+  const enabledProviders = providerList.filter((provider) => provider?.enabled !== false);
+  const readyProviders = enabledProviders.filter((provider) => {
+    const runtimeStatus = String(provider?.runtimeStatus || "").trim().toLowerCase();
+    return runtimeStatus === "ready" || runtimeStatus === "degraded";
+  });
+
+  if (!enabledProviders.length) {
+    return "Fallback multi-API: nenhum provedor pronto agora.";
+  }
+
+  return `Fallback multi-API: ${readyProviders.length}/${enabledProviders.length} provedores prontos.`;
+}
+
+function buildBibleStudyInstruction(
+  track: BibleLearningTrack | null,
+  stepId: string | null | undefined,
+  moduleCatalog: BibleStudyModuleOption[],
+  selectedModuleIds: string[],
+  depthPreference: string
+) {
+  if (!track) {
+    return "";
+  }
+
+  const activeStep = track.steps.find((step) => step.id === stepId) || track.steps[0] || null;
+  const moduleLabels = selectedModuleIds
+    .map((moduleId) => moduleCatalog.find((module) => module.id === moduleId)?.label)
+    .filter(Boolean)
+    .slice(0, 5);
+  const depthLine = depthPreference === "advanced"
+    ? "Entregue profundidade avancada, com exegese, historia e organizacao doutrinaria quando couber."
+    : depthPreference === "beginner"
+      ? "Ensine como discipulado guiado, com linguagem clara, progressao didatica e sem jargao desnecessario."
+      : "Mantenha equilibrio entre clareza pratica e profundidade teologica.";
+
+  return [
+    `Modo Fale Biblico ativo na trilha ${track.label}.`,
+    activeStep ? `Etapa atual: ${activeStep.label}. Objetivo: ${activeStep.goal}` : "",
+    moduleLabels.length > 0 ? `Priorize estes submodulos: ${moduleLabels.join(", ")}.` : "",
+    depthLine
+  ].filter(Boolean).join(" ");
+}
+
+function buildStaticLandingGreeting() {
+  return {
+    title: "Tudo pronto? Entao vamos la!",
+    subtitle: ""
   };
 }
 
@@ -332,6 +935,63 @@ function speechErrorMessage(error?: string) {
   }
 
   return `Falha no microfone: ${error}.`;
+}
+
+function getVoiceStatusLabel(status: VoiceStatus, interimTranscript = "") {
+  if (status === "connecting") {
+    return "Voz realtime conectando";
+  }
+
+  if (status === "listening") {
+    return interimTranscript
+      ? `Ouvindo: ${interimTranscript.slice(0, 72)}`
+      : "Ouvindo com VAD ativo";
+  }
+
+  if (status === "processing") {
+    return "Processando fala";
+  }
+
+  if (status === "speaking") {
+    return "Resposta em voz alta";
+  }
+
+  if (status === "paused") {
+    return "Conversa por voz pausada";
+  }
+
+  return "Voz pronta";
+}
+
+function getVoiceRecoveryHint(error?: string | null) {
+  const message = String(error || "").trim();
+  if (!message) {
+    return null;
+  }
+
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("microfone bloqueado")
+    || normalized.includes("permita o acesso")
+    || normalized.includes("nao foi possivel iniciar o microfone")
+  ) {
+    return "O navegador bloqueou o microfone. Libere a permissao do site e tente retomar a conversa.";
+  }
+
+  if (normalized.includes("microfone nao suportado")) {
+    return "Este navegador nao expone captura compativel para o modo voz continuo. Troque de navegador ou dispositivo.";
+  }
+
+  if (normalized.includes("leitura em voz alta") || normalized.includes("voz alta")) {
+    return "A saida de voz nao ficou disponivel. Abra os ajustes e valide o motor de fala antes de retomar.";
+  }
+
+  if (normalized.includes("conexao") || normalized.includes("rede") || normalized.includes("backend")) {
+    return "A sessao de voz perdeu o canal com o backend. Tente reconectar agora.";
+  }
+
+  return message;
 }
 
 function getMessageUploads(message: ChatMessage) {
@@ -444,6 +1104,140 @@ function writeStoredWeatherLocation(location: WeatherLocationContext | null) {
   }
 
   window.localStorage.setItem(WEATHER_LOCATION_STORAGE_KEY, JSON.stringify(location));
+}
+
+function readStoredVoiceSettings() {
+  if (typeof window === "undefined") return {} as StoredVoiceSettings;
+
+  try {
+    const raw = window.localStorage.getItem(VOICE_SETTINGS_STORAGE_KEY);
+    if (!raw) return {} as StoredVoiceSettings;
+    const parsed = JSON.parse(raw) as StoredVoiceSettings;
+    return {
+      speakerEnabled: parsed?.speakerEnabled === true,
+      selectedVoicePersona: parsed?.selectedVoicePersona === "diana" ? "diana" : "giom",
+      selectedVoiceName: String(parsed?.selectedVoiceName || "browser-default")
+    };
+  } catch {
+    return {} as StoredVoiceSettings;
+  }
+}
+
+function writeStoredVoiceSettings(settings: StoredVoiceSettings) {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(VOICE_SETTINGS_STORAGE_KEY, JSON.stringify({
+    speakerEnabled: settings.speakerEnabled === true,
+    selectedVoicePersona: settings.selectedVoicePersona === "diana" ? "diana" : "giom",
+    selectedVoiceName: String(settings.selectedVoiceName || "browser-default")
+  }));
+}
+
+function buildBrowserVoiceOptions() {
+  const fallbackOption: VoiceOption = {
+    value: "browser-default",
+    label: "Padrao do navegador",
+    language: "pt-BR"
+  };
+
+  if (typeof window === "undefined" || !isBrowserSpeechSynthesisSupported()) {
+    return [fallbackOption];
+  }
+
+  const seen = new Set<string>();
+  const browserOptions = window.speechSynthesis.getVoices()
+    .map((voice) => {
+      const name = String(voice.name || "").trim();
+      const language = String(voice.lang || "").trim() || "padrao";
+      return {
+        value: name,
+        label: name ? `${name} (${language})` : `Voz do navegador (${language})`,
+        language
+      };
+    })
+    .filter((option) => {
+      if (!option.value) {
+        return false;
+      }
+
+      const key = `${option.value.toLowerCase()}::${option.language.toLowerCase()}`;
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+
+  return [fallbackOption, ...browserOptions];
+}
+
+function getVoicePersonaOption(persona: VoicePersonaId) {
+  return VOICE_PERSONA_OPTIONS.find((option) => option.id === persona) || VOICE_PERSONA_OPTIONS[0];
+}
+
+function optionMatchesVoiceHints(option: VoiceOption, hints: string[]) {
+  const haystack = `${option.label} ${option.language}`.toLowerCase();
+  return hints.some((hint) => haystack.includes(hint));
+}
+
+function isPortugueseVoiceOption(option: VoiceOption) {
+  const language = String(option.language || "").toLowerCase();
+  return language.startsWith("pt");
+}
+
+function resolvePersonaBrowserVoiceName(persona: VoicePersonaId, options: VoiceOption[]) {
+  const availableOptions = options.filter((option) => option.value && option.value !== "browser-default");
+  const portugueseOptions = availableOptions.filter(isPortugueseVoiceOption);
+  const candidatePool = portugueseOptions.length ? portugueseOptions : availableOptions;
+  const primaryHints = persona === "giom" ? VOICE_MALE_HINTS : VOICE_FEMALE_HINTS;
+  const oppositeHints = persona === "giom" ? VOICE_FEMALE_HINTS : VOICE_MALE_HINTS;
+
+  const directMatch = candidatePool.find((option) => optionMatchesVoiceHints(option, primaryHints));
+  if (directMatch) {
+    return directMatch.value;
+  }
+
+  const safeFallback = candidatePool.find((option) => !optionMatchesVoiceHints(option, oppositeHints));
+  if (safeFallback) {
+    return safeFallback.value;
+  }
+
+  return candidatePool[0]?.value || "browser-default";
+}
+
+function buildPersonaSpeechSettings(persona: VoicePersonaOption, voiceName: string) {
+  return {
+    language: persona.language || "pt-BR",
+    voiceName: String(voiceName || "browser-default"),
+    rate: persona.rate,
+    pitch: persona.pitch
+  };
+}
+
+function normalizeVoicePersonaId(value: unknown): VoicePersonaId | null {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "giom" || normalized === "diana") {
+    return normalized as VoicePersonaId;
+  }
+
+  return null;
+}
+
+function resolvePlaybackVoiceName(manifestVoice: string | undefined, fallbackVoiceName: string, serverVoice = "") {
+  const normalizedVoice = String(manifestVoice || "").trim();
+  if (!normalizedVoice || normalizedVoice === "browser-default") {
+    return fallbackVoiceName;
+  }
+
+  const loweredVoice = normalizedVoice.toLowerCase();
+  const normalizedServerVoice = String(serverVoice || "").trim().toLowerCase();
+  if (loweredVoice === "giom" || loweredVoice === "diana" || (normalizedServerVoice && loweredVoice === normalizedServerVoice)) {
+    return fallbackVoiceName;
+  }
+
+  return normalizedVoice;
 }
 
 function inferWeatherForecastDays(question: string) {
@@ -566,8 +1360,11 @@ function detectToolIntent(question: string, availableDocFormats: string[]) {
     return { mode: "document" as ToolMode, prompt: slashDocumentPrompt, format };
   }
 
+  const explicitChatOnlyRequest = /\b(sem (criar|gerar|montar|fazer|produzir) (arquivo|documento|pdf|docx)|sem (arquivo|documento|pdf|docx)|so no chat|apenas no chat|em texto|sem baixar)\b/i;
   const imageRequest = /(gere|gera|crie|cria|faca|produza|desenhe|renderize|monte).{0,30}(uma |a )?(imagem|foto|ilustracao|arte|logo|capa|banner|wallpaper|thumbnail)/i;
-  const documentRequest = /(gere|gera|crie|cria|faca|produza|redija|escreva|monte).{0,30}(um |uma )?(documento|pdf|docx|relatorio|proposta|contrato|resumo|plano|cronograma|apresentacao|ata|manual|briefing)/i;
+  const documentRequest = /(gere|gera|crie|cria|faca|produza|redija|escreva|monte).{0,30}(um |uma )?(documento|arquivo|pdf|docx|xlsx|pptx|relatorio|proposta|contrato|apresentacao|planilha|ata|manual|briefing|slides?)/i;
+  const softDocumentIntent = /\b(resumo|plano|cronograma)\b/i;
+  const explicitExportIntent = /\b(arquivo|documento|pdf|docx|download|exportar|exportacao|baixar|anexo)\b/i;
 
   if (imageRequest.test(normalized)) {
     return {
@@ -576,7 +1373,11 @@ function detectToolIntent(question: string, availableDocFormats: string[]) {
     };
   }
 
-  if (documentRequest.test(normalized)) {
+  if (explicitChatOnlyRequest.test(normalized)) {
+    return null;
+  }
+
+  if (documentRequest.test(normalized) || (softDocumentIntent.test(normalized) && explicitExportIntent.test(normalized))) {
     const format = availableDocFormats.find((item) => lowered.includes(item.toLowerCase())) || DEFAULT_DOC_FORMAT;
     return {
       mode: "document" as ToolMode,
@@ -592,9 +1393,54 @@ function deriveDocumentTitle(prompt: string) {
   const normalized = prompt
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/^(gere|gera|crie|cria|faca|produza|redija|escreva|monte)\s+/i, "")
+    .replace(/^(?:agora\s+|por favor\s+|voce pode\s+|voces podem\s+)?/i, "")
+    .replace(/^(?:gere|gera|crie|cria|faca|produza|redija|escreva|monte)\s+/i, "")
+    .replace(/^(?:um|uma)\s+/i, "")
+    .replace(/\b(?:documento|arquivo|pdf|docx|xlsx|pptx|planilha|apresentacao|slides?)\b(?=\s+(?:com|sobre|de|para))/gi, "")
+    .replace(/\bem formato\s+(?:pdf|docx|xlsx|pptx)\b/gi, "")
+    .replace(/^(?:com|sobre|de|para)\s+/i, "")
+    .replace(/^(?:um|uma)\s+/i, "")
+    .replace(/[.?!,:;]+$/g, "")
+    .replace(/\s+/g, " ")
     .trim();
   return normalized.slice(0, 48) || "Documento GIOM";
+}
+
+function sanitizeArtifactPreviewText(value: string) {
+  const cleaned = String(value || "")
+    .replace(/\bnao consegui responder a esta pergunta no momento[\s\S]*$/i, "")
+    .replace(/\bnao consegui processar sua pergunta neste momento[\s\S]*$/i, "")
+    .replace(/\beu gero esses arquivos com conhecimento interno[\s\S]*$/i, "")
+    .replace(/\bnao confunda isso com suite office completa[\s\S]*$/i, "")
+    .replace(/\boffice aqui significa geracao basica[\s\S]*$/i, "")
+    .replace(/\bainda nao integrado[\s\S]*$/i, "")
+    .replace(/^documento pronto\.?\s*/i, "")
+    .trim();
+
+  const normalized = cleaned
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (
+    !cleaned
+    || /^(nao consegui responder|nao consegui processar)\b/i.test(cleaned)
+    || /^(resumo|preview|conteudo|conteudo base|limite|documento|documento pronto)(\s*:)?$/.test(normalized)
+  ) {
+    return "Arquivo pronto para download. Abra o preview para ver o conteudo base.";
+  }
+
+  return cleaned;
+}
+
+function sanitizePromptPayloadText(value: string) {
+  return String(value || "")
+    .replace(/^(?:use este prompt|prompt pronto(?:\s*\(copia e cola\))?|prompt final|prompt sugerido)\s*[:\-]?\s*/i, "")
+    .replace(/^escrita\s*/i, "")
+    .replace(/\bnao consegui responder a esta pergunta no momento[\s\S]*$/i, "")
+    .replace(/\bnao consegui processar sua pergunta neste momento[\s\S]*$/i, "")
+    .trim();
 }
 
 function splitTableRow(line: string) {
@@ -712,10 +1558,13 @@ function extractPromptPayloadFromJsonLike(content: string) {
       const normalizedType = normalizePayloadType(parsed?.type || parsed?.kind || parsed?.card);
       if (normalizedType === "prompt") {
         const payloadContent = parsed.content ?? parsed.text ?? parsed.prompt ?? parsed.body;
-        if (typeof payloadContent === "string" && payloadContent.trim()) {
+        const cleanedPayloadContent = typeof payloadContent === "string"
+          ? sanitizePromptPayloadText(payloadContent)
+          : "";
+        if (cleanedPayloadContent) {
           return {
             type: "prompt" as const,
-            content: payloadContent.trim()
+            content: cleanedPayloadContent
           };
         }
       }
@@ -728,7 +1577,7 @@ function extractPromptPayloadFromJsonLike(content: string) {
   if (contentMatch?.[1]) {
     return {
       type: "prompt" as const,
-      content: unescapeJsonLikeString(contentMatch[1])
+      content: sanitizePromptPayloadText(unescapeJsonLikeString(contentMatch[1]))
     };
   }
 
@@ -933,6 +1782,40 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function hasExplicitShortReplyInstruction(question: string) {
+  return /\b(?:responda|responde|retorne|diga)\s+(?:apenas|s[oó]|somente)\b/i.test(String(question || ""));
+}
+
+function isCapabilityPresentationQuestion(normalizedQuestion: string) {
+  const asksCapabilities = /\b(o que voce consegue|o que voce realmente tem|quais sao seus limites|como voce funciona|consegue pesquisar|consegue verificar|quais formatos|quais arquivos|le de forma nativa|faz bem nesta execucao|nesta execucao|capacidade|capacidades|limites|ferramentas)\b/.test(normalizedQuestion);
+  const mentionsToolingSurface = /\b(google|bing|yahoo|web|internet|browser|ao vivo|tempo real|formatos|arquivos|pdf|docx|xlsx|pptx|ocr|imagem|pesquisa)\b/.test(normalizedQuestion);
+
+  return asksCapabilities && mentionsToolingSurface;
+}
+
+function hasSportsIntentCue(normalizedQuestion: string) {
+  return /(jogo|jogos|partida|partidas|placar|agenda esportiva|agenda de jogos|confronto|quando joga|proximo jogo|proximos jogos|proximo confronto|historico|retrospecto|ultimos jogos|ultimos resultados|ultimos 5|resultado do jogo|escalacao|local do jogo|local da partida|horario do jogo|horario da partida|estadio|onde sera|proxima partida)/.test(normalizedQuestion);
+}
+
+function hasSportsCompetitionCue(normalizedQuestion: string) {
+  return /(campeonato|serie a|serie b|brasileirao|brasileiro serie|libertadores|copa do brasil|copa do mundo|eliminatorias|selecao)/.test(normalizedQuestion);
+}
+
+function hasStrongSportsEntity(normalizedQuestion: string) {
+  return /\b(botafogo|flamengo|palmeiras|corinthians|gremio|internacional|spfc|sao paulo fc|santos fc|selecao brasileira|bahia ec|ec bahia|esporte clube bahia)\b/.test(normalizedQuestion);
+}
+
+function hasAmbiguousSportsSubject(normalizedQuestion: string) {
+  return /\b(brasil|bahia|santos|sao paulo|argentina)\b/.test(normalizedQuestion);
+}
+
+function hasSportsContextAnchor(normalizedQuestion: string) {
+  return hasStrongSportsEntity(normalizedQuestion)
+    || hasAmbiguousSportsSubject(normalizedQuestion)
+    || hasSportsCompetitionCue(normalizedQuestion)
+    || /\b(time|clube|selecao)\b/.test(normalizedQuestion);
+}
+
 function detectResponsePresentation(question: string) {
   const normalized = String(question || "")
     .normalize("NFD")
@@ -940,13 +1823,26 @@ function detectResponsePresentation(question: string) {
     .toLowerCase()
     .trim();
   const weatherIntent = isLikelyWeatherQuestion(question);
-  const sportsIntentCue =
-    /(jogo|jogos|partida|partidas|placar|campeonato|agenda esportiva|quando joga|proximo jogo|proximos jogos|proximo confronto|historico|retrospecto|ultimos jogos|ultimos resultados|ultimos 5|serie a|serie b|brasileirao|brasileiro serie|libertadores|copa do brasil|copa do mundo|eliminatorias|horario|estadio|ao vivo|selecao|onde sera|onde será|local do jogo|proxima partida|próxima partida|resultado do jogo|escalacao|escalação)/.test(normalized);
-  const strongSportsEntity =
-    /\b(botafogo|flamengo|palmeiras|corinthians|gremio|internacional|spfc|sao paulo fc|santos fc|selecao brasileira|bahia ec|ec bahia)\b/.test(normalized);
+  const sportsIntentCue = hasSportsIntentCue(normalized);
+  const strongSportsEntity = hasStrongSportsEntity(normalized);
   const brazilNationalTeamIntent = /\bbrasil\b/.test(normalized) && /(jogo|partida|placar|quando joga|campeonato|copa|selecao|eliminatorias)/.test(normalized);
+  const capabilityIntent = isCapabilityPresentationQuestion(normalized);
 
   if (!normalized) return null;
+
+  if (hasExplicitShortReplyInstruction(question)) {
+    return {
+      card: "text",
+      instructions: "Se o usuario pedir para responder apenas com uma palavra ou frase curta, obedeça exatamente. Nao transforme isso em card, lista, passagem completa, citacao ou resposta expandida."
+    };
+  }
+
+  if (capabilityIntent) {
+    return {
+      card: "text",
+      instructions: "Quando o usuario perguntar sobre capacidades, limites, pesquisa web, formatos de arquivo ou verificacao atual, responda em texto objetivo e profissional. Nao force card de clima ou esporte."
+    };
+  }
 
   if (weatherIntent) {
     return {
@@ -956,7 +1852,7 @@ function detectResponsePresentation(question: string) {
     };
   }
 
-  if (!weatherIntent && (sportsIntentCue || strongSportsEntity || brazilNationalTeamIntent)) {
+  if (!weatherIntent && ((sportsIntentCue && hasSportsContextAnchor(normalized)) || strongSportsEntity || brazilNationalTeamIntent)) {
     return {
       card: "data",
       variant: "fixture",
@@ -1003,6 +1899,278 @@ function detectResponsePresentation(question: string) {
     card: "text",
     instructions: "Se nao houver card claramente util, responda em texto limpo, direto e sem markdown com **negrito** desnecessario."
   };
+}
+
+function normalizeIntentText(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function extractPromptObjectiveFromQuestion(question: string) {
+  return String(question || "")
+    .replace(/\b(?:ainda\s+sem\s+arquivo|sem\s+gerar\s+arquivo|no\s+mesmo\s+assunto|no\s+mesmo\s+estilo|agora|por\s+favor)\b/gi, " ")
+    .replace(/\b(?:me\s+de|me\s+d[eê]|gere|gera|crie|cria|faca|faça|monte|escreva)\b/gi, " ")
+    .replace(/\b(?:um|uma)\s+prompt(?:\s+curto)?\b/gi, " ")
+    .replace(/\b(?:copia\s+e\s+cola|copie\s+e\s+cole)\b/gi, " ")
+    .replace(/[?!.]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function questionHasOnboardingContext(question: string) {
+  return /\b(onboarding|implantacao|implantação|kickoff|go[-\s]?live|ativacao|ativação|adocao|adoção)\b/i.test(String(question || ""));
+}
+
+function questionRequestsStudyPrompt(question: string) {
+  return /\b(estudar|estudo|devocional|meditacao|meditação|reflexao|reflexão|plano de leitura)\b/i.test(String(question || ""));
+}
+
+function looksLikePromptInstructionsText(value: string) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return false;
+
+  const normalized = normalizeIntentText(trimmed);
+  if (/\b(atue como|voce e|sua tarefa|objetivo|entregue|responda|mantenha|use|gere|crie|foco|restricoes|contexto|tom|papel)\b/.test(normalized)) {
+    return true;
+  }
+
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.length >= 3 && lines.some((line) => /[:;]/.test(line));
+}
+
+function buildPromptFallbackContent(question: string) {
+  const objective = extractPromptObjectiveFromQuestion(question);
+
+  if (questionHasOnboardingContext(question)) {
+    return [
+      "Atue como analista de onboarding de clientes.",
+      "Mapeie a etapa atual, os principais bloqueios e o primeiro marco de valor esperado.",
+      "Entregue um plano curto com prioridade, responsavel, prazo e follow-up imediato.",
+      "Mantenha tom executivo, objetivo e orientado a reduzir atrito na implantacao."
+    ].join("\n");
+  }
+
+  if (questionRequestsStudyPrompt(question)) {
+    return [
+      "Atue como mentor biblico e guia de estudo devocional.",
+      objective ? `Monte um plano curto para ${objective}.` : "Monte um plano curto de estudo biblico com continuidade do contexto anterior.",
+      "Para cada etapa, entregue tema central, texto-base, pergunta de reflexao, aplicacao pratica e oracao curta.",
+      "Mantenha fidelidade ao texto, linguagem humana e tom pastoral."
+    ].join("\n");
+  }
+
+  return [
+    "Atue como especialista que vai assumir esta conversa em continuidade.",
+    objective ? `Tarefa: ${objective}.` : "Tarefa: assuma o contexto anterior e execute a proxima etapa pedida pelo usuario.",
+    "Entregue resposta curta, clara, acionavel e com proximo passo recomendado.",
+    "Mantenha tom humano, objetivo e sem repetir contexto desnecessario."
+  ].join("\n");
+}
+
+function cleanComparisonTermForFallback(value: string) {
+  return String(value || "")
+    .replace(/^(?:o|a|os|as|um|uma)\s+/i, "")
+    .replace(/[?.,!]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractComparisonTermsFromQuestion(question: string) {
+  const patterns = [
+    /\bcomparando\s+(.+?)\s+e\s+(.+?)(?:\s+(?:em|sobre|no contexto de)\b|[?.!,]|$)/i,
+    /\bcompare\s+(.+?)\s+e\s+(.+?)(?:\s+(?:em|sobre|no contexto de)\b|[?.!,]|$)/i,
+    /\b(.+?)\s+(?:vs|versus)\s+(.+?)(?:\s+(?:em|sobre|no contexto de)\b|[?.!,]|$)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = String(question || "").match(pattern);
+    const left = cleanComparisonTermForFallback(match?.[1] || "");
+    const right = cleanComparisonTermForFallback(match?.[2] || "");
+    if (left && right) {
+      return [left, right] as const;
+    }
+  }
+
+  return null;
+}
+
+function buildRequestedTablePayload(question: string) {
+  const terms = extractComparisonTermsFromQuestion(question);
+  if (!terms) return null;
+
+  const [left, right] = terms;
+  if (/\bromanos\s+8\b/i.test(question) && /culpa/i.test(left + right) && /seguranca/i.test(normalizeIntentText(left + right))) {
+    const guiltLabel = /culpa/i.test(left) ? left : right;
+    const securityLabel = guiltLabel === left ? right : left;
+    return {
+      columns: ["Aspecto", guiltLabel, securityLabel],
+      rows: [
+        ["Leitura central", "Peso da condenacao e da acusacao ligadas ao pecado.", "Seguranca de quem esta em Cristo e vive no Espirito."],
+        ["Tom dominante", "Medo, autocobranca e senso de divida moral.", "Confianca, filiacao e esperanca sustentadas por Deus."],
+        ["Base em Romanos 8", "Romanos 8 abre negando a condenacao final para quem esta em Cristo.", "Romanos 8 fecha afirmando que nada separa do amor de Deus."],
+        ["Aplicacao pratica", "Levar a culpa para a cruz e abandonar a autossuficiencia.", "Descansar na obra de Cristo e caminhar com obediencia confiante."]
+      ]
+    };
+  }
+
+  const topicMatch = String(question || "").match(/\b(?:em|sobre|no contexto de)\s+([^?.!]+)$/i);
+  const topic = String(topicMatch?.[1] || "").replace(/[?.,!]+$/g, "").trim();
+  const topicSuffix = topic ? ` no contexto de ${topic}` : "";
+
+  return {
+    columns: ["Aspecto", left, right],
+    rows: [
+      ["Definicao", `${left} observado${topicSuffix}.`, `${right} observado${topicSuffix}.`],
+      ["Foco principal", `Onde ${left} ganha mais peso${topicSuffix}.`, `Onde ${right} ganha mais peso${topicSuffix}.`],
+      ["Risco ou tensao", `Qual cuidado pratico envolve ${left}.`, `Qual cuidado pratico envolve ${right}.`],
+      ["Aplicacao", `Pergunta-chave: como lidar melhor com ${left}?`, `Pergunta-chave: como fortalecer ${right}?`]
+    ]
+  };
+}
+
+function buildRequestedTimelinePayload(question: string) {
+  const normalized = normalizeIntentText(question);
+  if (
+    /\b(cronologia|timeline|linha do tempo)\b/.test(normalized)
+    && /\b(nascimento|encarnacao)\b/.test(normalized)
+    && /\b(resureicao|ressureicao|resurreicao|ressurreicao)\b/.test(normalized)
+    && /\b(cristo|jesus)\b/.test(normalized)
+  ) {
+    return [
+      { time: "1", title: "Nascimento", description: "Nascimento em Belem e primeiros eventos da infancia de Jesus." },
+      { time: "2", title: "Preparacao", description: "Batismo por Joao Batista e inicio do ministerio publico." },
+      { time: "3", title: "Paixao", description: "Entrada em Jerusalem, ultima ceia, prisao e crucificacao." },
+      { time: "4", title: "Sepultamento", description: "Jesus e colocado no tumulo de Jose de Arimateia." },
+      { time: "5", title: "Ressurreicao", description: "Ao terceiro dia o tumulo e encontrado vazio e Jesus aparece aos discipulos." }
+    ];
+  }
+
+  if (/\b(cronograma|cronologia|timeline|linha do tempo)\b/.test(normalized) && /\b(arqueologia|arquiologia)\b/.test(normalized) && /\b(moises|exodo|egito)\b/.test(normalized)) {
+    return [
+      { time: "Semana 1", title: "Contexto historico", description: "Egito, Levante e Bronze Tardio como pano de fundo do periodo de Moises." },
+      { time: "Semana 2", title: "Metodo", description: "Separar texto biblico, historiografia e arqueologia material." },
+      { time: "Semana 3", title: "Evidencias", description: "Examinar topografia, rotas, assentamentos, estelas e limites de cada achado." },
+      { time: "Semana 4", title: "Sintese", description: "Comparar propostas de data, pontos de consenso e lacunas reais." }
+    ];
+  }
+
+  if (/\bonboarding|implantacao|implantacao|kickoff|go live|ativacao|adocao\b/.test(normalized)) {
+    return [
+      { time: "Semana 1", title: "Kickoff e alinhamento", description: "Definir objetivo, marco de valor e responsaveis do onboarding." },
+      { time: "Semana 2", title: "Preparacao operacional", description: "Liberar acessos, materiais e checklist sem pendencias criticas." },
+      { time: "Semana 3", title: "Entrega inicial", description: "Executar a implantacao principal e validar o primeiro resultado com o cliente." },
+      { time: "Semana 4", title: "Follow-up e consolidacao", description: "Revisar riscos, adocao e proximo passo recomendado." }
+    ];
+  }
+
+  const objective = extractPromptObjectiveFromQuestion(question) || "a demanda atual";
+  return [
+    { time: "Etapa 1", title: "Contexto", description: `Alinhar escopo, objetivo e criterios de sucesso para ${objective}.` },
+    { time: "Etapa 2", title: "Execucao", description: "Organizar os entregaveis principais e remover bloqueios operacionais." },
+    { time: "Etapa 3", title: "Revisao", description: "Validar resultado, ajustar riscos e registrar o proximo passo." }
+  ];
+}
+
+function isGenericCardFallbackText(value: string) {
+  const trimmed = String(value || "").trim();
+  return isGenericAssistantFallback(trimmed) || /^AINDA NAO TENHO ESSA INFORMACAO\b/i.test(trimmed);
+}
+
+function looksLikeBiblePassageRawText(content: string) {
+  const normalized = normalizeIntentText(content);
+  return /\b(romanos 8|ja nao existe nenhuma condenacao|nao existe nenhuma condenacao|lei do espirito da vida|nada nos separara|nada pode nos separar)\b/.test(normalized);
+}
+
+function questionRequestsPastoralRewrite(question: string) {
+  return /\b(pastoral|humano|humana|ansioso|ansiosa|acolhedor|acolhedora)\b/i.test(String(question || ""));
+}
+
+function buildPastoralFallbackText(question: string) {
+  if (/\bromanos\s+8\b/i.test(question) || /\bmesmo texto\b/i.test(normalizeIntentText(question))) {
+    return "Se voce esta ansioso, Romanos 8 nao aumenta o peso sobre voce; ele lembra que, em Cristo, voce nao esta condenado nem abandonado. A mensagem central e de seguranca: o Espirito sustenta sua fraqueza, Deus continua perto no meio da luta e nada pode separar voce do amor dEle. Em vez de correr para a culpa, esse texto convida voce a descansar, respirar e caminhar um passo de cada vez com confianca.";
+  }
+
+  return "Quero te responder de um jeito mais humano: esse texto nao foi dado para esmagar voce, mas para orientar, consolar e trazer clareza. O centro da mensagem e que Deus permanece presente, fiel e ativo mesmo quando voce esta cansado ou inseguro.";
+}
+
+function coerceAssistantReply(
+  question: string,
+  answer: string,
+  responsePresentation: ReturnType<typeof detectResponsePresentation> | null
+) {
+  const trimmed = String(answer || "").trim();
+  if (!trimmed || !responsePresentation) {
+    return trimmed;
+  }
+
+  if (responsePresentation.card === "prompt") {
+    const promptPayload = extractPromptPayloadFromJsonLike(trimmed);
+    if (promptPayload?.content) {
+      return JSON.stringify(promptPayload);
+    }
+
+    if (!isGenericAssistantFallback(trimmed) && looksLikePromptInstructionsText(trimmed)) {
+      return JSON.stringify({
+        type: "prompt",
+        content: sanitizePromptPayloadText(trimmed)
+      });
+    }
+
+    return JSON.stringify({
+      type: "prompt",
+      content: buildPromptFallbackContent(question)
+    });
+  }
+
+  if (responsePresentation.card === "table") {
+    const parsedPayload = parseSpecialPayload(trimmed);
+    const inline = detectInlineType(trimmed);
+    if (parsedPayload?.type === "table" || inline?.type === "table") {
+      return trimmed;
+    }
+
+    const tablePayload = buildRequestedTablePayload(question);
+    if (tablePayload) {
+      return JSON.stringify({
+        type: "table",
+        content: tablePayload
+      });
+    }
+  }
+
+  if (responsePresentation.card === "timeline") {
+    const parsedPayload = parseSpecialPayload(trimmed);
+    const inline = detectInlineType(trimmed);
+    if (parsedPayload?.type === "timeline" || inline?.type === "timeline") {
+      return trimmed;
+    }
+
+    if (!isGenericCardFallbackText(trimmed)) {
+      return trimmed;
+    }
+
+    return JSON.stringify({
+      type: "timeline",
+      content: buildRequestedTimelinePayload(question)
+    });
+  }
+
+  if (questionRequestsPastoralRewrite(question) && (looksLikeBiblePassageRawText(trimmed) || isGenericAssistantFallback(trimmed))) {
+    return buildPastoralFallbackText(question);
+  }
+
+  if (responsePresentation.variant === "weather") {
+    return trimmed.replace(/Nao encontrei a localidade em /i, "Nao encontrei a localidade ");
+  }
+
+  return trimmed;
 }
 
 function inferCodeLanguage(content: string) {
@@ -1150,7 +2318,7 @@ function toGIOMMessage(message: ChatMessage): GIOMMessage {
         title: message.generatedDocument.fileName,
         sections: [
           {
-            heading: "Resumo",
+            heading: "Preview",
             body: message.generatedDocument.previewText
           }
         ]
@@ -1234,9 +2402,12 @@ async function readFileAsBase64(file: File) {
 }
 
 export default function Home() {
+  const pathname = usePathname();
+  const surface: AppSurface = pathname?.startsWith("/chat/bible") ? "study" : "chat";
   const [threads, setThreads] = useState<ChatThread[]>([createThread()]);
   const [activeThreadId, setActiveThreadId] = useState<string>("");
   const [config, setConfig] = useState<RuntimeConfig | null>(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [messageUploadPreviews, setMessageUploadPreviews] = useState<Record<string, MessageUploadPreview[]>>({});
   const [isSending, setIsSending] = useState(false);
@@ -1245,7 +2416,7 @@ export default function Home() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  const [authReady, setAuthReady] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
   const [authStep, setAuthStep] = useState<AuthStep>("email");
   const [showAuthScreen, setShowAuthScreen] = useState(false);
@@ -1260,10 +2431,37 @@ export default function Home() {
 
   const [usage, setUsage] = useState<UsageRecord | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showGuestNewChatModal, setShowGuestNewChatModal] = useState(false);
   const [weatherLocation, setWeatherLocation] = useState<WeatherLocationContext | null>(null);
+  const [studyModeEnabled, setStudyModeEnabled] = useState(false);
+  const [studyTrackId, setStudyTrackId] = useState<string | null>(null);
+  const [selectedBibleStudyModules, setSelectedBibleStudyModules] = useState<string[]>([]);
+  const [preferredBibleCode, setPreferredBibleCode] = useState("NAA");
+  const [studyMinistryFocus, setStudyMinistryFocus] = useState("");
+  const [studyDepthPreference, setStudyDepthPreference] = useState("balanced");
+  const [studyProgress, setStudyProgress] = useState<BibleLearningProgressState>({});
+  const [studyCelebrationActive, setStudyCelebrationActive] = useState(false);
+  const [learningProfileReady, setLearningProfileReady] = useState(false);
+  const [learningProfileOwnerId, setLearningProfileOwnerId] = useState<string | null>(null);
 
   const [micSupported, setMicSupported] = useState(false);
   const [micListening, setMicListening] = useState(false);
+  const [speakerEnabled, setSpeakerEnabled] = useState(false);
+  const [speakerSupported, setSpeakerSupported] = useState(false);
+  const [selectedVoicePersona, setSelectedVoicePersona] = useState<VoicePersonaId>("giom");
+  const [voicePreferencesReady, setVoicePreferencesReady] = useState(false);
+  const [voicePreviewActive, setVoicePreviewActive] = useState(false);
+  const [selectedVoiceName, setSelectedVoiceName] = useState("browser-default");
+  const [voiceOptions, setVoiceOptions] = useState<VoiceOption[]>(() => buildBrowserVoiceOptions());
+  const [voiceConversationMode, setVoiceConversationMode] = useState(false);
+  const [voiceConversationPaused, setVoiceConversationPaused] = useState(false);
+  const [voiceInputLevel, setVoiceInputLevel] = useState(0);
+  const [voiceOutputLevel, setVoiceOutputLevel] = useState(0);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
+  const [voiceSession, setVoiceSession] = useState<RealtimeVoiceSession | null>(null);
+  const [voiceInterimTranscript, setVoiceInterimTranscript] = useState("");
+  const [voiceQuickModalOpen, setVoiceQuickModalOpen] = useState(false);
+  const [inlineVoiceComposerActive, setInlineVoiceComposerActive] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
@@ -1271,9 +2469,33 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const supabaseRef = useRef<SupabaseClient | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceRecorderRef = useRef<WavAudioRecorderController | null>(null);
+  const speechPlaybackRef = useRef<BrowserSpeechController | null>(null);
+  const silenceDetectorRef = useRef<SilenceDetectorController | null>(null);
+  const captureStreamRef = useRef<MediaStream | null>(null);
+  const voiceInterruptDetectorRef = useRef<SilenceDetectorController | null>(null);
+  const voiceInterruptStreamRef = useRef<MediaStream | null>(null);
+  const voiceInterruptArmTimerRef = useRef<number | null>(null);
+  const voiceOutputMonitorRef = useRef<AudioLevelMonitorController | null>(null);
+  const voiceOutputSyntheticTimerRef = useRef<number | null>(null);
+  const submitMessageRef = useRef<(() => Promise<void>) | null>(null);
+  const startVoiceConversationModeRef = useRef<((options?: { enableSpeaker?: boolean }) => void) | null>(null);
+  const voiceSessionRef = useRef<RealtimeVoiceSession | null>(null);
+  const voiceConversationModeRef = useRef(false);
+  const voiceConversationPausedRef = useRef(false);
+  const voiceConversationResumeTimerRef = useRef<number | null>(null);
+  const voiceCaptureModeRef = useRef<VoiceCaptureMode>("idle");
+  const voiceCaptureFinishingRef = useRef(false);
+  const voiceBargeInPendingRef = useRef(false);
+  const voiceCapturedSinceStartRef = useRef(false);
+  const voiceShouldAutoSubmitRef = useRef(false);
+  const lastVoicePartialSentAtRef = useRef(0);
   const threadsRef = useRef<ChatThread[]>(threads);
   const messageUploadPreviewsRef = useRef<Record<string, MessageUploadPreview[]>>({});
   const guestLandingResetRef = useRef(false);
+  const hydratedGuestThreadsHadMessagesRef = useRef(false);
+  const guestThreadActivityRef = useRef(false);
+  const inlineVoiceComposerActiveRef = useRef(false);
 
   const configuredApiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
   const configuredBackendTarget = (process.env.NEXT_PUBLIC_BACKEND_PROXY_TARGET || "").trim();
@@ -1283,7 +2505,7 @@ export default function Home() {
     const candidates = [
       useProxyInDev ? "/backend" : configuredApiBase || "/backend",
       configuredApiBase,
-      useProxyInDev && allowDirectBackendFallback ? configuredBackendTarget || "http://localhost:3002" : ""
+      useProxyInDev && allowDirectBackendFallback && configuredBackendTarget ? configuredBackendTarget : ""
     ]
       .map((value) => normalizeApiBase(value))
       .filter(Boolean);
@@ -1291,9 +2513,277 @@ export default function Home() {
     return Array.from(new Set(candidates));
   }, [allowDirectBackendFallback, configuredApiBase, configuredBackendTarget, useProxyInDev]);
 
+  const threadStorageOwnerKey = useMemo(
+    () => getThreadStorageOwnerKey(authUser),
+    [authUser]
+  );
+  const bibleLearningTracks = useMemo<BibleLearningTrack[]>(() => {
+    const tracks = config?.ai?.bibleLearningTracks;
+    return Array.isArray(tracks) ? tracks : [];
+  }, [config?.ai?.bibleLearningTracks]);
+  const bibleModuleCatalog = useMemo<BibleStudyModuleOption[]>(() => {
+    const modules = config?.ai?.bibleStudyModules;
+    return Array.isArray(modules) ? modules : [];
+  }, [config?.ai?.bibleStudyModules]);
+  const bibleModuleIdSet = useMemo(
+    () => new Set(bibleModuleCatalog.map((module) => module.id)),
+    [bibleModuleCatalog]
+  );
+  const activeBibleTrack = useMemo(
+    () => bibleLearningTracks.find((track) => track.id === studyTrackId) || bibleLearningTracks[0] || null,
+    [bibleLearningTracks, studyTrackId]
+  );
+  const activeBibleProgress = useMemo(() => {
+    if (!activeBibleTrack) {
+      return null;
+    }
+
+    return studyProgress[activeBibleTrack.id] || {
+      completedStepIds: [],
+      currentStepId: activeBibleTrack.steps[0]?.id || null,
+      updatedAt: null
+    };
+  }, [activeBibleTrack, studyProgress]);
+  const activeBibleStep = useMemo(() => {
+    if (!activeBibleTrack) {
+      return null;
+    }
+
+    const currentStepId = activeBibleProgress?.currentStepId || activeBibleTrack.steps[0]?.id || null;
+    return activeBibleTrack.steps.find((step) => step.id === currentStepId) || activeBibleTrack.steps[0] || null;
+  }, [activeBibleProgress?.currentStepId, activeBibleTrack]);
+  const activeBibleCompletionRate = useMemo(() => {
+    if (!activeBibleTrack?.steps.length) {
+      return 0;
+    }
+
+    const completed = new Set(activeBibleProgress?.completedStepIds || []);
+    return Math.round((completed.size / activeBibleTrack.steps.length) * 100);
+  }, [activeBibleProgress?.completedStepIds, activeBibleTrack]);
+  const activeBibleMilestoneSummary = useMemo(() => {
+    if (!activeBibleTrack) {
+      return {
+        unlocked: 0,
+        total: 0,
+        nextLabel: null as string | null
+      };
+    }
+
+    const completed = new Set(activeBibleProgress?.completedStepIds || []);
+    const milestones = activeBibleTrack.steps
+      .map((step, index) => ({
+        id: step.id,
+        label: getStudyCheckpointLabel(index, activeBibleTrack.steps.length),
+        checkpoint: isStudyCheckpointStep(index, activeBibleTrack.steps.length)
+      }))
+      .filter((entry) => entry.checkpoint);
+
+    return {
+      unlocked: milestones.filter((entry) => completed.has(entry.id)).length,
+      total: milestones.length,
+      nextLabel: milestones.find((entry) => !completed.has(entry.id))?.label || null
+    };
+  }, [activeBibleProgress?.completedStepIds, activeBibleTrack]);
+  const studyMedalHistory = useMemo(() => {
+    return bibleLearningTracks
+      .flatMap((track) => {
+        const progressEntry = studyProgress[track.id];
+        const completed = new Set(progressEntry?.completedStepIds || []);
+        const updatedAtValue = progressEntry?.updatedAt ? new Date(progressEntry.updatedAt).getTime() : 0;
+
+        return track.steps
+          .map((step, index) => ({
+            id: `${track.id}:${step.id}`,
+            trackId: track.id,
+            trackLabel: track.label,
+            stepId: step.id,
+            stepLabel: step.label,
+            medalLabel: getStudyCheckpointLabel(index, track.steps.length),
+            checkpoint: isStudyCheckpointStep(index, track.steps.length),
+            stepIndex: index,
+            updatedAtValue
+          }))
+          .filter((entry) => entry.checkpoint && completed.has(entry.stepId));
+      })
+      .sort((left, right) => {
+        if (right.updatedAtValue !== left.updatedAtValue) {
+          return right.updatedAtValue - left.updatedAtValue;
+        }
+
+        if (left.trackLabel !== right.trackLabel) {
+          return left.trackLabel.localeCompare(right.trackLabel, "pt-BR");
+        }
+
+        return right.stepIndex - left.stepIndex;
+      })
+      .map(({ checkpoint, stepIndex, updatedAtValue, ...entry }) => entry);
+  }, [bibleLearningTracks, studyProgress]);
+  const studyMedalSummary = useMemo(() => {
+    const total = bibleLearningTracks.reduce((sum, track) => {
+      return sum + track.steps.filter((_, index) => isStudyCheckpointStep(index, track.steps.length)).length;
+    }, 0);
+
+    return {
+      unlocked: studyMedalHistory.length,
+      total,
+      activeTrackLabel: activeBibleTrack?.label || null,
+      activeTrackUnlocked: activeBibleMilestoneSummary.unlocked,
+      activeTrackTotal: activeBibleMilestoneSummary.total,
+      nextLabel: activeBibleMilestoneSummary.nextLabel
+    };
+  }, [activeBibleMilestoneSummary, activeBibleTrack?.label, bibleLearningTracks, studyMedalHistory.length]);
+  const providerResilienceLabel = useMemo(
+    () => buildProviderResilienceLabel(config?.ai?.providers),
+    [config?.ai?.providers]
+  );
   const activeThread = threads.find((thread) => thread.id === activeThreadId) || threads[0];
   const messages = activeThread?.messages || EMPTY_MESSAGES;
-  const landingGreeting = useMemo(() => buildLandingGreeting(authUser?.fullName), [authUser?.fullName]);
+  const landingGreeting = useMemo(() => buildStaticLandingGreeting(), []);
+  const activeVoicePersona = useMemo(() => getVoicePersonaOption(selectedVoicePersona), [selectedVoicePersona]);
+  const preferredVoice = selectedVoiceName || "browser-default";
+  const runtimeVoicePersonas = useMemo<RuntimeVoicePersona[]>(() => {
+    const personas = config?.runtime?.voice?.personas;
+    return Array.isArray(personas) ? personas : [];
+  }, [config?.runtime?.voice?.personas]);
+  const activeRuntimeVoicePersona = useMemo(
+    () => runtimeVoicePersonas.find((persona) => normalizeVoicePersonaId(persona.id) === selectedVoicePersona) || null,
+    [runtimeVoicePersonas, selectedVoicePersona]
+  );
+  const activeServerVoice = useMemo(() => {
+    if (!config?.features?.serverAudioSpeech || !activeRuntimeVoicePersona?.serverAudioAvailable) {
+      return "";
+    }
+
+    return String(activeRuntimeVoicePersona.voice || activeRuntimeVoicePersona.id || "").trim();
+  }, [activeRuntimeVoicePersona, config?.features?.serverAudioSpeech]);
+  const shouldUseServerVoiceAudio = Boolean(activeServerVoice);
+  const requestedVoiceOutput = activeServerVoice || preferredVoice;
+  const bargeInEnabled = config?.runtime?.voice?.bargeIn !== false;
+  const voiceSignalMode: VoiceSignalMode = voiceStatus === "speaking"
+    ? "output"
+    : voiceStatus === "listening"
+      ? "input"
+      : "idle";
+  const voiceSignalLevel = voiceSignalMode === "output"
+    ? voiceOutputLevel
+    : voiceSignalMode === "input"
+      ? voiceInputLevel
+      : 0;
+  const voiceOutputEngine: "server" | "browser" | "muted" = !speakerEnabled
+    ? "muted"
+    : shouldUseServerVoiceAudio
+      ? "server"
+      : "browser";
+  const voiceStatusLabel = useMemo(
+    () => getVoiceStatusLabel(voiceStatus, voiceInterimTranscript),
+    [voiceInterimTranscript, voiceStatus]
+  );
+  const latestAssistantVoiceText = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === "assistant" && message.content.trim()) {
+        return message.content.trim();
+      }
+    }
+
+    return "";
+  }, [messages]);
+  const latestUserVoiceText = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message?.role === "user" && message.content.trim()) {
+        return message.content.trim();
+      }
+    }
+
+    return "";
+  }, [messages]);
+  const voiceRecoveryHint = useMemo(() => {
+    if (!voiceConversationMode) {
+      return null;
+    }
+
+    if (!micSupported) {
+      return "Microfone indisponivel para este fluxo continuo neste navegador/dispositivo.";
+    }
+
+    if (!speakerSupported) {
+      return "A resposta em voz alta nao esta disponivel neste navegador/dispositivo.";
+    }
+
+    return getVoiceRecoveryHint(requestError);
+  }, [micSupported, requestError, speakerSupported, voiceConversationMode]);
+  const voiceSessionReady = voiceConversationMode && (voiceStatus !== "connecting" || Boolean(voiceSession?.sessionId));
+  const studyVoiceActive = surface === "study" && (voiceConversationMode || inlineVoiceComposerActive || micListening);
+  const studyMascotMode = useMemo<StudyMascotMode>(() => {
+    if (studyCelebrationActive) {
+      return "celebrating";
+    }
+
+    if (surface !== "study") {
+      return "idle";
+    }
+
+    if (voiceStatus === "speaking" || voiceSignalMode === "output") {
+      return "speaking";
+    }
+
+    if (
+      studyVoiceActive
+      || voiceStatus === "connecting"
+      || voiceStatus === "listening"
+      || voiceStatus === "processing"
+    ) {
+      return "listening";
+    }
+
+    return "idle";
+  }, [studyCelebrationActive, studyVoiceActive, surface, voiceSignalMode, voiceStatus]);
+  const studyMascotStatusLabel = useMemo(() => {
+    if (studyMascotMode === "celebrating") {
+      return activeBibleStep
+        ? `Etapa ${activeBibleStep.label} concluida. Continue no mapa para manter o ritmo.`
+        : "Etapa concluida. Continue no mapa para manter o ritmo.";
+    }
+
+    if (studyMascotMode === "speaking" || studyMascotMode === "listening") {
+      return voiceStatusLabel;
+    }
+
+    if (activeBibleStep) {
+      return `Agora: ${activeBibleStep.label}. ${activeBibleStep.goal}`;
+    }
+
+    if (studyModeEnabled) {
+      return "Trilha ativa. Escolha a proxima etapa no painel lateral.";
+    }
+
+    return "Escolha uma trilha biblica para iniciar a experiencia guiada.";
+  }, [activeBibleStep, studyMascotMode, studyModeEnabled, voiceStatusLabel]);
+  const resolvedDeviceVoiceLabel = useMemo(() => {
+    if (shouldUseServerVoiceAudio) {
+      return `Servidor: ${activeRuntimeVoicePersona?.label || activeVoicePersona.label}`;
+    }
+
+    const current = voiceOptions.find((option) => option.value === preferredVoice);
+    return current?.label || "Padrao do navegador";
+  }, [activeRuntimeVoicePersona?.label, activeVoicePersona.label, preferredVoice, shouldUseServerVoiceAudio, voiceOptions]);
+  const activePersonaSpeech = useMemo(
+    () => buildPersonaSpeechSettings(activeVoicePersona, preferredVoice),
+    [activeVoicePersona, preferredVoice]
+  );
+
+  useEffect(() => {
+    if (!studyCelebrationActive) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setStudyCelebrationActive(false);
+    }, 4200);
+
+    return () => window.clearTimeout(timer);
+  }, [studyCelebrationActive]);
 
   const requestJsonWithFailover = useCallback(async (route: string, init: RequestInit, timeoutMs = 20_000) => {
     let lastError: unknown = null;
@@ -1319,11 +2809,7 @@ export default function Home() {
         })();
         if (!response.ok) {
           const rawHint = String(raw || "").replace(/\s+/g, " ").slice(0, 180);
-          const message = String(
-            (payload as { error?: string })?.error ||
-            (payload as { details?: string })?.details ||
-            (rawHint ? `Erro HTTP ${response.status}: ${rawHint}` : `Erro HTTP ${response.status}`)
-          );
+          const message = buildBackendFailureMessage(route, response.status, payload, rawHint);
           const wrapped = new Error(message) as Error & { status?: number };
           wrapped.status = response.status;
           attempts.push(`${url} -> HTTP ${response.status}`);
@@ -1339,7 +2825,7 @@ export default function Home() {
         const hasNextBase = index < apiBases.length - 1;
         if (!hasNextBase || !shouldTryNextApiBase(error)) {
           const enriched = new Error(
-            `Falha ao acessar backend (${route}). Tentativas: ${attempts.join(" | ")}`
+            `Falha ao acessar backend (${route}). Tentativas: ${attempts.join(" | ")}. Verifique se a API esta ativa e se o proxy /backend aponta para a porta correta.`
           ) as Error & { status?: number };
           enriched.status = Number((error as { status?: number })?.status || 0) || undefined;
           throw enriched;
@@ -1349,6 +2835,312 @@ export default function Home() {
 
     throw lastError || new Error("Falha de conexao com backend.");
   }, [apiBases]);
+
+  const syncInlineVoiceComposerMode = useCallback((next: boolean) => {
+    inlineVoiceComposerActiveRef.current = next;
+    setInlineVoiceComposerActive(next);
+  }, []);
+
+  const releaseVoiceCaptureResources = useCallback(() => {
+    silenceDetectorRef.current?.stop();
+    silenceDetectorRef.current = null;
+    setVoiceInputLevel(0);
+
+    const stream = captureStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    captureStreamRef.current = null;
+  }, []);
+
+  const releaseVoiceRecorder = useCallback((mode: "cancel" | "detach" = "cancel") => {
+    if (mode === "cancel") {
+      voiceRecorderRef.current?.cancel();
+    }
+    voiceRecorderRef.current = null;
+  }, []);
+
+  const releaseVoiceInterruptMonitor = useCallback(() => {
+    if (voiceInterruptArmTimerRef.current !== null) {
+      window.clearTimeout(voiceInterruptArmTimerRef.current);
+      voiceInterruptArmTimerRef.current = null;
+    }
+
+    voiceInterruptDetectorRef.current?.stop();
+    voiceInterruptDetectorRef.current = null;
+
+    const interruptStream = voiceInterruptStreamRef.current;
+    voiceInterruptStreamRef.current = null;
+    interruptStream?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  const releaseVoiceOutputMonitor = useCallback(() => {
+    if (voiceOutputSyntheticTimerRef.current !== null) {
+      window.clearInterval(voiceOutputSyntheticTimerRef.current);
+      voiceOutputSyntheticTimerRef.current = null;
+    }
+
+    voiceOutputMonitorRef.current?.stop();
+    voiceOutputMonitorRef.current = null;
+    setVoiceOutputLevel(0);
+  }, []);
+
+  const startSyntheticVoiceOutputMonitor = useCallback(() => {
+    releaseVoiceOutputMonitor();
+
+    const pattern = [1, 3, 5, 2, 4, 2];
+    let index = 0;
+    setVoiceOutputLevel(pattern[0] || 0);
+
+    voiceOutputSyntheticTimerRef.current = window.setInterval(() => {
+      index = (index + 1) % pattern.length;
+      setVoiceOutputLevel(pattern[index] || 0);
+    }, 120);
+  }, [releaseVoiceOutputMonitor]);
+
+  function queueVoiceConversationResume(delayMs = 420) {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (voiceConversationResumeTimerRef.current !== null) {
+      window.clearTimeout(voiceConversationResumeTimerRef.current);
+    }
+
+    voiceConversationResumeTimerRef.current = window.setTimeout(() => {
+      voiceConversationResumeTimerRef.current = null;
+
+      if (
+        !voiceConversationModeRef.current
+        || voiceConversationPausedRef.current
+        || voiceCaptureModeRef.current !== "idle"
+        || speechPlaybackRef.current
+        || voiceBargeInPendingRef.current
+      ) {
+        return;
+      }
+
+      void startRealtimeVoiceCapture({ autoSubmit: true }).catch((error) => {
+        voiceConversationModeRef.current = false;
+        voiceConversationPausedRef.current = false;
+        setVoiceConversationMode(false);
+        setVoiceConversationPaused(false);
+        setVoiceStatus("idle");
+        setRequestError(
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel retomar a conversa por voz."
+        );
+      });
+    }, delayMs);
+  }
+
+  const stopPlayback = useCallback((nextStatus: VoiceStatus = "idle") => {
+    releaseVoiceInterruptMonitor();
+    releaseVoiceOutputMonitor();
+    speechPlaybackRef.current?.cancel();
+    speechPlaybackRef.current = null;
+    setVoicePreviewActive(false);
+    setVoiceStatus((current) => current === "speaking" ? nextStatus : current);
+  }, [releaseVoiceInterruptMonitor, releaseVoiceOutputMonitor]);
+
+  const ensureVoiceSession = useCallback(async () => {
+    if (
+      voiceSessionRef.current
+      && voiceSessionRef.current.status !== "closed"
+      && String(voiceSessionRef.current.voice?.output || "browser-default") === requestedVoiceOutput
+    ) {
+      return voiceSessionRef.current;
+    }
+
+    voiceSessionRef.current = null;
+    setVoiceSession(null);
+
+    const payload = parseRealtimeSessionEnvelopePayload(await requestJsonWithFailover(
+      "/v1/realtime/sessions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": authUser?.id || getScopeId()
+        },
+        body: JSON.stringify({
+          locale: "pt-BR",
+          transport: "sse",
+          voice: requestedVoiceOutput,
+          outputVoice: requestedVoiceOutput,
+          metadata: {
+            surface: "web-next",
+            autoSpeech: speakerEnabled,
+            persona: selectedVoicePersona,
+            serverVoice: activeServerVoice || null
+          },
+          vad: {
+            enabled: true,
+            threshold: 0.045,
+            silenceMs: 1400
+          }
+        })
+      },
+      15_000
+    ));
+
+    const sessionRecord = payload.session;
+    const session: RealtimeVoiceSession = {
+      sessionId: String(sessionRecord.sessionId || ""),
+      status: String(sessionRecord.status || "active"),
+      locale: String(sessionRecord.locale || "pt-BR"),
+      transport: String(sessionRecord.transport || "sse"),
+      voice: (sessionRecord.voice || null) as RealtimeVoiceSession["voice"],
+      vad: (sessionRecord.vad || null) as RealtimeVoiceSession["vad"]
+    };
+
+    if (!session.sessionId) {
+      throw new Error("Nao foi possivel abrir sessao de voz realtime.");
+    }
+
+    voiceSessionRef.current = session;
+    setVoiceSession(session);
+    return session;
+  }, [activeServerVoice, authUser?.id, requestJsonWithFailover, requestedVoiceOutput, selectedVoicePersona, speakerEnabled]);
+
+  const pushVoiceEvent = useCallback(async (
+    sessionId: string,
+    type: string,
+    payload: Record<string, unknown> = {},
+    options?: { text?: string; final?: boolean; direction?: string }
+  ) => {
+    await requestJsonWithFailover(
+      `/v1/realtime/sessions/${sessionId}/events`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": authUser?.id || getScopeId()
+        },
+        body: JSON.stringify({
+          type,
+          direction: options?.direction || "client",
+          final: options?.final !== false,
+          text: options?.text || "",
+          payload
+        })
+      },
+      10_000
+    ).catch(() => null);
+  }, [authUser?.id, requestJsonWithFailover]);
+
+  const normalizeRealtimeTranscription = useCallback(async (
+    sessionId: string | null,
+    transcript: string,
+    final = true
+  ) => {
+    const trimmed = String(transcript || "").trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    const payload = parseRealtimeTranscriptionPayload(await requestJsonWithFailover(
+      "/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": authUser?.id || getScopeId()
+        },
+        body: JSON.stringify({
+          sessionId,
+          transcript: trimmed,
+          language: "pt-BR",
+          final,
+          source: "browser_microphone"
+        })
+      },
+      12_000
+    ));
+
+    return String(payload?.text || trimmed).trim();
+  }, [authUser?.id, requestJsonWithFailover]);
+
+  const requestSpeechManifest = useCallback(async (
+    sessionId: string | null,
+    input: string,
+    options?: SpeechManifestRequestOptions
+  ) => {
+    const cleaned = buildSpeechSafeText(input);
+    if (!cleaned) {
+      return null;
+    }
+
+    const returnServerAudio = options?.forceServerAudio ?? shouldUseServerVoiceAudio;
+
+    const payload = parseRealtimeSpeechEnvelopePayload(await requestJsonWithFailover(
+      "/v1/audio/speech",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": authUser?.id || getScopeId()
+        },
+        body: JSON.stringify({
+          sessionId,
+          input: cleaned,
+          language: activePersonaSpeech.language,
+          voice: requestedVoiceOutput,
+          outputVoice: requestedVoiceOutput,
+          rate: activePersonaSpeech.rate,
+          pitch: activePersonaSpeech.pitch,
+          autoPlay: true,
+          returnAudio: returnServerAudio
+        })
+      },
+      12_000
+    ));
+
+    return normalizeRealtimeSpeechManifest(payload.speech, cleaned);
+  }, [activePersonaSpeech.language, activePersonaSpeech.pitch, activePersonaSpeech.rate, authUser?.id, requestJsonWithFailover, requestedVoiceOutput, shouldUseServerVoiceAudio]);
+
+  async function requestAssistantResponseRealtime(
+    question: string,
+    context: GIOMAskContext,
+    voiceSessionId: string
+  ) {
+    const safeContext = sanitizeContextForApi(context);
+    const payload = parseRealtimeVoiceResponseEnvelopePayload(await requestJsonWithFailover(
+      `/v1/realtime/sessions/${voiceSessionId}/respond`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": authUser?.id || getScopeId()
+        },
+        body: JSON.stringify({
+          input: question,
+          voice: requestedVoiceOutput,
+          language: activePersonaSpeech.language,
+          rate: activePersonaSpeech.rate,
+          pitch: activePersonaSpeech.pitch,
+          context: safeContext,
+          appendInputEvent: true,
+          chunkDelayMs: 90,
+          maxChunkChars: 120,
+          returnAudio: shouldUseServerVoiceAudio
+        })
+      },
+      95_000
+    ));
+
+    const responseRecord = payload.response;
+    const speechRecord = normalizeRealtimeSpeechManifest(payload.speech, "");
+    const answer = extractAnswer(responseRecord) || String(responseRecord.text || "").trim();
+    const speech = speechRecord?.text ? normalizeRealtimeSpeechManifest(speechRecord, answer) : null;
+
+    return {
+      answer: answer || "Resposta vazia do servidor.",
+      metadata: extractAssistantResponseMetadata(responseRecord),
+      speech
+    };
+  }
 
   const requestStreamWithFailover = useCallback(async (route: string, init: RequestInit, timeoutMs = 30_000) => {
     let lastError: unknown = null;
@@ -1374,11 +3166,7 @@ export default function Home() {
             }
           })();
           const rawHint = String(raw || "").replace(/\s+/g, " ").slice(0, 180);
-          const message = String(
-            (payload as { error?: string })?.error ||
-            (payload as { details?: string })?.details ||
-            (rawHint ? `Erro HTTP ${response.status}: ${rawHint}` : `Erro HTTP ${response.status}`)
-          );
+          const message = buildBackendFailureMessage(route, response.status, payload, rawHint);
           const wrapped = new Error(message) as Error & { status?: number };
           wrapped.status = response.status;
           attempts.push(`${url} -> HTTP ${response.status}`);
@@ -1394,7 +3182,7 @@ export default function Home() {
         const hasNextBase = index < apiBases.length - 1;
         if (!hasNextBase || !shouldTryNextApiBase(error)) {
           const enriched = new Error(
-            `Falha ao abrir stream (${route}). Tentativas: ${attempts.join(" | ")}`
+            `Falha ao abrir stream (${route}). Tentativas: ${attempts.join(" | ")}. Verifique se a API esta ativa e se o proxy /backend aponta para a porta correta.`
           ) as Error & { status?: number };
           enriched.status = Number((error as { status?: number })?.status || 0) || undefined;
           throw enriched;
@@ -1404,6 +3192,56 @@ export default function Home() {
 
     throw lastError || new Error("Falha de conexao com backend.");
   }, [apiBases]);
+
+  const appendVoiceTranscript = useCallback(async (sessionId: string | null, transcript: string) => {
+    const normalized = String(transcript || "").trim();
+    if (!normalized) {
+      return "";
+    }
+
+    setInput((current) => `${current}${current.trim() ? " " : ""}${normalized}`.trim());
+    setVoiceInterimTranscript("");
+
+    if (sessionId) {
+      await pushVoiceEvent(sessionId, "transcription.appended", {
+        transcript: normalized
+      }, {
+        text: normalized,
+        final: true
+      });
+    }
+
+    return normalized;
+  }, [pushVoiceEvent]);
+
+  const normalizeRealtimeCapturedAudio = useCallback(async (
+    sessionId: string | null,
+    capture: WavAudioCaptureResult
+  ) => {
+    const payload = parseRealtimeTranscriptionPayload(await requestJsonWithFailover(
+      "/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": authUser?.id || getScopeId()
+        },
+        body: JSON.stringify({
+          sessionId,
+          audioDataUrl: capture.audioDataUrl,
+          mimeType: capture.mimeType,
+          sampleRate: capture.sampleRate,
+          channels: capture.channels,
+          language: "pt-BR",
+          final: true,
+          source: "browser_microphone_server_capture"
+        })
+      },
+      25_000
+    ));
+
+    return String(payload?.text || "").trim();
+  }, [authUser?.id, requestJsonWithFailover]);
 
   const limits = useMemo(() => getPlanLimits(authUser), [authUser]);
   const messagesUsed = usage?.messages || 0;
@@ -1415,24 +3253,35 @@ export default function Home() {
   const documentsRemaining = Number.isFinite(limits.documents) ? Math.max(0, limits.documents - documentsUsed) : Number.POSITIVE_INFINITY;
 
   const canUseUploads = Boolean(limits.uploads && config?.uploads?.enabled !== false);
-  const canUseTools = Boolean(limits.tools && (config?.features?.imageGeneration || config?.features?.documentGeneration));
+  const canUseTools = Boolean(
+    limits.tools && (
+      !config?.features
+      || config.features.imageGeneration !== false
+      || config.features.documentGeneration !== false
+    )
+  );
   const authSupportsMagicLink = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
 
   const availableDocFormats = useMemo(() => {
     const configured = config?.ai?.documentGeneration?.formats;
     if (!Array.isArray(configured) || !configured.length) {
-      return ["pdf", "docx", "txt", "md"];
+      return ["pdf", "docx", "xlsx", "pptx", "txt", "md"];
     }
 
     const values = configured
-      .map((entry) => String(entry?.id || "").trim().toLowerCase())
+      .map((entry) => String(entry?.id || entry?.format || "").trim().toLowerCase())
       .filter(Boolean);
 
-    return values.length ? values : ["pdf", "docx", "txt", "md"];
+    return values.length ? values : ["pdf", "docx", "xlsx", "pptx", "txt", "md"];
   }, [config]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    setSpeakerSupported(Boolean(isBrowserSpeechSynthesisSupported() || config?.features?.serverAudioSpeech));
+    const browserSpeechRecognitionFallback = isBrowserAudioCaptureSupported();
+    const browserWavRecorderSupported = isBrowserWavRecorderSupported();
+    const serverCaptureSupported = Boolean(config?.features?.serverAudioTranscriptions) && browserWavRecorderSupported;
 
     const speechWindow = window as typeof window & {
       SpeechRecognition?: SpeechRecognitionConstructorLike;
@@ -1441,7 +3290,7 @@ export default function Home() {
 
     const SpeechCtor = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (!SpeechCtor) {
-      setMicSupported(false);
+      setMicSupported(serverCaptureSupported);
       speechRecognitionRef.current = null;
       return;
     }
@@ -1454,42 +3303,126 @@ export default function Home() {
     recognition.onstart = () => {
       setMicListening(true);
       setRequestError(null);
+      setVoiceStatus("connecting");
+      setVoiceInterimTranscript("");
+      stopPlayback("connecting");
+      voiceCapturedSinceStartRef.current = false;
+      void ensureVoiceSession()
+        .then((session) => pushVoiceEvent(session.sessionId, "session.listening_started", {
+          microphone: true,
+          vad: true
+        }))
+        .finally(() => {
+          setVoiceStatus("listening");
+        });
     };
 
     recognition.onend = () => {
+      const inlineComposerCapture = inlineVoiceComposerActiveRef.current;
       setMicListening(false);
+      voiceCaptureModeRef.current = "idle";
+      releaseVoiceCaptureResources();
+      setVoiceInterimTranscript("");
+      if (inlineComposerCapture) {
+        syncInlineVoiceComposerMode(false);
+      }
+      const sessionId = voiceSessionRef.current?.sessionId || null;
+      if (sessionId) {
+        void pushVoiceEvent(sessionId, "session.listening_stopped", {
+          autoSubmitted: voiceShouldAutoSubmitRef.current && voiceCapturedSinceStartRef.current
+        });
+      }
+
+      if (voiceShouldAutoSubmitRef.current && voiceCapturedSinceStartRef.current) {
+        voiceShouldAutoSubmitRef.current = false;
+        voiceCapturedSinceStartRef.current = false;
+        setVoiceStatus("processing");
+        requestAnimationFrame(() => {
+          void submitMessageRef.current?.();
+        });
+        return;
+      }
+
+      voiceShouldAutoSubmitRef.current = false;
+      voiceCapturedSinceStartRef.current = false;
+      setVoiceStatus(() => voiceConversationPausedRef.current ? "paused" : "idle");
     };
 
     recognition.onerror = (event) => {
+      const inlineComposerCapture = inlineVoiceComposerActiveRef.current;
       setMicListening(false);
+      voiceCaptureModeRef.current = "idle";
+      releaseVoiceCaptureResources();
+      setVoiceInterimTranscript("");
+      if (inlineComposerCapture) {
+        syncInlineVoiceComposerMode(false);
+      }
+      voiceShouldAutoSubmitRef.current = false;
+      voiceCapturedSinceStartRef.current = false;
+      if ((voiceConversationPausedRef.current || inlineComposerCapture) && (event.error === "aborted" || !event.error)) {
+        setVoiceStatus(voiceConversationPausedRef.current ? "paused" : "idle");
+        return;
+      }
       if (event.error && event.error !== "no-speech") {
         setRequestError(speechErrorMessage(event.error));
       }
+      if (voiceSessionRef.current?.sessionId) {
+        void pushVoiceEvent(voiceSessionRef.current.sessionId, "session.error", {
+          error: event.error || "speech_error"
+        });
+      }
+      setVoiceStatus("idle");
     };
 
     recognition.onresult = (event) => {
-      let transcript = "";
+      let finalTranscript = "";
+      let interimTranscript = "";
+
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results.item(i);
         if (!result) continue;
         const chunk = result.item(0)?.transcript || "";
         if (result.isFinal) {
-          transcript += `${chunk} `;
+          finalTranscript += `${chunk} `;
+        } else {
+          interimTranscript += `${chunk} `;
         }
       }
 
-      if (!transcript.trim()) return;
-      setInput((current) => `${current}${current.trim() ? " " : ""}${transcript.trim()}`.trim());
+      const interim = interimTranscript.trim();
+      setVoiceInterimTranscript(interim);
+
+      const sessionId = voiceSessionRef.current?.sessionId || null;
+      if (sessionId && interim && Date.now() - lastVoicePartialSentAtRef.current > 900) {
+        lastVoicePartialSentAtRef.current = Date.now();
+        void pushVoiceEvent(sessionId, "transcription.partial", {
+          transcript: interim
+        }, {
+          text: interim,
+          final: false
+        });
+      }
+
+      if (!finalTranscript.trim()) return;
+
+      const finalText = finalTranscript.trim();
+      voiceCapturedSinceStartRef.current = true;
+      void (async () => {
+        const normalized = await normalizeRealtimeTranscription(sessionId, finalText, true).catch(() => finalText);
+        await appendVoiceTranscript(sessionId, normalized);
+      })();
     };
 
     speechRecognitionRef.current = recognition;
-    setMicSupported(true);
+    setMicSupported(Boolean(SpeechCtor) || browserSpeechRecognitionFallback || serverCaptureSupported);
 
     return () => {
       recognition.onstart = null;
       recognition.onend = null;
       recognition.onerror = null;
       recognition.onresult = null;
+      releaseVoiceRecorder();
+      releaseVoiceCaptureResources();
       try {
         recognition.stop();
       } catch {
@@ -1497,23 +3430,69 @@ export default function Home() {
       }
       speechRecognitionRef.current = null;
     };
-  }, []);
+  }, [appendVoiceTranscript, config?.features?.serverAudioSpeech, config?.features?.serverAudioTranscriptions, ensureVoiceSession, normalizeRealtimeTranscription, pushVoiceEvent, releaseVoiceCaptureResources, releaseVoiceRecorder, stopPlayback, syncInlineVoiceComposerMode]);
 
   useEffect(() => {
-    const storedThreads = readThreadsFromStorage();
+    if (!authReady || !authUser) {
+      return;
+    }
+
+    const storedThreads = readThreadsFromStorage(threadStorageOwnerKey);
+    guestThreadActivityRef.current = false;
     if (storedThreads?.length) {
+      hydratedGuestThreadsHadMessagesRef.current = storedThreads.some((thread) => thread.messages.length > 0);
       setThreads(storedThreads);
       setActiveThreadId(storedThreads[0].id);
     } else {
       const fallback = createThread();
+      hydratedGuestThreadsHadMessagesRef.current = false;
       setThreads([fallback]);
       setActiveThreadId(fallback.id);
     }
     setIsHydrated(true);
-  }, []);
+  }, [authReady, authUser, threadStorageOwnerKey]);
 
   useEffect(() => {
     setWeatherLocation(readStoredWeatherLocation());
+  }, []);
+
+  useEffect(() => {
+    const storedVoiceSettings = readStoredVoiceSettings();
+    setSpeakerEnabled(Boolean(storedVoiceSettings.speakerEnabled));
+    setSelectedVoicePersona(storedVoiceSettings.selectedVoicePersona === "diana" ? "diana" : "giom");
+    setSelectedVoiceName(String(storedVoiceSettings.selectedVoiceName || "browser-default"));
+    setVoicePreferencesReady(true);
+  }, []);
+
+  useEffect(() => {
+    const resolvedVoiceName = resolvePersonaBrowserVoiceName(selectedVoicePersona, voiceOptions);
+    setSelectedVoiceName(resolvedVoiceName);
+  }, [selectedVoicePersona, voiceOptions]);
+
+  useEffect(() => {
+    voiceConversationModeRef.current = voiceConversationMode;
+  }, [voiceConversationMode]);
+
+  useEffect(() => {
+    voiceConversationPausedRef.current = voiceConversationPaused;
+  }, [voiceConversationPaused]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isBrowserSpeechSynthesisSupported()) {
+      setVoiceOptions(buildBrowserVoiceOptions());
+      return;
+    }
+
+    const syncVoices = () => {
+      setVoiceOptions(buildBrowserVoiceOptions());
+    };
+
+    syncVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", syncVoices);
+
+    return () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", syncVoices);
+    };
   }, []);
 
   useEffect(() => {
@@ -1522,11 +3501,26 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!voicePreferencesReady) {
+      return;
+    }
+
+    writeStoredVoiceSettings({
+      speakerEnabled,
+      selectedVoicePersona,
+      selectedVoiceName: preferredVoice
+    });
+  }, [preferredVoice, selectedVoicePersona, speakerEnabled, voicePreferencesReady]);
+
+  useEffect(() => {
+    setAuthReady(false);
+    setConfigLoaded(false);
     void requestJsonWithFailover("/config", {
       method: "GET"
     }, 15_000)
-      .then((payload) => setConfig(payload as RuntimeConfig))
-      .catch(() => setConfig(null));
+      .then((payload) => setConfig(parseRuntimeConfigPayload(payload) as RuntimeConfig))
+      .catch(() => setConfig(null))
+      .finally(() => setConfigLoaded(true));
   }, [requestJsonWithFailover]);
 
   // Warm-up: dispara um GET leve em /config para
@@ -1538,10 +3532,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!config) return;
+    if (!configLoaded) {
+      return;
+    }
 
-    const authEnabled = Boolean(config.features?.auth && config.supabaseUrl && config.supabaseAnonKey);
-    if (!authEnabled) {
+    setAuthReady(false);
+
+    const authEnabled = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+    if (!authEnabled || !config?.supabaseUrl || !config?.supabaseAnonKey) {
+      supabaseRef.current = null;
       setAuthUser(readLocalSession() || createGuestIdentity());
       setAuthReady(true);
       return;
@@ -1552,28 +3551,174 @@ export default function Home() {
 
     void client.auth.getUser()
       .then(({ data }) => {
-        setAuthUser(data.user ? mapSupabaseUser(data.user) : createGuestIdentity());
+        const nextIdentity = data.user ? mapSupabaseUser(data.user) : createGuestIdentity();
+        writeLocalSession(data.user ? nextIdentity : null);
+        setAuthUser(nextIdentity);
         setAuthReady(true);
       })
       .catch(() => {
         // Network/auth provider hiccups must not break hydration or app bootstrap.
-        setAuthUser(createGuestIdentity());
+        setAuthUser(readLocalSession() || createGuestIdentity());
         setAuthReady(true);
       });
 
     const {
       data: { subscription }
     } = client.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ? mapSupabaseUser(session.user) : createGuestIdentity());
+      const nextIdentity = session?.user ? mapSupabaseUser(session.user) : createGuestIdentity();
+      writeLocalSession(session?.user ? nextIdentity : null);
+      setAuthUser(nextIdentity);
+      setAuthReady(true);
     });
 
-    return () => subscription.unsubscribe();
-  }, [config]);
+    return () => {
+      subscription.unsubscribe();
+      supabaseRef.current = null;
+    };
+  }, [config, configLoaded]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    window.localStorage.setItem(THREADS_STORAGE_KEY, JSON.stringify(threads));
-  }, [threads, isHydrated]);
+    if (!authReady || !authUser || !config) {
+      setLearningProfileReady(false);
+      setLearningProfileOwnerId(null);
+      return;
+    }
+
+    const fallbackTrack = bibleLearningTracks[0] || null;
+    let cancelled = false;
+
+    setLearningProfileReady(false);
+    setLearningProfileOwnerId(null);
+    setStudyModeEnabled(false);
+    setStudyTrackId(fallbackTrack?.id || null);
+    setSelectedBibleStudyModules(normalizeStudyModuleIds(fallbackTrack?.bibleStudyModules || [], bibleModuleIdSet));
+    setPreferredBibleCode(String(fallbackTrack?.preferredBibleCode || "NAA").trim() || "NAA");
+    setStudyMinistryFocus(String(fallbackTrack?.ministryFocus || "").trim());
+    setStudyDepthPreference(normalizeStudyDepthPreference(fallbackTrack?.depthPreference));
+    setStudyProgress(ensureTrackProgressEntry({}, fallbackTrack));
+
+    void requestJsonWithFailover(
+      "/memory/profile",
+      {
+        method: "GET",
+        headers: {
+          "X-User-Id": authUser.id
+        }
+      },
+      15_000
+    )
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+
+        const memoryPayload = payload as MemoryProfilePayload;
+        const profile = memoryPayload?.profile && typeof memoryPayload.profile === "object"
+          ? memoryPayload.profile as Record<string, unknown>
+          : {};
+        const storedTrackId = String(profile.studyTrackId || "").trim();
+        const resolvedTrack = bibleLearningTracks.find((track) => track.id === storedTrackId) || fallbackTrack;
+        const nextProgress = ensureTrackProgressEntry(
+          normalizeBibleLearningProgress(profile.studyProgress),
+          resolvedTrack
+        );
+        const nextSelectedModules = Array.isArray(profile.selectedBibleStudyModules)
+          ? normalizeStudyModuleIds(profile.selectedBibleStudyModules, bibleModuleIdSet)
+          : resolveStudyModuleSelection(
+              profile.bibleStudyModules,
+              bibleModuleIdSet,
+              resolvedTrack?.bibleStudyModules || []
+            );
+
+        setStudyModeEnabled(Boolean(profile.studyModeEnabled));
+        setStudyTrackId(resolvedTrack?.id || null);
+        setSelectedBibleStudyModules(nextSelectedModules);
+        setPreferredBibleCode(
+          String(profile.preferredBibleCode || resolvedTrack?.preferredBibleCode || "NAA").trim() || "NAA"
+        );
+        setStudyMinistryFocus(
+          String(profile.studyMinistryFocus || profile.ministryFocus || resolvedTrack?.ministryFocus || "").trim()
+        );
+        setStudyDepthPreference(
+          normalizeStudyDepthPreference(
+            profile.studyDepthPreference || profile.depthPreference || resolvedTrack?.depthPreference
+          )
+        );
+        setStudyProgress(nextProgress);
+        setLearningProfileOwnerId(authUser.id);
+        setLearningProfileReady(true);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setLearningProfileOwnerId(authUser.id);
+        setLearningProfileReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, authUser, bibleLearningTracks, bibleModuleIdSet, config, requestJsonWithFailover]);
+
+  useEffect(() => {
+    if (!authUser || !learningProfileReady || learningProfileOwnerId !== authUser.id) {
+      return;
+    }
+
+    const persistTimer = window.setTimeout(() => {
+      void requestJsonWithFailover(
+        "/memory/profile",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": authUser.id
+          },
+          body: JSON.stringify({
+            profile: {
+              studyModeEnabled,
+              studyTrackId: activeBibleTrack?.id || null,
+              selectedBibleStudyModules,
+              preferredBibleCode,
+              studyMinistryFocus,
+              studyDepthPreference,
+              studyProgress,
+              assistantProfile: activeBibleTrack?.assistantProfile || undefined,
+              ministryFocus: studyMinistryFocus || undefined,
+              depthPreference: studyDepthPreference
+            },
+            activeModules: activeBibleTrack?.activeModules || [],
+            bibleStudyModules: selectedBibleStudyModules,
+            promptPacks: activeBibleTrack?.promptPacks || []
+          })
+        },
+        15_000
+      ).catch(() => undefined);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(persistTimer);
+    };
+  }, [
+    activeBibleTrack,
+    authUser,
+    learningProfileOwnerId,
+    learningProfileReady,
+    preferredBibleCode,
+    requestJsonWithFailover,
+    selectedBibleStudyModules,
+    studyDepthPreference,
+    studyMinistryFocus,
+    studyModeEnabled,
+    studyProgress
+  ]);
+
+  useEffect(() => {
+    if (!isHydrated || !authUser) return;
+    writeThreadsToStorage(threadStorageOwnerKey, threads);
+  }, [authUser, isHydrated, threadStorageOwnerKey, threads]);
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -1641,10 +3786,13 @@ export default function Home() {
 
     if (authUser.source !== "guest") {
       guestLandingResetRef.current = false;
+      hydratedGuestThreadsHadMessagesRef.current = false;
+      guestThreadActivityRef.current = false;
       return;
     }
 
     if (guestLandingResetRef.current) return;
+    if (guestThreadActivityRef.current || !hydratedGuestThreadsHadMessagesRef.current) return;
 
     const hasAnyMessage = threadsRef.current.some((thread) => thread.messages.length > 0);
     if (!hasAnyMessage) return;
@@ -1652,8 +3800,14 @@ export default function Home() {
     const fresh = createThread();
     setThreads([fresh]);
     setActiveThreadId(fresh.id);
+    hydratedGuestThreadsHadMessagesRef.current = false;
+    guestThreadActivityRef.current = false;
     guestLandingResetRef.current = true;
   }, [authUser, isHydrated]);
+
+  function markGuestThreadActivity() {
+    guestThreadActivityRef.current = true;
+  }
 
   function updateUsage(changes: Partial<UsageRecord>) {
     if (!authUser || !usage) return;
@@ -1672,6 +3826,7 @@ export default function Home() {
   }
 
   function updateActiveThread(updater: (thread: ChatThread) => ChatThread) {
+    markGuestThreadActivity();
     startTransition(() => {
       setThreads((current) =>
         current.map((thread) => {
@@ -1697,7 +3852,21 @@ export default function Home() {
   }
 
   function handleNewChat() {
+    const isGuest = !authUser || authUser.source === "guest";
+    const hasMessages = activeThread && activeThread.messages.length > 0;
+
+    if (isGuest && hasMessages) {
+      setShowGuestNewChatModal(true);
+      return;
+    }
+
+    confirmNewChat();
+  }
+
+  function confirmNewChat() {
+    setShowGuestNewChatModal(false);
     const fresh = createThread();
+    markGuestThreadActivity();
     startTransition(() => {
       setThreads((current) => [fresh, ...current]);
       setActiveThreadId(fresh.id);
@@ -1744,6 +3913,153 @@ export default function Home() {
     });
   }
 
+  function handleToggleStudyMode() {
+    const fallbackTrack = activeBibleTrack || bibleLearningTracks[0] || null;
+
+    if (fallbackTrack) {
+      setStudyTrackId(fallbackTrack.id);
+      setStudyProgress((current) => ensureTrackProgressEntry(current, fallbackTrack));
+    }
+
+    setStudyModeEnabled((current) => {
+      const next = !current;
+      if (next && fallbackTrack && selectedBibleStudyModules.length === 0) {
+        setSelectedBibleStudyModules(normalizeStudyModuleIds(fallbackTrack.bibleStudyModules, bibleModuleIdSet));
+      }
+      return next;
+    });
+  }
+
+  function handleSelectStudyTrack(trackId: string) {
+    const track = bibleLearningTracks.find((item) => item.id === trackId);
+    if (!track) {
+      return;
+    }
+
+    setStudyModeEnabled(true);
+    setStudyTrackId(track.id);
+    setSelectedBibleStudyModules(normalizeStudyModuleIds(track.bibleStudyModules, bibleModuleIdSet));
+    setPreferredBibleCode(String(track.preferredBibleCode || "NAA").trim() || "NAA");
+    setStudyMinistryFocus(String(track.ministryFocus || "").trim());
+    setStudyDepthPreference(normalizeStudyDepthPreference(track.depthPreference));
+    setStudyProgress((current) => ensureTrackProgressEntry(current, track));
+  }
+
+  function handleSelectStudyStep(trackId: string, stepId: string) {
+    const track = bibleLearningTracks.find((item) => item.id === trackId);
+    const step = track?.steps.find((item) => item.id === stepId);
+    if (!track || !step) {
+      return;
+    }
+
+    setStudyModeEnabled(true);
+    setStudyTrackId(track.id);
+    setSelectedBibleStudyModules(
+      normalizeStudyModuleIds([...track.bibleStudyModules, ...step.moduleIds], bibleModuleIdSet)
+    );
+    setStudyProgress((current) => {
+      const nextState = ensureTrackProgressEntry(current, track);
+      return {
+        ...nextState,
+        [track.id]: {
+          ...nextState[track.id],
+          currentStepId: step.id,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    });
+  }
+
+  function handleToggleStudyStepDone(trackId: string, stepId: string) {
+    const track = bibleLearningTracks.find((item) => item.id === trackId);
+    if (!track) {
+      return;
+    }
+
+    const alreadyDone = Boolean(studyProgress[track.id]?.completedStepIds?.includes(stepId));
+
+    setStudyModeEnabled(true);
+    setStudyTrackId(track.id);
+    setStudyProgress((current) => {
+      const nextState = ensureTrackProgressEntry(current, track);
+      const existingEntry = nextState[track.id] || {
+        completedStepIds: [],
+        currentStepId: track.steps[0]?.id || null,
+        updatedAt: null
+      };
+      const completed = new Set(existingEntry.completedStepIds);
+      const alreadyDone = completed.has(stepId);
+
+      if (alreadyDone) {
+        completed.delete(stepId);
+      } else {
+        completed.add(stepId);
+      }
+
+      const orderedCompletedIds = track.steps
+        .map((step) => step.id)
+        .filter((id) => completed.has(id));
+      const nextCurrentStepId = alreadyDone
+        ? stepId
+        : track.steps.find((step) => !completed.has(step.id))?.id || stepId;
+
+      return {
+        ...nextState,
+        [track.id]: {
+          completedStepIds: orderedCompletedIds,
+          currentStepId: nextCurrentStepId,
+          updatedAt: new Date().toISOString()
+        }
+      };
+    });
+
+    if (!alreadyDone) {
+      setStudyCelebrationActive(true);
+    }
+  }
+
+  function handleToggleStudyModule(moduleId: string) {
+    if (!bibleModuleIdSet.has(moduleId)) {
+      return;
+    }
+
+    if (activeBibleTrack) {
+      setStudyTrackId(activeBibleTrack.id);
+      setStudyProgress((current) => ensureTrackProgressEntry(current, activeBibleTrack));
+    }
+
+    setStudyModeEnabled(true);
+    setSelectedBibleStudyModules((current) => {
+      const next = current.includes(moduleId)
+        ? current.filter((id) => id !== moduleId)
+        : [...current, moduleId];
+
+      return normalizeStudyModuleIds(next, bibleModuleIdSet);
+    });
+  }
+
+  function handlePreferredBibleCodeChange(value: string) {
+    setStudyModeEnabled(true);
+    setPreferredBibleCode(String(value || "NAA").trim() || "NAA");
+  }
+
+  function handleStudyMinistryFocusChange(value: string) {
+    setStudyModeEnabled(true);
+    setStudyMinistryFocus(String(value || "").trim());
+  }
+
+  function handleStudyDepthPreferenceChange(value: string) {
+    setStudyModeEnabled(true);
+    setStudyDepthPreference(normalizeStudyDepthPreference(value));
+  }
+
+  function handleApplyStudyStarter(prompt: string) {
+    setStudyModeEnabled(true);
+    setRequestError(null);
+    setInput(String(prompt || "").trim());
+    focusComposer();
+  }
+
   async function uploadFile(file: File): Promise<GIOMUploadAsset> {
     const maxBytes = config?.uploads?.maxBytes || 2_000_000;
     if (file.size > maxBytes) {
@@ -1770,28 +4086,35 @@ export default function Home() {
     return payload as unknown as GIOMUploadAsset;
   }
 
-  async function requestAssistantResponseStandard(question: string, context: GIOMAskContext) {
+  async function requestAssistantResponseStandard(question: string, context: GIOMAskContext, sessionId: string | null): Promise<AssistantResponseResult> {
     const safeContext = sanitizeContextForApi(context);
 
     const runAsk = async (contextPayload: GIOMAskContext | Record<string, unknown>, retryAttempt = 1) => {
-      return await requestJsonWithFailover(
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-User-Id": authUser?.id || getScopeId()
+      };
+
+      if (sessionId) {
+        headers["X-Session-Id"] = sessionId;
+      }
+
+      return parseAskResponsePayload(await requestJsonWithFailover(
         "/ask",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-User-Id": authUser?.id || getScopeId()
-          },
+          headers,
           body: JSON.stringify({
             question,
+            sessionId,
             context: {
               ...contextPayload,
               clientRetryAttempt: retryAttempt
             }
           })
         },
-            60_000
-      );
+        60_000
+      ));
     };
 
     let payload: Record<string, unknown>;
@@ -1814,25 +4137,37 @@ export default function Home() {
       }, 2);
     }
 
-    return extractAnswer(payload as Record<string, unknown>) || "Resposta vazia do servidor.";
+    return {
+      answer: extractAnswer(payload as Record<string, unknown>) || "Resposta vazia do servidor.",
+      metadata: extractAssistantResponseMetadata(payload as Record<string, unknown>)
+    };
   }
 
   async function requestAssistantResponseStream(
     question: string,
     context: GIOMAskContext,
+    sessionId: string | null,
     onProgress: (partial: string) => void
-  ) {
+  ): Promise<AssistantResponseResult> {
+    const streamReadTimeoutMs = 20_000;
+    const streamFirstAnswerTimeoutMs = 18_000;
+    const streamStallTimeoutMs = 18_000;
     const safeContext = sanitizeContextForApi(context);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-User-Id": authUser?.id || getScopeId()
+    };
+
+    if (sessionId) {
+      headers["X-Session-Id"] = sessionId;
+    }
 
     const response = await requestStreamWithFailover(
       "/ask/stream",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": authUser?.id || getScopeId()
-        },
-        body: JSON.stringify({ question, context: safeContext })
+        headers,
+        body: JSON.stringify({ question, sessionId, context: safeContext })
       },
       65_000
     );
@@ -1845,6 +4180,39 @@ export default function Home() {
     const decoder = new TextDecoder();
     let buffer = "";
     let finalAnswer = "";
+    let completionMetadata: AssistantResponseMetadata | null = null;
+    const streamStartedAt = Date.now();
+    let lastProgressAt = streamStartedAt;
+    let receivedAnswer = false;
+
+    const readNextChunk = async () => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              reject(new Error("Streaming sem atividade por muito tempo."));
+            }, streamReadTimeoutMs);
+          })
+        ]);
+      } finally {
+        if (timer != null) {
+          clearTimeout(timer);
+        }
+      }
+    };
+
+    const assertStreamProgress = () => {
+      const now = Date.now();
+      if (!receivedAnswer && now - streamStartedAt > streamFirstAnswerTimeoutMs) {
+        throw new Error("Streaming demorou demais para iniciar a resposta.");
+      }
+
+      if (receivedAnswer && now - lastProgressAt > streamStallTimeoutMs) {
+        throw new Error("Streaming ficou sem progresso por muito tempo.");
+      }
+    };
 
     const processPacket = (packet: string) => {
       const parsed = parseSSEPacket(packet);
@@ -1853,13 +4221,18 @@ export default function Home() {
       if (parsed.event === "chunk") {
         const data = parsed.data as { fullText?: string; chunk?: string };
         finalAnswer = data.fullText || `${finalAnswer}${data.chunk || ""}`;
+        receivedAnswer = true;
+        lastProgressAt = Date.now();
         onProgress(finalAnswer);
         return "continue" as const;
       }
 
       if (parsed.event === "complete") {
-        const data = parsed.data as { response?: string; metadata?: { fallback?: boolean } };
+        const data = parsed.data as { response?: string; metadata?: Record<string, unknown> };
         finalAnswer = data.response || finalAnswer;
+        completionMetadata = extractAssistantResponseMetadata({ data });
+        receivedAnswer = true;
+        lastProgressAt = Date.now();
 
         if (Boolean(data.metadata?.fallback) && isGenericAssistantFallback(finalAnswer)) {
           return "fallback" as const;
@@ -1878,7 +4251,7 @@ export default function Home() {
     };
 
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readNextChunk();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
@@ -1888,12 +4261,17 @@ export default function Home() {
       for (const packet of packets) {
         const outcome = processPacket(packet);
         if (outcome === "fallback") {
-          return requestAssistantResponseStandard(question, context);
+          return requestAssistantResponseStandard(question, context, sessionId);
         }
         if (outcome === "complete") {
-          return finalAnswer;
+          return {
+            answer: finalAnswer,
+            metadata: completionMetadata
+          };
         }
       }
+
+      assertStreamProgress();
     }
 
     buffer += decoder.decode();
@@ -1902,19 +4280,27 @@ export default function Home() {
       for (const packet of trailingPackets) {
         const outcome = processPacket(packet);
         if (outcome === "fallback") {
-          return requestAssistantResponseStandard(question, context);
+          return requestAssistantResponseStandard(question, context, sessionId);
         }
         if (outcome === "complete") {
-          return finalAnswer;
+          return {
+            answer: finalAnswer,
+            metadata: completionMetadata
+          };
         }
       }
     }
+
+    assertStreamProgress();
 
     if (!finalAnswer) {
       throw new Error("Streaming encerrado sem resposta.");
     }
 
-    return finalAnswer;
+    return {
+      answer: finalAnswer,
+      metadata: completionMetadata
+    };
   }
 
   async function submitAuth(event: FormEvent) {
@@ -2080,6 +4466,11 @@ export default function Home() {
   }
 
   function handleHeaderAuthAction(mode: AuthMode) {
+    if (typeof window !== "undefined") {
+      window.location.assign(`/login?mode=${mode}&next=/`);
+      return;
+    }
+
     setAuthMode(mode);
     setAuthError(null);
     setAuthNotice(null);
@@ -2089,6 +4480,17 @@ export default function Home() {
     }
     setShowAuthScreen(true);
   }
+
+  // Gate: anonymous users on /chat/bible get redirected to login
+  useEffect(() => {
+    if (!isHydrated || !authReady || surface !== "study" || typeof window === "undefined") {
+      return;
+    }
+
+    if (!authUser || authUser.source === "guest") {
+      window.location.replace(`/login?mode=sign-in&next=${encodeURIComponent("/chat/bible")}`);
+    }
+  }, [authReady, authUser, isHydrated, surface]);
 
   async function copyMessageContent(content: string) {
     if (typeof window === "undefined" || typeof document === "undefined") return false;
@@ -2128,6 +4530,7 @@ export default function Home() {
   }
 
   function handleDeleteThread(threadId: string) {
+    markGuestThreadActivity();
     startTransition(() => {
       setThreads((current) => {
         const filtered = current.filter((thread) => thread.id !== threadId);
@@ -2144,6 +4547,485 @@ export default function Home() {
         return filtered;
       });
     });
+  }
+
+  const stopServerSideVoiceCapture = useCallback(async (options?: { autoSubmit?: boolean; reason?: string }) => {
+    if (voiceCaptureModeRef.current !== "server" || voiceCaptureFinishingRef.current) {
+      return;
+    }
+
+    voiceCaptureFinishingRef.current = true;
+    const autoSubmit = options?.autoSubmit !== false;
+    const reason = options?.reason || "manual_stop";
+    const inlineComposerCapture = inlineVoiceComposerActiveRef.current;
+    const sessionId = voiceSessionRef.current?.sessionId || null;
+    const recorder = voiceRecorderRef.current;
+    releaseVoiceRecorder("detach");
+
+    try {
+      setMicListening(false);
+      setVoiceInterimTranscript("");
+
+      const capture = await recorder?.stop();
+      releaseVoiceCaptureResources();
+      voiceCaptureModeRef.current = "idle";
+
+      if (sessionId) {
+        void pushVoiceEvent(sessionId, "session.listening_stopped", {
+          autoSubmitted: autoSubmit,
+          reason
+        });
+      }
+
+      if (!capture) {
+        if (inlineComposerCapture) {
+          syncInlineVoiceComposerMode(false);
+        }
+        voiceShouldAutoSubmitRef.current = false;
+        voiceCapturedSinceStartRef.current = false;
+        setVoiceStatus("idle");
+        return;
+      }
+
+      const normalized = await normalizeRealtimeCapturedAudio(sessionId, capture);
+      if (!normalized) {
+        if (inlineComposerCapture) {
+          syncInlineVoiceComposerMode(false);
+        }
+        voiceShouldAutoSubmitRef.current = false;
+        voiceCapturedSinceStartRef.current = false;
+        setVoiceStatus("idle");
+        return;
+      }
+
+      voiceCapturedSinceStartRef.current = true;
+      await appendVoiceTranscript(sessionId, normalized);
+      voiceShouldAutoSubmitRef.current = false;
+
+      if (autoSubmit) {
+        setVoiceStatus("processing");
+        requestAnimationFrame(() => {
+          void submitMessageRef.current?.();
+        });
+        return;
+      }
+
+      if (inlineComposerCapture) {
+        syncInlineVoiceComposerMode(false);
+      }
+      setVoiceStatus("idle");
+    } catch (error) {
+      releaseVoiceCaptureResources();
+      voiceCaptureModeRef.current = "idle";
+      if (inlineComposerCapture) {
+        syncInlineVoiceComposerMode(false);
+      }
+      voiceShouldAutoSubmitRef.current = false;
+      voiceCapturedSinceStartRef.current = false;
+      setVoiceStatus("idle");
+      throw error;
+    } finally {
+      voiceCaptureFinishingRef.current = false;
+    }
+  }, [appendVoiceTranscript, normalizeRealtimeCapturedAudio, pushVoiceEvent, releaseVoiceCaptureResources, releaseVoiceRecorder, syncInlineVoiceComposerMode]);
+
+  const startServerSideVoiceCapture = useCallback(async (options?: { autoSubmit?: boolean }) => {
+    if (!isBrowserWavRecorderSupported()) {
+      throw new Error("Captura de audio local indisponivel neste navegador/dispositivo.");
+    }
+
+    const autoSubmit = options?.autoSubmit !== false;
+    stopPlayback("idle");
+    setRequestError(null);
+    setVoiceStatus("connecting");
+    setVoiceInterimTranscript("");
+    setVoiceInputLevel(0);
+    voiceCapturedSinceStartRef.current = false;
+    voiceShouldAutoSubmitRef.current = autoSubmit;
+    voiceCaptureFinishingRef.current = false;
+
+    const session = await ensureVoiceSession().catch(() => null);
+    const sessionId = session?.sessionId || null;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      captureStreamRef.current = stream;
+      voiceRecorderRef.current = await createWavAudioRecorder(stream, {
+        targetSampleRate: session?.vad?.sampleRate || 16_000,
+        channelCount: 1
+      });
+      voiceCaptureModeRef.current = "server";
+      setMicListening(true);
+
+      try {
+        silenceDetectorRef.current = await createSilenceDetector(stream, {
+          threshold: session?.vad?.threshold || 0.045,
+          silenceMs: session?.vad?.silenceMs || 1400,
+          onLevel: (level) => {
+            setVoiceInputLevel(toVoiceLevelBucket(level));
+          },
+          onSpeechStart: () => {
+            setVoiceStatus("listening");
+            if (sessionId) {
+              void pushVoiceEvent(sessionId, "vad.speech_started", {
+                threshold: session?.vad?.threshold || 0.045,
+                mode: "server"
+              }, {
+                final: false
+              });
+            }
+          },
+          onSpeechEnd: () => {
+            if (sessionId) {
+              void pushVoiceEvent(sessionId, "vad.speech_ended", {
+                silenceMs: session?.vad?.silenceMs || 1400,
+                mode: "server"
+              });
+            }
+
+            void stopServerSideVoiceCapture({
+              autoSubmit: voiceShouldAutoSubmitRef.current,
+              reason: "vad_silence"
+            }).catch((error) => {
+              setRequestError(
+                error instanceof Error
+                  ? error.message
+                  : "Nao foi possivel processar o audio capturado no servidor."
+              );
+            });
+          }
+        });
+      } catch {
+        if (sessionId) {
+          void pushVoiceEvent(sessionId, "vad.unavailable", {
+            reason: "server_capture_vad_unavailable"
+          });
+        }
+      }
+
+      if (sessionId) {
+        void pushVoiceEvent(sessionId, "session.listening_started", {
+          microphone: true,
+          vad: true,
+          mode: "server"
+        });
+      }
+
+      setVoiceStatus("listening");
+    } catch (error) {
+      voiceCaptureModeRef.current = "idle";
+      setMicListening(false);
+      releaseVoiceRecorder();
+      releaseVoiceCaptureResources();
+      throw error;
+    }
+  }, [ensureVoiceSession, pushVoiceEvent, releaseVoiceCaptureResources, releaseVoiceRecorder, stopPlayback, stopServerSideVoiceCapture]);
+
+  const startBrowserRecognitionCapture = useCallback(async (options?: { autoSubmit?: boolean }) => {
+    const recognition = speechRecognitionRef.current;
+    if (!recognition) {
+      throw new Error("Microfone nao suportado neste navegador/dispositivo.");
+    }
+
+    const autoSubmit = options?.autoSubmit !== false;
+    voiceCaptureModeRef.current = "browser";
+    stopPlayback("idle");
+    setRequestError(null);
+    setVoiceStatus("connecting");
+    setVoiceInputLevel(0);
+    voiceShouldAutoSubmitRef.current = autoSubmit;
+    voiceCapturedSinceStartRef.current = false;
+
+    const session = await ensureVoiceSession().catch(() => null);
+    const sessionId = session?.sessionId || null;
+
+    if (isBrowserAudioCaptureSupported()) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+
+        captureStreamRef.current = stream;
+        silenceDetectorRef.current = await createSilenceDetector(stream, {
+          threshold: session?.vad?.threshold || 0.045,
+          silenceMs: session?.vad?.silenceMs || 1400,
+          onLevel: (level) => {
+            setVoiceInputLevel(toVoiceLevelBucket(level));
+          },
+          onSpeechStart: () => {
+            setVoiceStatus("listening");
+            if (sessionId) {
+              void pushVoiceEvent(sessionId, "vad.speech_started", {
+                threshold: session?.vad?.threshold || 0.045
+              }, {
+                final: false
+              });
+            }
+          },
+          onSpeechEnd: () => {
+            if (sessionId) {
+              void pushVoiceEvent(sessionId, "vad.speech_ended", {
+                silenceMs: session?.vad?.silenceMs || 1400
+              });
+            }
+            try {
+              recognition.stop();
+            } catch {
+              // noop
+            }
+          }
+        });
+      } catch {
+        if (sessionId) {
+          void pushVoiceEvent(sessionId, "vad.unavailable", {
+            reason: "microphone_access_denied_or_unavailable"
+          });
+        }
+      }
+    }
+
+    try {
+      recognition.start();
+    } catch (error) {
+      voiceCaptureModeRef.current = "idle";
+      releaseVoiceCaptureResources();
+      throw error;
+    }
+  }, [ensureVoiceSession, pushVoiceEvent, releaseVoiceCaptureResources, stopPlayback]);
+
+  async function startRealtimeVoiceCapture(options?: { autoSubmit?: boolean }) {
+    const autoSubmit = options?.autoSubmit !== false;
+    const shouldPreferServerCapture = Boolean(config?.features?.serverAudioTranscriptions) && isBrowserWavRecorderSupported();
+    if (shouldPreferServerCapture) {
+      try {
+        await startServerSideVoiceCapture({ autoSubmit });
+        return;
+      } catch (error) {
+        if (!speechRecognitionRef.current) {
+          throw error;
+        }
+
+        console.warn("Captura server-side falhou, caindo para SpeechRecognition do navegador.", error);
+      }
+    }
+
+    if (!speechRecognitionRef.current) {
+      throw new Error("Microfone nao suportado neste navegador/dispositivo.");
+    }
+
+    await startBrowserRecognitionCapture({ autoSubmit });
+  }
+
+  function armVoiceInterruptMonitor(sessionId: string | null) {
+    if (typeof window === "undefined" || !bargeInEnabled || !voiceConversationModeRef.current || !isBrowserAudioCaptureSupported()) {
+      return;
+    }
+
+    releaseVoiceInterruptMonitor();
+
+    voiceInterruptArmTimerRef.current = window.setTimeout(() => {
+      voiceInterruptArmTimerRef.current = null;
+
+      if (!voiceConversationModeRef.current || !speechPlaybackRef.current || voiceCaptureModeRef.current !== "idle") {
+        return;
+      }
+
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      }).then(async (stream) => {
+        if (!voiceConversationModeRef.current || !speechPlaybackRef.current || voiceCaptureModeRef.current !== "idle") {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        voiceInterruptStreamRef.current = stream;
+        try {
+          voiceInterruptDetectorRef.current = await createSilenceDetector(stream, {
+            threshold: Math.min(0.16, Math.max(0.075, Number(voiceSessionRef.current?.vad?.threshold || 0.045) + 0.035)),
+            silenceMs: 520,
+            minSpeechMs: 180,
+            onSpeechStart: () => {
+              if (!voiceConversationModeRef.current || !speechPlaybackRef.current || voiceCaptureModeRef.current !== "idle") {
+                return;
+              }
+
+              voiceBargeInPendingRef.current = true;
+              setRequestError(null);
+              releaseVoiceInterruptMonitor();
+
+              if (sessionId) {
+                void pushVoiceEvent(sessionId, "speech.barge_in", {
+                  mode: "voice_conversation",
+                  persona: selectedVoicePersona
+                }, {
+                  final: false
+                });
+              }
+
+              stopPlayback("listening");
+              setVoiceStatus("listening");
+
+              void startRealtimeVoiceCapture({ autoSubmit: true })
+                .catch((error) => {
+                  setVoiceStatus("idle");
+                  setRequestError(
+                    error instanceof Error
+                      ? error.message
+                      : "Nao foi possivel retomar a escuta por voz."
+                  );
+                })
+                .finally(() => {
+                  voiceBargeInPendingRef.current = false;
+                });
+            }
+          });
+        } catch {
+          stream.getTracks().forEach((track) => track.stop());
+          voiceInterruptStreamRef.current = null;
+        }
+      }).catch(() => undefined);
+    }, 820);
+  }
+
+  async function speakAssistantReply(text: string, preloadedManifest?: RealtimeSpeechManifest | null) {
+    if (!voiceConversationModeRef.current || voiceConversationPausedRef.current || !speakerEnabled || !speakerSupported) {
+      return;
+    }
+
+    const safeText = buildSpeechSafeText(text);
+    if (!safeText) {
+      return;
+    }
+
+    let sessionId: string | null = null;
+  let outputMonitorCancelled = false;
+    try {
+      const session = await ensureVoiceSession().catch(() => null);
+      sessionId = session?.sessionId || null;
+      const manifest = preloadedManifest || await requestSpeechManifest(sessionId, safeText).catch(() => null);
+      stopPlayback("idle");
+      setVoiceInputLevel(0);
+      setVoiceOutputLevel(0);
+      setVoiceStatus("speaking");
+
+      if (sessionId) {
+        void pushVoiceEvent(sessionId, "speech.playback_started", {
+          textLength: safeText.length
+        }, {
+          text: safeText
+        });
+      }
+
+      const browserFallback = (): PlaybackController => ({
+        ...speakWithBrowser({
+          text: manifest?.text || safeText,
+          language: manifest?.language || activePersonaSpeech.language,
+          voiceName: resolvePlaybackVoiceName(manifest?.voice, activePersonaSpeech.voiceName, activeServerVoice),
+          rate: manifest?.rate || activePersonaSpeech.rate,
+          pitch: manifest?.pitch || activePersonaSpeech.pitch
+        }),
+        sourceKind: "browser"
+      });
+
+      let controller = playServerAudio(manifest) || browserFallback();
+      speechPlaybackRef.current = controller;
+
+      if (controller.sourceKind === "server" && controller.audioElement) {
+        const audioElement = controller.audioElement;
+        const audioElementWithCapture = audioElement as HTMLAudioElement & {
+          captureStream?: () => MediaStream;
+        };
+        const captureStream = typeof audioElementWithCapture.captureStream === "function"
+          ? audioElementWithCapture.captureStream()
+          : null;
+
+        if (captureStream) {
+          createAudioLevelMonitor(captureStream, {
+            onLevel: (level) => {
+              setVoiceOutputLevel(toVoiceLevelBucket(level));
+            }
+          }).then((monitor) => {
+            if (outputMonitorCancelled) {
+              monitor.stop();
+              return;
+            }
+
+            voiceOutputMonitorRef.current = monitor;
+          }).catch(() => {
+            if (!outputMonitorCancelled) {
+              startSyntheticVoiceOutputMonitor();
+            }
+          });
+        } else {
+          startSyntheticVoiceOutputMonitor();
+        }
+      } else {
+        startSyntheticVoiceOutputMonitor();
+      }
+
+      if (voiceConversationModeRef.current) {
+        armVoiceInterruptMonitor(sessionId);
+      }
+
+      try {
+        await controller.promise;
+      } catch (error) {
+        if (!resolveServerAudioSource(manifest)) {
+          throw error;
+        }
+
+        controller = browserFallback();
+        speechPlaybackRef.current = controller;
+        startSyntheticVoiceOutputMonitor();
+        await controller.promise;
+      }
+
+      if (sessionId) {
+        void pushVoiceEvent(sessionId, "speech.playback_completed", {
+          textLength: safeText.length
+        }, {
+          text: safeText
+        });
+      }
+    } catch (error) {
+      console.warn("Nao foi possivel reproduzir a resposta em voz alta.", error);
+      if (sessionId) {
+        void pushVoiceEvent(sessionId, "speech.playback_failed", {
+          error: error instanceof Error ? error.message : "speech_playback_failed"
+        });
+      }
+    } finally {
+      outputMonitorCancelled = true;
+      releaseVoiceInterruptMonitor();
+      releaseVoiceOutputMonitor();
+      speechPlaybackRef.current = null;
+      setVoiceStatus((current) => {
+        if (current !== "speaking") {
+          return current;
+        }
+
+        return voiceConversationPausedRef.current ? "paused" : "idle";
+      });
+
+      if (voiceConversationModeRef.current && !voiceConversationPausedRef.current) {
+        queueVoiceConversationResume(420);
+      }
+    }
   }
 
   async function submitMessage(event?: FormEvent) {
@@ -2168,6 +5050,9 @@ export default function Home() {
 
     const toolIntent = detectToolIntent(question, availableDocFormats);
     const responsePresentation = detectResponsePresentation(question);
+    const sessionId = activeThread.id;
+    const realtimeVoiceSessionId = voiceSessionRef.current?.sessionId || null;
+    const conversationHistory = buildConversationHistory(activeThread.messages);
 
     if (toolIntent) {
       if (!canUseTools) {
@@ -2210,6 +5095,9 @@ export default function Home() {
       content: "",
       pending: true,
       artifactPrompt: toolIntent?.prompt || null,
+      requestQuestion: question,
+      requestedResponseCard: responsePresentation?.card || "text",
+      requestedResponseVariant: responsePresentation?.variant || null,
       createdAt: new Date().toISOString()
     };
 
@@ -2260,6 +5148,21 @@ export default function Home() {
         }
       }
 
+      const studyInstruction = studyModeEnabled
+        ? buildBibleStudyInstruction(
+            activeBibleTrack,
+            activeBibleProgress?.currentStepId,
+            bibleModuleCatalog,
+            selectedBibleStudyModules,
+            studyDepthPreference
+          )
+        : "";
+      const resolvedInstructions = [
+        responsePresentation?.instructions || "Responda em texto limpo, sem markdown visual desnecessario.",
+        instructionSuffix.trim(),
+        studyInstruction
+      ].filter(Boolean).join(" ");
+
       const context: GIOMAskContext = {
         channel: "web-next",
         migrationStage: 4,
@@ -2270,9 +5173,17 @@ export default function Home() {
         uploadType: upload?.type || null,
         plan: authUser.plan,
         source: authUser.source,
+        assistantProfile: studyModeEnabled ? activeBibleTrack?.assistantProfile : undefined,
+        activeModules: studyModeEnabled ? activeBibleTrack?.activeModules || [] : undefined,
+        bibleStudyModules: studyModeEnabled ? selectedBibleStudyModules : undefined,
+        promptPacks: studyModeEnabled ? activeBibleTrack?.promptPacks || [] : undefined,
+        preferredBibleCode: studyModeEnabled ? preferredBibleCode : undefined,
+        ministryFocus: studyModeEnabled ? (studyMinistryFocus || undefined) : undefined,
+        depthPreference: studyModeEnabled ? studyDepthPreference : undefined,
         preferredResponseCard: responsePresentation?.card || "text",
         preferredResponseVariant: responsePresentation?.variant || undefined,
-        instructions: `${responsePresentation?.instructions || "Responda em texto limpo, sem markdown visual desnecessario."}${instructionSuffix}`,
+        instructions: resolvedInstructions,
+        conversationHistory,
         weatherLocation: resolvedWeatherLocation
           ? {
               label: resolvedWeatherLocation.label || "Local atual",
@@ -2297,7 +5208,27 @@ export default function Home() {
         }));
       };
 
-      let answer = "";
+      const requestFallbackAssistantAnswer = async (): Promise<AssistantResponseResult> => {
+        if (config?.features?.streaming !== false) {
+          try {
+            return await requestAssistantResponseStream(question, context, sessionId, (partial) => {
+              applyPartial(partial, true);
+            });
+          } catch (streamError) {
+            console.warn("Streaming falhou, caindo para resposta padrao.", streamError);
+            return await requestAssistantResponseStandard(question, context, sessionId);
+          }
+        }
+
+        return await requestAssistantResponseStandard(question, context, sessionId);
+      };
+
+      let assistantResult: AssistantResponseResult = {
+        answer: "",
+        metadata: null
+      };
+      let voiceSpeechManifest: RealtimeSpeechManifest | null = null;
+      let usedRealtimeVoiceResponse = false;
       if (toolIntent) {
         const artifact = await generateToolArtifact(toolIntent.mode, toolIntent.prompt, toolIntent.format);
         updateActiveThread((thread) => ({
@@ -2309,7 +5240,7 @@ export default function Home() {
                   ...item,
                   content: artifact.mode === "image"
                     ? "Imagem pronta. Ajuste o prompt pelo icone de editar se quiser refinar o resultado."
-                    : `Documento pronto. ${artifact.generatedDocument?.previewText || "Voce pode baixar ou ajustar o prompt."}`,
+                    : "Documento pronto para download.",
                   pending: false,
                   generatedImage: artifact.generatedImage || null,
                   generatedDocument: artifact.generatedDocument || null,
@@ -2318,30 +5249,62 @@ export default function Home() {
               : item
           )
         }));
+        setVoiceStatus("idle");
         setIsSending(false);
         return;
       }
 
-      if (config?.features?.streaming !== false) {
+      const shouldUseRealtimeVoiceResponse = Boolean(realtimeVoiceSessionId) && voiceStatus === "processing" && !hasPendingUploads;
+      if (shouldUseRealtimeVoiceResponse && realtimeVoiceSessionId) {
         try {
-          answer = await requestAssistantResponseStream(question, context, (partial) => {
-            applyPartial(partial, true);
-          });
-        } catch (streamError) {
-          console.warn("Streaming falhou, caindo para resposta padrao.", streamError);
-          answer = await requestAssistantResponseStandard(question, context);
+          const realtimeResponse = await requestAssistantResponseRealtime(question, context, realtimeVoiceSessionId);
+          assistantResult = {
+            answer: realtimeResponse.answer,
+            metadata: realtimeResponse.metadata
+          };
+          voiceSpeechManifest = realtimeResponse.speech;
+          usedRealtimeVoiceResponse = true;
+        } catch (realtimeVoiceError) {
+          console.warn("Resposta realtime de voz falhou, caindo para /ask.", realtimeVoiceError);
+          assistantResult = await requestFallbackAssistantAnswer();
         }
       } else {
-        answer = await requestAssistantResponseStandard(question, context);
+        assistantResult = await requestFallbackAssistantAnswer();
       }
+
+      const answer = coerceAssistantReply(question, assistantResult.answer, responsePresentation);
 
       updateActiveThread((thread) => ({
         ...thread,
         updatedAt: new Date().toISOString(),
         messages: thread.messages.map((item) =>
-          item.id === pendingId ? { ...item, content: answer, pending: false } : item
+          item.id === pendingId
+            ? {
+                ...item,
+                content: answer,
+                pending: false,
+                ...assistantResult.metadata
+              }
+            : item
         )
       }));
+
+      if (!usedRealtimeVoiceResponse && voiceSessionRef.current?.sessionId) {
+        void pushVoiceEvent(voiceSessionRef.current.sessionId, "assistant.response_completed", {
+          textLength: answer.length
+        }, {
+          text: answer
+        });
+      }
+
+      if (voiceConversationModeRef.current && speakerEnabled && speakerSupported && !voiceConversationPausedRef.current) {
+        void speakAssistantReply(answer, voiceSpeechManifest);
+      } else if (voiceStatus === "processing") {
+        setVoiceStatus(voiceConversationPausedRef.current ? "paused" : "idle");
+        if (voiceConversationModeRef.current && !voiceConversationPausedRef.current) {
+          queueVoiceConversationResume(320);
+        }
+      }
 
       updateUsage({ messages: messagesUsed + 1 });
     } catch (error) {
@@ -2350,6 +5313,7 @@ export default function Home() {
       }
       const fallback = error instanceof Error ? error.message : "Falha de conexao com o backend.";
       setRequestError(fallback);
+      setVoiceStatus("idle");
       updateActiveThread((thread) => ({
         ...thread,
         updatedAt: new Date().toISOString(),
@@ -2451,7 +5415,7 @@ export default function Home() {
       fileName: String(doc.fileName || `documento.${format}`),
       mimeType: String(doc.mimeType || "application/octet-stream"),
       base64,
-      previewText: String(payload?.previewText || doc.previewText || "Documento pronto para download.")
+      previewText: sanitizeArtifactPreviewText(String(payload?.previewText || doc.previewText || "Documento pronto para download."))
     };
     updateUsage({ documents: documentsUsed + 1 });
     return {
@@ -2460,6 +5424,55 @@ export default function Home() {
       generatedDocument
     };
   }
+
+  useEffect(() => {
+    voiceSessionRef.current = voiceSession;
+  }, [voiceSession]);
+
+  useEffect(() => {
+    if (!voiceSession?.sessionId) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void requestJsonWithFailover(
+        `/v1/realtime/sessions/${voiceSession.sessionId}/keepalive`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Id": authUser?.id || getScopeId()
+          },
+          body: JSON.stringify({})
+        },
+        10_000
+      ).catch(() => undefined);
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [authUser?.id, requestJsonWithFailover, voiceSession?.sessionId]);
+
+  useEffect(() => {
+    submitMessageRef.current = async () => {
+      await submitMessage();
+    };
+  });
+
+  useEffect(() => {
+    return () => {
+      if (voiceConversationResumeTimerRef.current !== null) {
+        window.clearTimeout(voiceConversationResumeTimerRef.current);
+      }
+      voiceBargeInPendingRef.current = false;
+      voiceConversationPausedRef.current = false;
+      releaseVoiceInterruptMonitor();
+      releaseVoiceOutputMonitor();
+      stopPlayback("idle");
+      releaseVoiceCaptureResources();
+    };
+  }, [releaseVoiceCaptureResources, releaseVoiceInterruptMonitor, releaseVoiceOutputMonitor, stopPlayback]);
 
   function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key !== "Enter") {
@@ -2492,23 +5505,378 @@ export default function Home() {
     void submitMessage();
   }
 
-  function toggleMicrophone() {
+  function stopVoiceConversationMode() {
+    setVoiceQuickModalOpen(false);
+    syncInlineVoiceComposerMode(false);
+    voiceConversationModeRef.current = false;
+    voiceConversationPausedRef.current = false;
+    setVoiceConversationMode(false);
+    setVoiceConversationPaused(false);
+    voiceBargeInPendingRef.current = false;
+    voiceShouldAutoSubmitRef.current = false;
+    voiceCapturedSinceStartRef.current = false;
+    setVoiceInterimTranscript("");
+
+    if (voiceConversationResumeTimerRef.current !== null) {
+      window.clearTimeout(voiceConversationResumeTimerRef.current);
+      voiceConversationResumeTimerRef.current = null;
+    }
+
+    releaseVoiceInterruptMonitor();
+    stopPlayback("idle");
+
+    if (voiceCaptureModeRef.current === "server") {
+      void stopServerSideVoiceCapture({
+        autoSubmit: false,
+        reason: "voice_mode_closed"
+      }).catch(() => {
+        setVoiceStatus("idle");
+      });
+      return;
+    }
+
+    releaseVoiceCaptureResources();
+    setMicListening(false);
+    voiceCaptureModeRef.current = "idle";
+
+    try {
+      speechRecognitionRef.current?.stop();
+    } catch {
+      // noop
+    }
+
+    setVoiceStatus("idle");
+  }
+
+  function startVoiceConversationMode(options?: { enableSpeaker?: boolean }) {
+    if (!speakerSupported) {
+      setRequestError("Conversa por voz exige leitura em voz alta disponivel neste navegador/dispositivo.");
+      return;
+    }
+
     const recognition = speechRecognitionRef.current;
-    if (!recognition) {
+    const canUseServerCapture = Boolean(config?.features?.serverAudioTranscriptions) && isBrowserWavRecorderSupported();
+    if (!recognition && !canUseServerCapture) {
       setRequestError("Microfone nao suportado neste navegador/dispositivo.");
       return;
     }
 
-    setRequestError(null);
-    try {
-      if (micListening) {
-        recognition.stop();
-      } else {
-        recognition.start();
-      }
-    } catch {
-      setRequestError("Nao foi possivel iniciar o microfone. Permita o acesso no navegador e tente novamente.");
+    if (voiceConversationResumeTimerRef.current !== null) {
+      window.clearTimeout(voiceConversationResumeTimerRef.current);
+      voiceConversationResumeTimerRef.current = null;
     }
+
+    voiceBargeInPendingRef.current = false;
+    voiceConversationPausedRef.current = false;
+    setVoiceQuickModalOpen(false);
+    syncInlineVoiceComposerMode(false);
+    releaseVoiceInterruptMonitor();
+    setVoiceConversationPaused(false);
+    if (options?.enableSpeaker !== false) {
+      setSpeakerEnabled(true);
+    }
+    setRequestError(null);
+    voiceConversationModeRef.current = true;
+    setVoiceConversationMode(true);
+
+    void startRealtimeVoiceCapture({ autoSubmit: true }).catch((error) => {
+      voiceConversationModeRef.current = false;
+      setVoiceConversationMode(false);
+      releaseVoiceCaptureResources();
+      setVoiceStatus("idle");
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel iniciar o microfone. Permita o acesso no navegador e tente novamente."
+      );
+    });
+  }
+
+  startVoiceConversationModeRef.current = startVoiceConversationMode;
+
+  async function pauseVoiceConversationMode() {
+    if (!voiceConversationModeRef.current || voiceConversationPausedRef.current) {
+      return;
+    }
+
+    voiceConversationPausedRef.current = true;
+    setVoiceConversationPaused(true);
+    voiceBargeInPendingRef.current = false;
+    voiceShouldAutoSubmitRef.current = false;
+    voiceCapturedSinceStartRef.current = false;
+    setVoiceInterimTranscript("");
+
+    if (voiceConversationResumeTimerRef.current !== null) {
+      window.clearTimeout(voiceConversationResumeTimerRef.current);
+      voiceConversationResumeTimerRef.current = null;
+    }
+
+    releaseVoiceInterruptMonitor();
+    stopPlayback("paused");
+
+    if (voiceCaptureModeRef.current === "server") {
+      await stopServerSideVoiceCapture({
+        autoSubmit: false,
+        reason: "voice_mode_paused"
+      }).catch(() => undefined);
+      setVoiceStatus("paused");
+      return;
+    }
+
+    if (voiceCaptureModeRef.current === "browser") {
+      releaseVoiceCaptureResources();
+      setMicListening(false);
+      voiceCaptureModeRef.current = "idle";
+
+      try {
+        speechRecognitionRef.current?.stop();
+      } catch {
+        // noop
+      }
+    }
+
+    setVoiceStatus("paused");
+  }
+
+  function resumeVoiceConversationMode() {
+    if (!voiceConversationModeRef.current) {
+      startVoiceConversationMode();
+      return;
+    }
+
+    if (!voiceConversationPausedRef.current) {
+      return;
+    }
+
+    startVoiceConversationMode({
+      enableSpeaker: false
+    });
+  }
+
+  function toggleVoiceConversationPause() {
+    if (voiceConversationPausedRef.current) {
+      resumeVoiceConversationMode();
+      return;
+    }
+
+    void pauseVoiceConversationMode();
+  }
+
+  function recoverVoiceConversationMode() {
+    setRequestError(null);
+
+    if (voiceConversationPausedRef.current) {
+      resumeVoiceConversationMode();
+      return;
+    }
+
+    if (!voiceConversationModeRef.current) {
+      startVoiceConversationMode({
+        enableSpeaker: speakerEnabled
+      });
+      return;
+    }
+
+    const keepSpeakerEnabled = speakerEnabled;
+    stopVoiceConversationMode();
+    requestAnimationFrame(() => {
+      startVoiceConversationMode({
+        enableSpeaker: keepSpeakerEnabled
+      });
+    });
+  }
+
+  function openVoiceSettings() {
+    setShowProfile(true);
+  }
+
+  function openVoiceQuickModal() {
+    if (!micSupported) {
+      setRequestError("Microfone nao suportado neste navegador/dispositivo.");
+      return;
+    }
+
+    if (voiceConversationModeRef.current) {
+      stopVoiceConversationMode();
+    }
+
+    setRequestError(null);
+    setVoiceQuickModalOpen(true);
+  }
+
+  function startInlineVoiceCapture(persona: VoicePersonaId) {
+    const normalizedPersona = persona === "diana" ? "diana" : "giom";
+    const recognition = speechRecognitionRef.current;
+    const canUseServerCapture = Boolean(config?.features?.serverAudioTranscriptions) && isBrowserWavRecorderSupported();
+
+    if (!recognition && !canUseServerCapture) {
+      setVoiceQuickModalOpen(false);
+      setRequestError("Microfone nao suportado neste navegador/dispositivo.");
+      return;
+    }
+
+    if (voiceConversationModeRef.current) {
+      stopVoiceConversationMode();
+    }
+
+    setSelectedVoicePersona(normalizedPersona);
+    setVoiceQuickModalOpen(false);
+    setRequestError(null);
+    setVoiceInterimTranscript("");
+    syncInlineVoiceComposerMode(true);
+
+    if (speakerSupported) {
+      setSpeakerEnabled(true);
+    }
+
+    void startRealtimeVoiceCapture({ autoSubmit: false }).catch((error) => {
+      syncInlineVoiceComposerMode(false);
+      setVoiceStatus("idle");
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel iniciar o ditado por voz."
+      );
+    });
+  }
+
+  function startVoiceConversationFromModal(persona: VoicePersonaId) {
+    const normalizedPersona = persona === "diana" ? "diana" : "giom";
+
+    flushSync(() => {
+      setSelectedVoicePersona(normalizedPersona);
+      setVoiceQuickModalOpen(false);
+      setRequestError(null);
+    });
+
+    startVoiceConversationModeRef.current?.();
+  }
+
+  function stopInlineVoiceCapture() {
+    setVoiceQuickModalOpen(false);
+
+    if (!inlineVoiceComposerActiveRef.current) {
+      return;
+    }
+
+    voiceShouldAutoSubmitRef.current = false;
+    setVoiceInterimTranscript("");
+
+    if (voiceCaptureModeRef.current === "server") {
+      void stopServerSideVoiceCapture({
+        autoSubmit: false,
+        reason: "inline_dictation_stopped"
+      }).catch((error) => {
+        syncInlineVoiceComposerMode(false);
+        setVoiceStatus("idle");
+        setRequestError(
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel encerrar o ditado por voz."
+        );
+      });
+      return;
+    }
+
+    if (voiceCaptureModeRef.current === "browser") {
+      try {
+        speechRecognitionRef.current?.stop();
+      } catch {
+        syncInlineVoiceComposerMode(false);
+        setVoiceStatus("idle");
+      }
+      return;
+    }
+
+    syncInlineVoiceComposerMode(false);
+    setVoiceStatus("idle");
+  }
+
+  function stopVoicePreview() {
+    voiceBargeInPendingRef.current = false;
+    stopPlayback("idle");
+    setVoicePreviewActive(false);
+  }
+
+  async function previewSelectedVoicePersona() {
+    if (!speakerSupported) {
+      setRequestError("Leitura em voz alta indisponivel neste navegador/dispositivo.");
+      return;
+    }
+
+    if (voiceConversationModeRef.current) {
+      stopVoiceConversationMode();
+    }
+
+    setRequestError(null);
+    voiceBargeInPendingRef.current = false;
+    releaseVoiceInterruptMonitor();
+    stopPlayback("idle");
+    setVoicePreviewActive(true);
+
+    try {
+      const serverPreviewManifest = shouldUseServerVoiceAudio
+        ? await requestSpeechManifest(null, activeVoicePersona.previewText, {
+            forceServerAudio: true
+          }).catch(() => null)
+        : null;
+
+      const controller = playServerAudio(serverPreviewManifest) || speakWithBrowser({
+        text: activeVoicePersona.previewText,
+        language: activePersonaSpeech.language,
+        voiceName: activePersonaSpeech.voiceName,
+        rate: activePersonaSpeech.rate,
+        pitch: activePersonaSpeech.pitch
+      });
+
+      speechPlaybackRef.current = controller;
+      await controller.promise;
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel reproduzir a amostra da voz selecionada."
+      );
+    } finally {
+      speechPlaybackRef.current = null;
+      setVoicePreviewActive(false);
+    }
+  }
+
+  function toggleVoiceConversationMute() {
+    if (!speakerSupported) {
+      setRequestError("Leitura em voz alta indisponivel neste navegador/dispositivo.");
+      return;
+    }
+
+    setSpeakerEnabled((current) => {
+      const next = !current;
+      if (!next) {
+        stopPlayback(voiceConversationPausedRef.current ? "paused" : "idle");
+      }
+      return next;
+    });
+  }
+
+  function toggleMicrophone() {
+    if (inlineVoiceComposerActiveRef.current) {
+      stopInlineVoiceCapture();
+      return;
+    }
+
+    if (voiceConversationMode) {
+      stopVoiceConversationMode();
+      return;
+    }
+
+    // Bible study surface → full voice conversation with teacher
+    if (surface === "study") {
+      startVoiceConversationMode();
+      return;
+    }
+
+    // Normal chat → dictation: fill input, user reviews and sends
+    startInlineVoiceCapture(selectedVoicePersona);
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -2545,7 +5913,21 @@ export default function Home() {
   }
 
   return (
-    <div id="appShell" className={`chatgpt-shell ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+    <>
+      {!sidebarOpen && !voiceConversationMode ? (
+        <button
+          id="mobileMenuBtn"
+          type="button"
+          className="sidebar-toggle-mobile"
+          aria-label="Abrir sidebar"
+          title="Abrir sidebar"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <IconSidebar />
+        </button>
+      ) : null}
+
+      <div id="appShell" className={`chatgpt-shell ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
       <ChatSidebar
         activeThreadId={activeThread?.id || ""}
         authUser={authUser}
@@ -2554,12 +5936,41 @@ export default function Home() {
         getThreadSnippet={getThreadSnippet}
         onDeleteThread={handleDeleteThread}
         onLogout={() => void handleLogout()}
+        onNavigateBible={() => { window.location.assign("/chat/bible"); }}
+        onNavigateChat={() => { window.location.assign("/chat"); }}
         onNewChat={handleNewChat}
         onSelectThread={handleSelectThread}
         onShowProfile={() => setShowProfile(true)}
         onToggleSidebar={() => setSidebarOpen((current) => !current)}
         onUpgrade={() => void handleHeaderAuthAction("sign-up")}
         sidebarOpen={sidebarOpen}
+        studyPanel={(
+          <BibleStudyPanel
+            mascotMode={studyMascotMode}
+            mascotStatusLabel={studyMascotStatusLabel}
+            mascotVoiceEnabled={surface === "study" && (speakerSupported || voiceConversationMode)}
+            moduleCatalog={bibleModuleCatalog}
+            onApplyStarter={handleApplyStudyStarter}
+            onPreferredBibleCodeChange={handlePreferredBibleCodeChange}
+            onSelectStep={handleSelectStudyStep}
+            onSelectTrack={handleSelectStudyTrack}
+            onStudyDepthPreferenceChange={handleStudyDepthPreferenceChange}
+            onStudyMinistryFocusChange={handleStudyMinistryFocusChange}
+            onToggleModule={handleToggleStudyModule}
+            onToggleStepDone={handleToggleStudyStepDone}
+            onToggleStudyMode={handleToggleStudyMode}
+            preferredBibleCode={preferredBibleCode}
+            progressState={studyProgress}
+            providerStatusLabel={providerResilienceLabel}
+            selectedModuleIds={selectedBibleStudyModules}
+            studyDepthPreference={studyDepthPreference}
+            studyMinistryFocus={studyMinistryFocus}
+            studyModeEnabled={studyModeEnabled}
+            studyTrackId={studyTrackId}
+            tracks={bibleLearningTracks}
+          />
+        )}
+        surface={surface === "study" ? "study" : "chat"}
         threads={threads}
       />
 
@@ -2573,49 +5984,134 @@ export default function Home() {
         onClick={() => setSidebarOpen(false)}
       />
 
-      <main className={`chatgpt-main ${messages.length === 0 ? "landing-mode" : ""}`}>
-        <ChatHeader
-          authUser={authUser}
-          getInitials={getInitials}
-          onHeaderAuthAction={handleHeaderAuthAction}
-          onNewChat={handleNewChat}
-          onShowProfile={() => setShowProfile(true)}
-          onToggleSidebar={() => setSidebarOpen((current) => !current)}
-          sidebarOpen={sidebarOpen}
-        />
+      <main className={`chatgpt-main ${messages.length === 0 && !voiceConversationMode ? "landing-mode" : ""}`}>
+        {voiceConversationMode ? (
+          <VoiceConversationOverlay
+            assistantText={latestAssistantVoiceText || null}
+            inputDisabled={isSending}
+            inputValue={input}
+            interimTranscript={voiceInterimTranscript}
+            microphoneReady={micSupported}
+            onClose={stopVoiceConversationMode}
+            onInputChange={setInput}
+            onOpenSettings={openVoiceSettings}
+            onRetry={recoverVoiceConversationMode}
+            onSubmitInput={() => { void submitMessage(); }}
+            onToggleMute={toggleVoiceConversationMute}
+            onTogglePause={toggleVoiceConversationPause}
+            open={voiceConversationMode}
+            muted={!speakerEnabled}
+            outputEngine={voiceOutputEngine}
+            paused={voiceConversationPaused}
+            personaId={selectedVoicePersona}
+            personaLabel={activeVoicePersona.label}
+            personaTone={activeVoicePersona.tone}
+            recoveryHint={voiceRecoveryHint}
+            sessionReady={voiceSessionReady}
+            signalLevel={voiceSignalLevel}
+            signalMode={voiceSignalMode}
+            status={voiceStatus}
+            statusLabel={voiceStatusLabel}
+            submitEnabled={Boolean(input.trim())}
+            userQuote={latestUserVoiceText || null}
+          />
+        ) : (
+          <>
+            <ChatHeader
+              authUser={authUser}
+              getInitials={getInitials}
+              onHeaderAuthAction={handleHeaderAuthAction}
+              onNewChat={handleNewChat}
+              onShowProfile={() => setShowProfile(true)}
+              onToggleSidebar={() => setSidebarOpen((current) => !current)}
+              sidebarOpen={sidebarOpen}
+              surfaceLabel={surface === "study" ? "Fale Biblico" : "ChatGPT"}
+              surface={surface === "study" ? "study" : "chat"}
+            />
 
-        <ChatConversation
-          chatRef={chatRef}
-          getMessageUploads={getMessageUploads}
-          getMessageUploadPreviews={(message) => getMessageUploadPreviews(message, messageUploadPreviews)}
-          landingGreeting={landingGreeting}
-          messages={messages}
-          onChatScroll={handleChatScroll}
-          onScrollToBottom={() => scrollToBottom(true)}
-          renderAssistantMessage={renderAssistantMessage}
-          stickToBottom={stickToBottom}
-        />
+            {surface === "study" && messages.length > 0 ? (
+              <BibleStudyWorkspaceBanner
+                completionRate={activeBibleCompletionRate}
+                depthPreference={studyDepthPreference}
+                medalProgressLabel={activeBibleMilestoneSummary.total ? `${activeBibleMilestoneSummary.unlocked}/${activeBibleMilestoneSummary.total}` : null}
+                ministryFocus={studyMinistryFocus}
+                moduleCount={selectedBibleStudyModules.length}
+                nextMedalLabel={activeBibleMilestoneSummary.nextLabel}
+                statusLabel={studyMascotStatusLabel}
+                stepGoal={activeBibleStep?.goal || null}
+                stepLabel={activeBibleStep?.label || null}
+                trackLabel={activeBibleTrack?.label || null}
+                voiceEnabled={speakerSupported || voiceConversationMode}
+              />
+            ) : null}
 
-        <ChatComposer
-          canUseUploads={canUseUploads}
-          fileAccept={config?.uploads?.accept?.join(",")}
-          fileInputRef={fileInputRef}
-          input={input}
-          isSending={isSending}
-          micListening={micListening}
-          micSupported={micSupported}
-          onComposerKeyDown={onComposerKeyDown}
-          onFileChange={handleFileChange}
-          onInputChange={setInput}
-          onRemovePendingFile={removePendingFile}
-          onSubmit={submitMessage}
-          onToggleMicrophone={toggleMicrophone}
-          pendingFiles={pendingFiles}
-          textareaRef={textareaRef}
-        />
+            <ChatConversation
+              chatRef={chatRef}
+              getMessageUploads={getMessageUploads}
+              getMessageUploadPreviews={(message) => getMessageUploadPreviews(message, messageUploadPreviews)}
+              landingGreeting={landingGreeting}
+              messages={messages}
+              onChatScroll={handleChatScroll}
+              onScrollToBottom={() => scrollToBottom(true)}
+              onSuggestionClick={(text) => { setInput(text); }}
+              renderAssistantMessage={renderAssistantMessage}
+              stickToBottom={stickToBottom}
+              studyHero={surface === "study" ? (
+                <BibleStudyHero
+                  completionRate={activeBibleCompletionRate}
+                  depthPreference={studyDepthPreference}
+                  medalHistory={studyMedalHistory.slice(0, 2).map((entry) => `${entry.medalLabel} - ${entry.trackLabel}`)}
+                  medalProgressLabel={activeBibleMilestoneSummary.total ? `${activeBibleMilestoneSummary.unlocked}/${activeBibleMilestoneSummary.total}` : null}
+                  ministryFocus={studyMinistryFocus}
+                  mode={studyMascotMode}
+                  moduleCount={selectedBibleStudyModules.length}
+                  nextMedalLabel={activeBibleMilestoneSummary.nextLabel}
+                  statusLabel={studyMascotStatusLabel}
+                  stepLabel={activeBibleStep?.label || null}
+                  studyModeEnabled={studyModeEnabled}
+                  trackLabel={activeBibleTrack?.label || null}
+                  voiceEnabled={speakerSupported || voiceConversationMode}
+                />
+              ) : null}
+              surface={surface === "study" ? "study" : "chat"}
+            />
 
-        {requestError && <p className="request-error">{requestError}</p>}
+            <ChatComposer
+              canUseUploads={canUseUploads}
+              fileAccept={config?.uploads?.accept?.join(",")}
+              fileInputRef={fileInputRef}
+              isGuest={authUser.source === "guest"}
+              inlineVoiceActive={inlineVoiceComposerActive}
+              inlineVoiceSignalLevel={voiceInputLevel}
+              input={input}
+              isSending={isSending}
+              micListening={micListening}
+              microphoneMode={surface === "study" ? "conversation" : "dictation"}
+              micSupported={micSupported}
+              onCloseVoiceModal={() => setVoiceQuickModalOpen(false)}
+              voiceConversationActive={voiceConversationMode}
+              onOpenVoiceModal={openVoiceQuickModal}
+              voiceStatusLabel={voiceConversationMode || inlineVoiceComposerActive ? voiceStatusLabel : null}
+              onComposerKeyDown={onComposerKeyDown}
+              onFileChange={handleFileChange}
+              onInputChange={setInput}
+              onRemovePendingFile={removePendingFile}
+              onSelectVoicePersona={(persona) => setSelectedVoicePersona(persona === "diana" ? "diana" : "giom")}
+              onStartVoiceConversation={startVoiceConversationFromModal}
+              onSubmit={submitMessage}
+              onToggleMicrophone={toggleMicrophone}
+              pendingFiles={pendingFiles}
+              selectedVoicePersona={selectedVoicePersona}
+              showVoicePersonaButton={surface === "study" || authUser.source !== "guest"}
+              textareaRef={textareaRef}
+              voiceModalOpen={voiceQuickModalOpen}
+            />
+
+            {requestError && <p className="request-error">{requestError}</p>}
+          </>
+        )}
       </main>
+      </div>
 
       <ProfileModal
         authUser={authUser}
@@ -2625,9 +6121,54 @@ export default function Home() {
         limits={limits}
         messagesUsed={messagesUsed}
         onClose={() => setShowProfile(false)}
+        onPreviewVoicePersona={() => void previewSelectedVoicePersona()}
+        onSpeakerEnabledChange={setSpeakerEnabled}
+        onStopVoicePreview={stopVoicePreview}
         onUpgrade={() => setRequestError("Upgrade de plano pode ser conectado ao checkout na proxima etapa.")}
+        onVoicePersonaChange={(voicePersona) => {
+          setSelectedVoicePersona(voicePersona === "diana" ? "diana" : "giom");
+          stopPlayback("idle");
+        }}
         open={showProfile}
+        resolvedVoiceLabel={resolvedDeviceVoiceLabel}
+        speakerEnabled={speakerEnabled}
+        speakerSupported={speakerSupported}
+        voicePreviewActive={voicePreviewActive}
+        selectedVoicePersona={selectedVoicePersona}
+        studyMedalHistory={studyMedalHistory.slice(0, 6)}
+        studyMedalSummary={studyMedalSummary}
+        voicePersonaOptions={VOICE_PERSONA_OPTIONS}
       />
+
+      {/* Guest new-chat confirmation modal */}
+      {showGuestNewChatModal && (
+        <div className="guest-newchat-overlay" role="dialog" aria-modal="true" aria-label="Limpar chat" onClick={() => setShowGuestNewChatModal(false)}>
+          <div className="guest-newchat-modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="guest-newchat-close" onClick={() => setShowGuestNewChatModal(false)} aria-label="Fechar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" /><line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" /></svg>
+            </button>
+            <h3 className="guest-newchat-title">Limpar chat atual?</h3>
+            <p className="guest-newchat-desc">
+              Para iniciar um novo chat, sua conversa atual sera descartada. <strong>Cadastre-se</strong> ou <strong>Entre na sua conta</strong> para salvar os chats.
+            </p>
+            <div className="guest-newchat-actions">
+              <button type="button" className="guest-newchat-clear" onClick={confirmNewChat}>
+                Limpar chat
+              </button>
+              <button
+                type="button"
+                className="guest-newchat-login"
+                onClick={() => {
+                  setShowGuestNewChatModal(false);
+                  void handleHeaderAuthAction("sign-in");
+                }}
+              >
+                Entrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AuthModal
         authEmail={authEmail}
@@ -2652,6 +6193,6 @@ export default function Home() {
         onSubmit={submitAuth}
         open={showAuthScreen}
       />
-    </div>
+    </>
   );
 }

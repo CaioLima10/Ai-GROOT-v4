@@ -141,6 +141,29 @@ function toSemanticItemCandidates({ context, userId, sessionId }) {
   return items
 }
 
+function toSemanticConversationTurn(item = {}) {
+  const role = item?.metadata?.role
+  if (role !== "assistant" && role !== "user") {
+    return null
+  }
+
+  const content = String(item.text || "").trim()
+  if (!content) {
+    return null
+  }
+
+  return {
+    role,
+    content,
+    created_at: item.created_at || new Date().toISOString(),
+    semanticScore: Number(item.semanticScore || 0),
+    hybridScore: Number(item.hybridScore || 0),
+    importanceScore: Number(item.importanceScore || 0),
+    recencyScore: Number(item.recencyScore || 0),
+    source: "semantic_index"
+  }
+}
+
 async function ensureSemanticStoreSeeded({ semanticStore, embeddingProvider, context, userId, sessionId }) {
   if (!semanticStore || !embeddingProvider) {
     return { inserted: 0, skipped: 0, generated: 0 }
@@ -442,16 +465,9 @@ export function createGrootMemoryRetrievalAdapter({
             ? Math.max(...selected.map(item => Number(item.semanticScore || 0)))
             : 0
 
-          semanticConversationTurns = selected.map(item => ({
-            role: item.type === "assistant" ? "assistant" : "user",
-            content: String(item.text || "").trim(),
-            created_at: item.created_at || new Date().toISOString(),
-            semanticScore: Number(item.semanticScore || 0),
-            hybridScore: Number(item.hybridScore || 0),
-            importanceScore: Number(item.importanceScore || 0),
-            recencyScore: Number(item.recencyScore || 0),
-            source: "semantic_index"
-          }))
+          semanticConversationTurns = selected
+            .map(toSemanticConversationTurn)
+            .filter(Boolean)
         }
 
         semanticDiagnostics.totalSemanticMs = Date.now() - semanticStartedAt

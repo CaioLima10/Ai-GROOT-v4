@@ -12,12 +12,12 @@ npm run dev
 
 Isso sobe:
 
-- Backend: `http://localhost:3000`
-- Frontend Next: `http://localhost:3001`
+- Backend: `http://localhost:3001`
+- Frontend Next: `http://localhost:3003`
 
-Abra `http://localhost:3001`.
+Abra `http://localhost:3003`.
 
-O frontend usa proxy de desenvolvimento em `/backend/*` apontando para `http://localhost:3000`.
+O frontend usa proxy de desenvolvimento em `/backend/*` apontando para `http://localhost:3001`.
 
 Para rodar somente o frontend:
 

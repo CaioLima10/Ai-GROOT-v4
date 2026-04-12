@@ -62,6 +62,21 @@ jobs:
           "
         continue-on-error: true
 
+  # ── 2a. Enterprise Route Verification (blocking) ───────────────────────────
+  enterprise-route-gate:
+    name: Enterprise Route Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Verify enterprise route parity and runtime smoke gates
+        run: npm run verify:enterprise:routes:v1
+
   # ── 2b. Reliability Fast (blocking) ─────────────────────────────────────────
   reliability-fast:
     name: Reliability Gate (Fast)
@@ -151,7 +166,7 @@ jobs:
   pr-summary:
     name: PR Summary
     runs-on: ubuntu-latest
-    needs: [memory-integrity, backend-ci, reliability-fast, reliability-strict, frontend-ci, security-audit]
+    needs: [memory-integrity, backend-ci, enterprise-route-gate, reliability-fast, reliability-strict, frontend-ci, security-audit]
     if: always()
     steps:
       - name: Report
@@ -161,6 +176,7 @@ jobs:
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Memory Integrity | ${{ needs.memory-integrity.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Backend CI | ${{ needs.backend-ci.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Enterprise Route Verification | ${{ needs.enterprise-route-gate.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Reliability Fast | ${{ needs.reliability-fast.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Reliability Strict | ${{ needs.reliability-strict.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend CI | ${{ needs.frontend-ci.result }} |" >> $GITHUB_STEP_SUMMARY

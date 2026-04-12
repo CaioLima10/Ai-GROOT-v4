@@ -1,0 +1,479 @@
+"use client";
+
+import { createClient, type Provider, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { AuthModal } from "@/components/chat/AuthModal";
+import type { AuthIdentity, AuthMode, AuthStep } from "@/components/chat/types";
+import { resilientFetch } from "@/lib/resilientFetch";
+import { parseRuntimeConfigPayload } from "@groot/shared-config/src/runtimeSchemas.js";
+
+type RuntimeConfig = {
+  supabaseUrl?: string | null;
+  supabaseAnonKey?: string | null;
+  features?: {
+    auth?: boolean;
+  };
+};
+
+type LocalAuthAccount = {
+  id: string;
+  email: string;
+  fullName: string;
+  password: string;
+};
+
+const SCOPE_STORAGE_KEY = "giom-web-next-scope";
+const LOCAL_AUTH_ACCOUNTS_KEY = "giom-web-next-auth-accounts";
+const LOCAL_AUTH_SESSION_KEY = "giom-web-next-auth-session";
+
+function makeId(prefix = "auth") {
+  const uuid = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return `${prefix}-${uuid}`;
+}
+
+function getScopeId() {
+  if (typeof window === "undefined") {
+    return "web-next-local";
+  }
+
+  const existing = window.localStorage.getItem(SCOPE_STORAGE_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const created = makeId("scope");
+  window.localStorage.setItem(SCOPE_STORAGE_KEY, created);
+  return created;
+}
+
+function normalizeEmail(value: string) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function createGuestIdentity(): AuthIdentity {
+  return {
+    id: getScopeId(),
+    email: "guest@local",
+    fullName: "Convidado",
+    plan: "Free",
+    source: "guest"
+  };
+}
+
+function mapSupabaseUser(user: User): AuthIdentity {
+  const fullName = String(user.user_metadata?.full_name || user.user_metadata?.name || user.email || "Usuario");
+  return {
+    id: user.id,
+    email: String(user.email || ""),
+    fullName,
+    plan: "Free",
+    source: "supabase"
+  };
+}
+
+function readLocalAccounts() {
+  if (typeof window === "undefined") {
+    return [] as LocalAuthAccount[];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_AUTH_ACCOUNTS_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as LocalAuthAccount[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalAccounts(accounts: LocalAuthAccount[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(LOCAL_AUTH_ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function readLocalSession() {
+  if (typeof window === "undefined") {
+    return null as AuthIdentity | null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_AUTH_SESSION_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as AuthIdentity;
+    return parsed?.id ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalSession(identity: AuthIdentity | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!identity) {
+    window.localStorage.removeItem(LOCAL_AUTH_SESSION_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(LOCAL_AUTH_SESSION_KEY, JSON.stringify(identity));
+}
+
+function normalizeNextPath(value: string | null) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return "/";
+  }
+
+  return trimmed;
+}
+
+function LoginPageFallback() {
+  return (
+    <main className="auth-shell">
+      <section className="auth-card">
+        <p className="auth-kicker">GIOM Workspace</p>
+        <h1>Carregando autenticacao...</h1>
+        <p className="auth-subtitle">Preparando o fluxo de entrada separado da area de chat.</p>
+      </section>
+    </main>
+  );
+}
+
+function LoginPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [config, setConfig] = useState<RuntimeConfig | null>(null);
+  const [configReady, setConfigReady] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("sign-in");
+  const [authStep, setAuthStep] = useState<AuthStep>("email");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<Provider | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const supabaseRef = useRef<SupabaseClient | null>(null);
+
+  const nextPath = useMemo(
+    () => normalizeNextPath(searchParams.get("next")),
+    [searchParams]
+  );
+  const redirectTarget = useMemo(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    return new URL(nextPath, window.location.origin).toString();
+  }, [nextPath]);
+  const authSupportsMagicLink = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+
+  useEffect(() => {
+    const routeMode = searchParams.get("mode") === "sign-up" ? "sign-up" : "sign-in";
+    setAuthMode(routeMode);
+    setAuthStep("email");
+    setAuthError(null);
+    setAuthNotice(null);
+    setAuthPassword("");
+  }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void resilientFetch("/backend/config", {
+      method: "GET",
+      timeoutMs: 5_000,
+      forceRetry: false
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("config_unavailable");
+        }
+
+        return await response.json();
+      })
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+
+        setConfig(parseRuntimeConfigPayload(payload) as RuntimeConfig);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setConfig(null);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setConfigReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!configReady) {
+      return;
+    }
+
+    const localSession = readLocalSession();
+    const authEnabled = Boolean(config?.features?.auth && config?.supabaseUrl && config?.supabaseAnonKey);
+
+    if (!authEnabled && localSession && localSession.source !== "guest") {
+      router.replace(nextPath);
+      return;
+    }
+
+    if (!authEnabled) {
+      return;
+    }
+
+    const client = createClient(String(config?.supabaseUrl), String(config?.supabaseAnonKey));
+    supabaseRef.current = client;
+
+    void client.auth.getUser()
+      .then(({ data }) => {
+        if (data.user) {
+          writeLocalSession(mapSupabaseUser(data.user));
+          router.replace(nextPath);
+          return;
+        }
+
+        if (localSession?.source === "supabase") {
+          writeLocalSession(null);
+        }
+      })
+      .catch(() => undefined);
+
+    const {
+      data: { subscription }
+    } = client.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        writeLocalSession(mapSupabaseUser(session.user));
+        router.replace(nextPath);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [config?.features?.auth, config?.supabaseAnonKey, config?.supabaseUrl, configReady, nextPath, router]);
+
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authLoading) {
+      return;
+    }
+
+    const email = normalizeEmail(authEmail);
+    const password = authPassword.trim();
+    const displayName = authName.trim();
+
+    if (!email) {
+      setAuthError("Informe seu email para continuar.");
+      return;
+    }
+
+    if (authStep === "email") {
+      setAuthStep("details");
+      setAuthError(null);
+      setAuthNotice(null);
+      return;
+    }
+
+    if (!authSupportsMagicLink) {
+      if (!password) {
+        setAuthError("Informe sua senha para continuar.");
+        return;
+      }
+
+      if (password.length < 6) {
+        setAuthError("A senha precisa ter pelo menos 6 caracteres.");
+        return;
+      }
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const supabase = supabaseRef.current;
+    try {
+      if (supabase) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            shouldCreateUser: authMode === "sign-up",
+            emailRedirectTo: redirectTarget,
+            data: {
+              full_name: displayName || email
+            }
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        setAuthNotice(
+          authMode === "sign-up"
+            ? "Enviamos um link ou codigo de acesso para concluir a criacao da conta."
+            : "Enviamos um link ou codigo de acesso para entrar."
+        );
+        setAuthPassword("");
+      } else {
+        const accounts = readLocalAccounts();
+
+        if (authMode === "sign-up") {
+          if (accounts.some((account) => account.email === email)) {
+            throw new Error("Ja existe uma conta com esse email.");
+          }
+
+          const created: LocalAuthAccount = {
+            id: makeId("local-user"),
+            email,
+            fullName: displayName || email,
+            password
+          };
+          writeLocalAccounts([created, ...accounts]);
+
+          writeLocalSession({
+            id: created.id,
+            email: created.email,
+            fullName: created.fullName,
+            plan: "Free",
+            source: "local"
+          });
+          router.replace(nextPath);
+        } else {
+          const account = accounts.find((item) => item.email === email && item.password === password);
+          if (!account) {
+            throw new Error("Credenciais invalidas para modo local.");
+          }
+
+          writeLocalSession({
+            id: account.id,
+            email: account.email,
+            fullName: account.fullName,
+            plan: "Free",
+            source: "local"
+          });
+          router.replace(nextPath);
+        }
+      }
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Falha de autenticacao.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleOAuth(provider: Provider) {
+    if (oauthLoading) {
+      return;
+    }
+
+    const supabase = supabaseRef.current;
+    if (!supabase) {
+      setAuthError("OAuth exige Supabase ativo no backend.");
+      return;
+    }
+
+    setAuthError(null);
+    setOauthLoading(provider);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: redirectTarget
+      }
+    });
+
+    if (error) {
+      setAuthError(error.message || "Falha ao iniciar login social.");
+      setOauthLoading(null);
+    }
+  }
+
+  function continueAsGuest() {
+    writeLocalSession(createGuestIdentity());
+    router.replace(nextPath);
+  }
+
+  function handleAuthModeChange(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthStep("email");
+    setAuthError(null);
+    setAuthNotice(null);
+    setAuthPassword("");
+    router.replace(`/login?mode=${mode}&next=${encodeURIComponent(nextPath)}`);
+  }
+
+  if (!configReady) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <p className="auth-kicker">GIOM Workspace</p>
+          <h1>Carregando autenticacao...</h1>
+          <p className="auth-subtitle">Preparando o fluxo de entrada separado da area de chat.</p>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="auth-shell">
+      <AuthModal
+        authEmail={authEmail}
+        authError={authError}
+        authLoading={authLoading}
+        authMode={authMode}
+        authName={authName}
+        authNotice={authNotice}
+        authPassword={authPassword}
+        authStep={authStep}
+        authSupportsMagicLink={authSupportsMagicLink}
+        authSystemEnabled={Boolean(config?.features?.auth)}
+        oauthLoading={oauthLoading}
+        onAuthModeChange={handleAuthModeChange}
+        onClose={() => router.replace(nextPath)}
+        onContinueAsGuest={continueAsGuest}
+        onEmailChange={setAuthEmail}
+        onNameChange={setAuthName}
+        onOAuth={(provider) => void handleOAuth(provider)}
+        onPasswordChange={setAuthPassword}
+        onResetEmailStep={() => setAuthStep("email")}
+        onSubmit={submitAuth}
+        open
+      />
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}

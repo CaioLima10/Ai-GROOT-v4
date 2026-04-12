@@ -1,51 +1,22 @@
 import { chromium } from "@playwright/test"
-import { spawn } from "node:child_process"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import "dotenv/config"
+import {
+  formatRecentLogs,
+  startNodeProcess,
+  startNpmProcess,
+  stopChildProcess,
+  waitForAnyUrl,
+  waitForUrl
+} from "./runtime-qa-support.mjs"
 
-const FRONTEND_URL = "http://localhost:3002"
-const BACKEND_URL = "http://localhost:3000"
+const frontendPort = Number(process.env.QA_FRONTEND_PORT || process.env.WEB_PORT || 3003)
+const backendPort = Number(process.env.QA_BACKEND_PORT || process.env.API_PORT || process.env.PORT || 3001)
+const FRONTEND_URL = process.env.QA_FRONTEND_URL || `http://localhost:${frontendPort}`
+const BACKEND_URL = process.env.QA_BACKEND_URL || `http://localhost:${backendPort}`
 const REPORT_PATH = path.join(process.cwd(), "reports", "runtime-ux-qa.json")
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function spawnCommand(command, args, options = {}) {
-  if (process.platform === "win32") {
-    const comspec = process.env.ComSpec || "C:\\Windows\\System32\\cmd.exe"
-    return spawn(comspec, ["/d", "/s", "/c", [command, ...args].join(" ")], options)
-  }
-
-  return spawn(command, args, options)
-}
-
-async function waitForServer(url, timeoutMs = 45000) {
-  const startedAt = Date.now()
-  while (Date.now() - startedAt < timeoutMs) {
-    try {
-      const response = await fetch(url)
-      if (response.ok) return true
-    } catch {
-      // keep waiting
-    }
-    await sleep(500)
-  }
-  return false
-}
-
-function startDevServer() {
-  const child = spawnCommand("npm", ["run", "dev"], {
-    cwd: process.cwd(),
-    stdio: "pipe",
-    env: process.env
-  })
-
-  child.stdout.on("data", () => { })
-  child.stderr.on("data", () => { })
-  return child
-}
 
 function createIssue(problem, cause, fix, validate) {
   return {
@@ -56,36 +27,116 @@ function createIssue(problem, cause, fix, validate) {
   }
 }
 
-async function waitComposerReady(page, timeout = 20000) {
+async function persistReport(report) {
+  await fs.mkdir(path.dirname(REPORT_PATH), { recursive: true })
+  await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8")
+}
+
+async function waitComposerReady(page, timeout = 20_000) {
   await page.waitForFunction(() => {
-    const send = document.querySelector("#sendBtn")
     const msg = document.querySelector("#msg")
-    return Boolean(send && msg && !send.disabled && !msg.disabled)
-  }, { timeout })
+    const fileInput = document.querySelector("#fileInput")
+    return Boolean(msg && !msg.disabled && fileInput)
+  }, undefined, { timeout })
+}
+
+function createRuntimeSummary(checks, issues, steps, extras = {}) {
+  return {
+    generatedAt: new Date().toISOString(),
+    baseUrl: FRONTEND_URL,
+    backendUrl: BACKEND_URL,
+    checks,
+    issues,
+    steps,
+    summary: {
+      totalChecks: checks.length,
+      passed: checks.filter((entry) => entry.ok).length,
+      failed: checks.filter((entry) => !entry.ok).length
+    },
+    ...extras
+  }
 }
 
 async function run() {
   const issues = []
   const checks = []
-  let server
+  const steps = []
+  let backendRuntime = null
+  let frontendRuntime = null
+  let browser = null
+  let desktop = null
+  let mobile = null
 
-  try {
-    server = startDevServer()
-    const backendUp = await waitForServer(`${BACKEND_URL}/health`)
-    const frontendUp = await waitForServer(FRONTEND_URL)
-    if (!backendUp || !frontendUp) {
-      throw new Error("Frontend ou backend não subiram em tempo hábil para QA runtime")
+  const markStep = (name, details = "ok") => {
+    const entry = {
+      name,
+      details,
+      at: new Date().toISOString()
+    }
+    steps.push(entry)
+    console.log(`[QA] ${name} -> ${details}`)
+  }
+
+  const backendReadyUrls = [
+    `${BACKEND_URL}/config`,
+    `${BACKEND_URL}/capabilities`,
+    `${BACKEND_URL}/health`
+  ]
+
+  const runChecks = async () => {
+    const backendUpInitially = await waitForAnyUrl(backendReadyUrls, {
+      timeoutMs: 8_000,
+      accept: (response) => response.status >= 200 && response.status < 600
+    })
+
+    if (!backendUpInitially) {
+      backendRuntime = startNodeProcess("apps/api/src/server.js", {
+        label: "qa-backend",
+        env: {
+          PORT: String(backendPort),
+          API_PORT: String(backendPort),
+          NODE_ENV: "test"
+        }
+      })
+      markStep("backend_start", `spawned pid=${backendRuntime.child.pid}`)
+
+      const backendUp = await waitForAnyUrl(backendReadyUrls, {
+        timeoutMs: 90_000,
+        accept: (response) => response.status >= 200 && response.status < 600
+      })
+
+      if (!backendUp) {
+        throw new Error(`Backend nao subiu em tempo habil em ${BACKEND_URL}`)
+      }
+    } else {
+      markStep("backend_start", "reusing existing backend")
     }
 
-    const browser = await chromium.launch({ headless: true })
+    const frontendUpInitially = await waitForUrl(FRONTEND_URL, { timeoutMs: 8_000 })
+    if (!frontendUpInitially) {
+      frontendRuntime = startNpmProcess(["--workspace", "web-next", "run", "dev", "--", "-p", String(frontendPort)], {
+        label: "qa-frontend"
+      })
+      markStep("frontend_start", `spawned pid=${frontendRuntime.child.pid}`)
 
-    const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+      const frontendUp = await waitForUrl(FRONTEND_URL, { timeoutMs: 120_000 })
+      if (!frontendUp) {
+        throw new Error(`Frontend nao subiu em tempo habil em ${FRONTEND_URL}`)
+      }
+    } else {
+      markStep("frontend_start", "reusing existing frontend")
+    }
+
+    browser = await chromium.launch({ headless: true })
+    markStep("browser_launch")
+
+    desktop = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     const page = await desktop.newPage()
 
     await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" })
-
-    await page.waitForSelector("#chat", { timeout: 8000 })
+    await page.waitForSelector("#chat", { timeout: 8_000 })
     checks.push({ name: "load_chat", ok: true })
+    markStep("desktop_load_chat")
 
     await page.locator("#msg").fill("Teste de fluxo runtime 1")
     await page.keyboard.press("Enter")
@@ -93,7 +144,7 @@ async function run() {
     const hasWorkingState = await page.waitForFunction(() => {
       const sendBtn = document.querySelector("#sendBtn")
       return Boolean(sendBtn?.classList.contains("is-working") || sendBtn?.disabled)
-    }, { timeout: 2500 }).then(() => true).catch(() => false)
+    }, undefined, { timeout: 2_500 }).then(() => true).catch(() => false)
 
     if (!hasWorkingState) {
       issues.push(createIssue(
@@ -117,32 +168,38 @@ async function run() {
     }
     checks.push({ name: "thinking_single_instance", ok: thinkingCount <= 1 })
 
-    await waitComposerReady(page, 20000)
+    await waitComposerReady(page, 20_000)
+    markStep("desktop_first_response_ready")
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "groot-qa-"))
     const txtFile = path.join(tempDir, "qa-sample.txt")
     await fs.writeFile(txtFile, "arquivo de teste runtime", "utf8")
 
     await page.setInputFiles("#fileInput", txtFile)
-    await page.waitForSelector("#filePreview .file-chip", { timeout: 4000 })
+    await page.waitForSelector(".composer-selected-file", { timeout: 4_000 })
 
-    const hasFileChip = await page.locator("#filePreview .file-chip").count()
+    const hasFileChip = await page.locator(".composer-selected-file").count()
     checks.push({ name: "attachment_chip", ok: hasFileChip > 0 })
 
     await page.locator("#msg").fill("Teste com anexo")
     await page.locator("#sendBtn").click()
-    await page.waitForSelector(".chat-message.user .sent-file-chip", { timeout: 15000 }).catch(() => { })
+    await page.waitForSelector(".chat-message.user .sent-file-chip, .chat-message.user .sent-file-card", { timeout: 15_000 }).catch(() => {})
 
-    const sentFileChipVisible = await page.evaluate(() => Boolean(document.querySelector(".chat-message.user .sent-file-chip")))
+    const sentFileChipVisible = await page.evaluate(() => Boolean(
+      document.querySelector(".chat-message.user .sent-file-chip, .chat-message.user .sent-file-card")
+    ))
     if (!sentFileChipVisible) {
       issues.push(createIssue(
         "Mensagem enviada com anexo não exibiu o arquivo no histórico do chat.",
         "O upload pode estar chegando ao backend sem refletir o nome do arquivo no bubble do usuário.",
         "Persistir uploadName/uploadNames na mensagem local antes da resposta final.",
-        "Enviar arquivo e confirmar .sent-file-chip na mensagem do usuário."
+        "Enviar arquivo e confirmar .sent-file-chip ou .sent-file-card na mensagem do usuário."
       ))
     }
     checks.push({ name: "attachment_sent_chip", ok: sentFileChipVisible })
+
+    await waitComposerReady(page, 30_000)
+    markStep("desktop_attachment_response_ready")
 
     await page.evaluate(() => {
       const list = document.querySelector("#chatStreamInner")
@@ -231,7 +288,7 @@ async function run() {
     const authButton = page.locator("#topAuthLoginBtn")
     const authButtonVisible = await authButton.isVisible().catch(() => false)
     if (authButtonVisible) {
-      await authButton.click({ timeout: 3000 }).catch(() => { })
+      await authButton.click({ timeout: 3_000 }).catch(() => {})
       authModalVisible = await page.locator("#authModal").isVisible().catch(() => false)
     }
 
@@ -247,7 +304,7 @@ async function run() {
 
     let authModalClosed = false
     if (authModalVisible) {
-      await page.locator("#closeAuthModalBtn").click({ timeout: 3000 }).catch(() => { })
+      await page.locator("#closeAuthModalBtn").click({ timeout: 3_000 }).catch(() => {})
       await page.waitForTimeout(150)
       authModalClosed = await page.locator("#authModal").isHidden().catch(() => false)
     }
@@ -262,10 +319,12 @@ async function run() {
       ))
     }
 
-    const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    mobile = await browser.newContext({ viewport: { width: 390, height: 844 } })
     const mobilePage = await mobile.newPage()
     await mobilePage.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" })
+    await waitComposerReady(mobilePage, 30_000)
     const mobileMenuLocator = mobilePage.locator("#mobileMenuBtn")
+    await mobilePage.waitForSelector("#mobileMenuBtn", { timeout: 15_000 }).catch(() => {})
     const mobileMenuAvailable = await mobileMenuLocator.isVisible().catch(() => false)
 
     if (!mobileMenuAvailable) {
@@ -278,25 +337,32 @@ async function run() {
         "Abrir em 390x844 e validar botão de menu visível e clicável."
       ))
     } else {
-      const opened = await mobilePage.evaluate(() => {
-        const button = document.querySelector("#mobileMenuBtn")
-        const shell = document.querySelector("#appShell")
-        if (!button || !shell) return false
-        button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
-        return shell.classList.contains("sidebar-open")
-      })
+      let opened = false
+      try {
+        await mobileMenuLocator.click({ timeout: 5_000 })
+        await mobilePage.waitForFunction(() => {
+          const shell = document.querySelector("#appShell")
+          return Boolean(shell && shell.classList.contains("sidebar-open"))
+        }, undefined, { timeout: 10_000 })
+        opened = true
+      } catch {
+        opened = false
+      }
 
       checks.push({ name: "mobile_sidebar_open", ok: Boolean(opened) })
 
       let closed = false
       if (opened) {
-        closed = await mobilePage.evaluate(() => {
-          const scrim = document.querySelector("#sidebarScrim")
-          const shell = document.querySelector("#appShell")
-          if (!scrim || !shell) return false
-          scrim.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
-          return !shell.classList.contains("sidebar-open")
-        })
+        try {
+          await mobilePage.locator("#sidebarScrim").click({ timeout: 5_000 })
+          await mobilePage.waitForFunction(() => {
+            const shell = document.querySelector("#appShell")
+            return Boolean(shell && !shell.classList.contains("sidebar-open"))
+          }, undefined, { timeout: 10_000 })
+          closed = true
+        } catch {
+          closed = false
+        }
       }
 
       checks.push({ name: "mobile_sidebar_close", ok: Boolean(closed) })
@@ -310,36 +376,55 @@ async function run() {
         ))
       }
     }
+  }
 
-    await desktop.close()
-    await mobile.close()
-    await browser.close()
+  try {
+    await runChecks()
 
-    const report = {
-      generatedAt: new Date().toISOString(),
-      baseUrl: FRONTEND_URL,
-      checks,
-      issues,
-      summary: {
-        totalChecks: checks.length,
-        passed: checks.filter((entry) => entry.ok).length,
-        failed: checks.filter((entry) => !entry.ok).length
-      }
-    }
-
-    await fs.mkdir(path.dirname(REPORT_PATH), { recursive: true })
-    await fs.writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, "utf8")
+    const report = createRuntimeSummary(checks, issues, steps)
+    await persistReport(report)
 
     console.log(`Runtime QA checks: ${report.summary.passed}/${report.summary.totalChecks} passed`)
     console.log(`Issues found: ${issues.length}`)
+  } catch (error) {
+    const report = createRuntimeSummary(
+      checks,
+      [
+        ...issues,
+        createIssue(
+          "Falha ao executar QA runtime.",
+          error instanceof Error ? error.message : "Erro inesperado",
+          "Verificar readiness do backend/frontend, seletores do frontend e lifecycle de processos do QA.",
+          "Executar npm run qa:runtime e analisar logs recentes do report."
+        )
+      ],
+      steps,
+      {
+        diagnostics: {
+          backendLogs: formatRecentLogs(backendRuntime?.logs, 30),
+          frontendLogs: formatRecentLogs(frontendRuntime?.logs, 30)
+        }
+      }
+    )
+
+    await persistReport(report)
+    throw error
   } finally {
-    if (server && !server.killed) {
-      server.kill()
+    if (mobile) {
+      await mobile.close().catch(() => {})
     }
+    if (desktop) {
+      await desktop.close().catch(() => {})
+    }
+    if (browser) {
+      await browser.close().catch(() => {})
+    }
+    await stopChildProcess(frontendRuntime?.child).catch(() => {})
+    await stopChildProcess(backendRuntime?.child).catch(() => {})
   }
 }
 
 run().catch((error) => {
   console.error(error)
-  process.exitCode = 1
+  process.exit(1)
 })

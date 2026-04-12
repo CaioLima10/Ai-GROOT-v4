@@ -5,6 +5,34 @@ dotenv.config()
 
 const OLLAMA_BASE_URL = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "")
 
+function resolveStreamingFetchTimeoutMs(options = {}) {
+  const fromOptions = Number(options?.streamingProviderTimeoutMs || options?.providerTimeoutMs)
+  if (Number.isFinite(fromOptions) && fromOptions > 0) {
+    return Math.max(2000, fromOptions)
+  }
+
+  const fromEnv = Number(process.env.AI_STREAMING_PROVIDER_TIMEOUT_MS || process.env.AI_PROVIDER_TIMEOUT_MS || 15000)
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return Math.max(2000, fromEnv)
+  }
+
+  return 15000
+}
+
+function normalizeStreamingErrorMessage(providerName, error, timeoutMs) {
+  if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+    return `${providerName} streaming timeout after ${timeoutMs}ms`
+  }
+
+  return error?.message || `${providerName} streaming falhou`
+}
+
+function normalizeProviderLabel(provider) {
+  if (provider === "ollama") return "Ollama"
+  if (provider === "groq") return "Groq"
+  return "simulated"
+}
+
 export class StreamingAIGateway {
   constructor() {
     this.activeStreams = new Map()
@@ -16,8 +44,15 @@ export class StreamingAIGateway {
 
   getStreamingProvider() {
     const selected = (process.env.GROOT_AI_PROVIDER || "auto").toLowerCase()
+    const activeProviders = typeof aiProviders.getActiveProviders === "function"
+      ? aiProviders.getActiveProviders()
+      : []
+
     if (selected === "ollama" || process.env.OLLAMA_ENABLED === "true") return "ollama"
-    if (selected === "groq" || process.env.GROQ_API_KEY) return "groq"
+    if (selected === "groq") {
+      return activeProviders.some((provider) => provider.key === "groq") ? "groq" : "simulated"
+    }
+    if (activeProviders.some((provider) => provider.key === "groq")) return "groq"
     return "simulated"
   }
 
@@ -28,6 +63,8 @@ export class StreamingAIGateway {
     const onComplete = usingLegacySignature ? maybeOnChunk : maybeOnComplete
     const onError = usingLegacySignature ? maybeOnComplete : maybeOnError
     const provider = this.getStreamingProvider()
+    const attemptedProvider = provider
+    const attemptedProviderLabel = normalizeProviderLabel(attemptedProvider)
 
     try {
       if (provider === "ollama") {
@@ -46,7 +83,9 @@ export class StreamingAIGateway {
             question,
             {
               ...options,
-              streamingFallbackFrom: provider
+              attemptedStreamingProvider: attemptedProvider,
+              streamingFallbackFrom: attemptedProvider,
+              streamingFallbackReason: normalizeStreamingErrorMessage(attemptedProviderLabel, error, resolveStreamingFetchTimeoutMs(options))
             },
             onChunk,
             onComplete,
@@ -70,6 +109,10 @@ export class StreamingAIGateway {
 
   async askSimulatedStreaming(question, options, onChunk, onComplete, onError) {
     const streamId = this.createStreamId()
+    const fallbackFrom = String(options?.streamingFallbackFrom || "").trim() || null
+    const attemptedProvider = String(options?.attemptedStreamingProvider || fallbackFrom || "simulated").trim() || "simulated"
+    const providerUsed = "simulated"
+    const fallbackReason = String(options?.streamingFallbackReason || "").trim() || null
 
     try {
       const fullResponse = await aiProviders.askMultiAI(question, options)
@@ -93,7 +136,12 @@ export class StreamingAIGateway {
       onComplete({
         id: streamId,
         fullText: currentText,
-        provider: options?.streamingFallbackFrom ? `simulated:${options.streamingFallbackFrom}` : "simulated",
+        provider: fallbackFrom ? `simulated:${fallbackFrom}` : providerUsed,
+        attemptedProvider,
+        providerUsed,
+        providerFallback: Boolean(fallbackFrom),
+        fallbackFrom,
+        fallbackReason,
         tokens: words.length,
         duration: Date.now() - parseInt(streamId.split("_")[1], 10)
       })
@@ -108,6 +156,7 @@ export class StreamingAIGateway {
   async askOllamaStreaming(question, options, onChunk, onComplete, onError) {
     const streamId = this.createStreamId()
     const model = process.env.OLLAMA_MODEL || "qwen3"
+    const timeoutMs = resolveStreamingFetchTimeoutMs(options)
 
     try {
       const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
@@ -120,7 +169,8 @@ export class StreamingAIGateway {
           model,
           messages: aiProviders.buildMessages(question, options),
           stream: true
-        })
+        }),
+        signal: AbortSignal.timeout(timeoutMs)
       })
 
       if (!response.ok || !response.body) {
@@ -162,6 +212,11 @@ export class StreamingAIGateway {
               id: streamId,
               fullText,
               provider: "Ollama",
+              attemptedProvider: "ollama",
+              providerUsed: "ollama",
+              providerFallback: false,
+              fallbackFrom: null,
+              fallbackReason: null,
               tokens: payload?.eval_count || null,
               duration: payload?.total_duration || null
             })
@@ -173,12 +228,17 @@ export class StreamingAIGateway {
       onComplete({
         id: streamId,
         fullText,
-        provider: "Ollama"
+        provider: "Ollama",
+        attemptedProvider: "ollama",
+        providerUsed: "ollama",
+        providerFallback: false,
+        fallbackFrom: null,
+        fallbackReason: null
       })
     } catch (error) {
       onError({
         id: streamId,
-        error: error.message
+        error: normalizeStreamingErrorMessage("Ollama", error, timeoutMs)
       })
     }
   }
@@ -186,6 +246,7 @@ export class StreamingAIGateway {
   async askGroqStreaming(question, options, onChunk, onComplete, onError) {
     const streamId = this.createStreamId()
     const model = process.env.GROQ_MODEL || "llama-3.1-8b-instant"
+    const timeoutMs = resolveStreamingFetchTimeoutMs(options)
 
     try {
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -198,7 +259,8 @@ export class StreamingAIGateway {
           model,
           messages: aiProviders.buildMessages(question, options),
           stream: true
-        })
+        }),
+        signal: AbortSignal.timeout(timeoutMs)
       })
 
       if (!response.ok || !response.body) {
@@ -229,7 +291,12 @@ export class StreamingAIGateway {
             onComplete({
               id: streamId,
               fullText,
-              provider: "Groq"
+              provider: "Groq",
+              attemptedProvider: "groq",
+              providerUsed: "groq",
+              providerFallback: false,
+              fallbackFrom: null,
+              fallbackReason: null
             })
             return
           }
@@ -256,12 +323,17 @@ export class StreamingAIGateway {
       onComplete({
         id: streamId,
         fullText,
-        provider: "Groq"
+        provider: "Groq",
+        attemptedProvider: "groq",
+        providerUsed: "groq",
+        providerFallback: false,
+        fallbackFrom: null,
+        fallbackReason: null
       })
     } catch (error) {
       onError({
         id: streamId,
-        error: error.message
+        error: normalizeStreamingErrorMessage("Groq", error, timeoutMs)
       })
     }
   }

@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 
 import {
+  buildWeatherIntentFallback,
   buildWeatherClientMetadata,
   buildWeatherConversationLocationMetadata,
   buildWeatherSnapshot,
@@ -18,9 +19,20 @@ test("weather helpers normalize intent and location context", () => {
   assert.equal(isWeatherQuestion("Vai chover em Goiania hoje?"), true)
   assert.equal(inferWeatherForecastDays("previsao da semana"), 7)
   assert.equal(extractWeatherLocationQuery("clima em Sao Paulo, Brasil hoje"), "sao paulo, brasil")
+  assert.equal(extractWeatherLocationQuery("Qual clima de hoje em Sao Paulo, Brasil?"), "sao paulo, brasil")
   assert.equal(extractWeatherLocationQuery("Como esta o tempo no Brasil hoje?"), "brasil")
   assert.equal(isAgroWeatherRelevant("janela operacional do plantio", {}), true)
   assert.equal(isWeatherCardPreferred("clima em Goiania", { preferredResponseVariant: "weather" }), true)
+  assert.equal(
+    isWeatherCardPreferred("E amanha na mesma cidade, em 2 linhas curtas?", {
+      agroWeather: {
+        current: {
+          temperature: 25
+        }
+      }
+    }),
+    true
+  )
   assert.equal(shouldPreferRecentWeatherMemory("qual o clima aqui agora?"), false)
   assert.equal(shouldPreferRecentWeatherMemory("qual o clima em Goiania?"), true)
   assert.equal(
@@ -115,4 +127,14 @@ test("weather snapshot metadata stays structured", () => {
   const memoryMetadata = buildWeatherConversationLocationMetadata(snapshot, null)
   assert.equal(memoryMetadata?.label, "Cidade: Goiania, Goias")
   assert.equal(memoryMetadata?.timezone, "America/Sao_Paulo")
+})
+
+test("weather intent fallback sanitizes leading location prepositions", () => {
+  const fallback = buildWeatherIntentFallback({
+    weatherLocationQuery: "em Sao Paulo, Brasil",
+    weatherLocationError: "WEATHER_LOCATION_NOT_FOUND"
+  })
+
+  assert.match(fallback, /localidade Sao Paulo, Brasil/i)
+  assert.doesNotMatch(fallback, /localidade em Sao Paulo/i)
 })

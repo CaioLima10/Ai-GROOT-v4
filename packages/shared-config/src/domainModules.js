@@ -8,6 +8,34 @@ function toLiteSubmodules(submodules = []) {
   }))
 }
 
+function normalizeModuleKeywordText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function escapeRegExp(value = "") {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function hasNormalizedKeywordMatch(normalizedText = "", keywords = []) {
+  return (Array.isArray(keywords) ? keywords : [])
+    .some(keyword => {
+      const normalizedKeyword = normalizeModuleKeywordText(keyword).trim()
+      if (!normalizedKeyword) {
+        return false
+      }
+
+      // Very short keywords like "bi", "ml", "ui", "ci" should only match as standalone tokens.
+      if (/^[a-z0-9]{1,3}$/.test(normalizedKeyword)) {
+        return new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedKeyword)}(?=[^a-z0-9]|$)`).test(normalizedText)
+      }
+
+      return normalizedText.includes(normalizedKeyword)
+    })
+}
+
 const MODULE_SUBMODULES = {
   developer: [
     {
@@ -857,7 +885,13 @@ export const DOMAIN_MODULES = {
     id: "bible",
     label: "Biblia & Teologia",
     summary: "Estudo biblico, idiomas originais, historia, igreja primitiva e teologia.",
-    keywords: ["biblia", "teologia", "hebraico", "aramaico", "grego", "igreja", "pastor", "evangelho"],
+    keywords: [
+      "biblia", "bíblia", "teologia", "hebraico", "aramaico", "grego", "igreja", "pastor", "evangelho",
+      "escatologia", "apocalipse", "milenio", "milênio", "arrebatamento", "angelologia", "angeologia",
+      "anjos", "cristo", "jesus", "soteriologia", "cristologia", "eclesiologia", "pneumatologia",
+      "pais da igreja", "patristica", "patrística", "historia da igreja", "história da igreja",
+      "arqueologia biblica", "arqueologia bíblica", "moises", "moisés", "exodo", "êxodo"
+    ],
     submodules: toLiteSubmodules(BIBLE_STUDY_MODULES),
     instructions: [
       "Atue como pesquisador biblico reverente, claro e criterioso.",
@@ -872,8 +906,11 @@ export const DOMAIN_MODULES = {
     label: "Historia & Arqueologia",
     summary: "Historiografia, arqueologia, cronologia, civilizacoes antigas e leitura critica de fontes.",
     keywords: [
-      "historia", "arqueologia", "historiador", "civilizacao", "imperio", "cronologia", "inscricao",
-      "manuscrito", "escavacao", "antiguidade", "roma", "egito", "mesopotamia", "levant"
+      "historia", "história", "arqueologia", "arquiologia", "arqueologia biblica", "arqueologia bíblica",
+      "historiador", "civilizacao", "civilização", "imperio", "império", "cronologia", "inscricao",
+      "inscrição", "manuscrito", "escavacao", "escavação", "antiguidade", "roma", "egito", "mesopotamia",
+      "levant", "historia da igreja", "história da igreja", "patristica", "patrística", "pais da igreja",
+      "segundo templo", "moises", "moisés", "exodo", "êxodo"
     ],
     submodules: MODULE_SUBMODULES.history_archaeology,
     instructions: [
@@ -1086,14 +1123,30 @@ export function getDomainSubmodules(moduleId, submoduleIds = []) {
 }
 
 export function inferDomainModules(task = "", explicitModules = []) {
-  const normalized = String(task || "").toLowerCase()
+  const normalized = normalizeModuleKeywordText(task)
   const explicit = new Set(Array.isArray(explicitModules) ? explicitModules : [])
 
   Object.values(DOMAIN_MODULES).forEach(module => {
-    if (module.keywords.some(keyword => normalized.includes(keyword))) {
+    if (hasNormalizedKeywordMatch(normalized, module.keywords)) {
       explicit.add(module.id)
     }
   })
+
+  const hasBibleTopicCue = /\b(biblia|bible|teologia|evangelho|jesus|cristo|escatologia|apocalipse|milenio|arrebatamento|angelologia|angeologia|anjos|moises|exodo|patristica|doutrina)\b/.test(normalized)
+  const hasBibleHistoryCue = /\b(arqueologia|arquiologia|historia da igreja|patristica|pais da igreja|segundo templo|moises|exodo|egito|levante|epigrafia|manuscrito)\b/.test(normalized)
+  const hasResearchCue = /\b(fonte|fontes|evidencia|evidencias|consenso|historiografia|epigrafia|inscricao|inscricoes|cronologia)\b/.test(normalized)
+
+  if (hasBibleTopicCue) {
+    explicit.add("bible")
+  }
+
+  if (explicit.has("bible") && hasBibleHistoryCue) {
+    explicit.add("history_archaeology")
+  }
+
+  if ((explicit.has("bible") || explicit.has("history_archaeology") || hasBibleTopicCue) && hasResearchCue) {
+    explicit.add("research")
+  }
 
   if (explicit.size === 0) {
     explicit.add(DEFAULT_ACTIVE_MODULES[0])
@@ -1103,7 +1156,7 @@ export function inferDomainModules(task = "", explicitModules = []) {
 }
 
 export function inferDomainSubmodules(task = "", activeModules = [], explicitSelections = {}) {
-  const normalized = String(task || "").toLowerCase()
+  const normalized = normalizeModuleKeywordText(task)
   const active = Array.isArray(activeModules) ? activeModules : []
   const selected = {}
 
@@ -1115,7 +1168,7 @@ export function inferDomainSubmodules(task = "", activeModules = [], explicitSel
 
     const explicitIds = sanitizeSubmoduleSelection(moduleId, explicitSelections?.[moduleId] || [])
     const inferredIds = module.submodules
-      .filter(submodule => submodule.keywords.some(keyword => normalized.includes(keyword)))
+      .filter(submodule => hasNormalizedKeywordMatch(normalized, submodule.keywords))
       .map(submodule => submodule.id)
 
     const merged = Array.from(new Set([...explicitIds, ...inferredIds]))

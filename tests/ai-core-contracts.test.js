@@ -33,6 +33,31 @@ function testBuildAssistantPromptShape() {
   assert.equal(typeof promptPackage.domainSubmodules, "object")
 }
 
+function testBuildAssistantPromptContinuityInstructions() {
+  const promptPackage = buildAssistantPrompt({
+    task: "Continue nesse assunto e aprofunde o ponto principal.",
+    context: {
+      activeModules: ["bible"]
+    },
+    memoryContext: {
+      knownFacts: {
+        name: "Gabriel",
+        currentGoal: "Livro de Genesis"
+      },
+      conversationState: {
+        mode: "follow_up",
+        resolvedFocus: "Livro de Genesis",
+        summary: "Estado conversacional: continuidade real | Foco resolvido: Livro de Genesis"
+      }
+    }
+  })
+
+  assert.match(promptPackage.systemPrompt, /CONTINUIDADE CONVERSACIONAL:/)
+  assert.match(promptPackage.systemPrompt, /Foco resolvido para este turno: Livro de Genesis\./)
+  assert.match(promptPackage.systemPrompt, /Resolva referencias implicitas/i)
+  assert.match(promptPackage.systemPrompt, /Se o usuario mudar claramente de assunto/i)
+}
+
 function testConversationEvaluationShape() {
   const evaluation = evaluateConversationTurn({
     userMessage: "Voce consegue pesquisar Google ao vivo agora?",
@@ -100,6 +125,7 @@ async function testBenchmarkShape() {
 
 await (async () => {
   testBuildAssistantPromptShape()
+  testBuildAssistantPromptContinuityInstructions()
   testConversationEvaluationShape()
   testConversationSummaryShape()
   await testBenchmarkShape()

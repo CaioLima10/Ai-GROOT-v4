@@ -44,7 +44,7 @@ services:
     # Auto-deploy from GitHub
     repo: https://github.com/CaioLima10/Ai-GROOT-v4.git
     rootDir: /
-    branch: main
+    branch: release-main
     
     # Ports
     httpHeaders:

@@ -115,3 +115,170 @@ test("memory context engine ranks, deduplicates and enforces limits", async () =
   assert.equal(typeof diagnostics.semantic, "object")
   assert.equal(typeof diagnostics.semantic.retrievalAccuracyProxy, "number")
 })
+
+test("memory context engine prioritizes request conversation history for immediate continuity", async () => {
+  let retrievalArgs = null
+
+  const requestConversationHistory = [
+    {
+      role: "user",
+      content: "Meu nome e Gabriel e estamos estudando o Livro de Genesis. Responda apenas: entendido."
+    },
+    {
+      role: "assistant",
+      content: "Entendido."
+    }
+  ]
+
+  const result = await buildRuntimeContext({
+    preparedPayload: {
+      normalizedQuestion: "Qual e meu nome e qual livro estamos estudando agora?",
+      preparedQuestion: "Qual e meu nome e qual livro estamos estudando agora?",
+      context: {
+        conversationHistory: requestConversationHistory,
+        activeModules: [],
+        bibleStudyModules: []
+      },
+      enrichedData: {
+        request: {
+          userId: "u_gabriel",
+          sessionId: "s_genesis",
+          requestId: "req_continuity",
+          timestamp: "2026-04-02T09:00:00.000Z"
+        }
+      }
+    },
+    decisionResult: {
+      intent: "fallback_ai"
+    },
+    ports: {
+      stm: {
+        getRecentTurns() {
+          return []
+        },
+        appendTurn() { }
+      },
+      retrieval: {
+        async retrieveRelevant(args) {
+          retrievalArgs = args
+          return {
+            contextSummary: "Topicos recentes: clima, futebol",
+            summary: "Historico distante do usuario",
+            knownFactsText: "Nome: Gabriel | Objetivo atual: Livro de Genesis",
+            conversationTurns: [
+              makeTurn("user", "clima em sao paulo", "2026-04-01T10:00:00.000Z"),
+              makeTurn("assistant", "Hoje esta ensolarado em Sao Paulo.", "2026-04-01T10:01:00.000Z")
+            ],
+            history: [],
+            userProfile: { style: "natural" },
+            diagnostics: {
+              cacheHit: false,
+              source: "mock_retrieval",
+              connectorFetchMs: 3,
+              retrievalMs: 4
+            }
+          }
+        }
+      },
+      runtimeContext: {
+        async enrich(_question, context) {
+          return context
+        }
+      }
+    },
+    limits: {
+      maxConversationTurns: 6,
+      maxMemorySummaryChars: 240,
+      maxContextTokens: 360,
+      maxRetrievedItems: 10
+    }
+  })
+
+  assert.ok(Array.isArray(retrievalArgs?.conversationHistory))
+  assert.ok(retrievalArgs.conversationHistory.some((turn) => /gabriel/i.test(turn.content)))
+  assert.ok(retrievalArgs.conversationHistory.some((turn) => /genesis/i.test(turn.content)))
+
+  assert.equal(result.diagnostics.requestConversationTurns, 2)
+  assert.ok((result.diagnostics.selectedSourceCounts.request_history || 0) >= 1)
+  assert.ok(result.preparedPayload.context.conversationHistory.some((turn) => /gabriel/i.test(turn.content)))
+  assert.ok(result.preparedPayload.context.conversationHistory.some((turn) => /genesis/i.test(turn.content)))
+  assert.ok(result.preparedPayload.context.conversationHistory.every((turn) => !/clima em sao paulo|ensolarado/i.test(turn.content)))
+  assert.match(String(result.preparedPayload.context.memorySummary || ""), /Gabriel|Genesis/i)
+  assert.doesNotMatch(String(result.preparedPayload.context.memorySummary || ""), /clima|futebol|historico distante/i)
+})
+
+test("memory context engine keeps new-thread conversation history local even when retrieval finds older chats", async () => {
+  const result = await buildRuntimeContext({
+    preparedPayload: {
+      normalizedQuestion: "Explique JWT sem jargao para produto.",
+      preparedQuestion: "Explique JWT sem jargao para produto.",
+      context: {
+        activeModules: [],
+        bibleStudyModules: []
+      },
+      enrichedData: {
+        request: {
+          userId: "u_jwt",
+          sessionId: "s_new_thread",
+          requestId: "req_new_thread",
+          timestamp: "2026-04-03T02:30:00.000Z"
+        }
+      }
+    },
+    decisionResult: {
+      intent: "fallback_ai"
+    },
+    ports: {
+      stm: {
+        getRecentTurns() {
+          return []
+        },
+        appendTurn() { }
+      },
+      retrieval: {
+        async retrieveRelevant() {
+          return {
+            contextSummary: "Topicos antigos: Romanos 8 e onboarding de clientes",
+            summary: "Historico distante com threads diferentes",
+            knownFactsText: "Nome: Marina",
+            conversationTurns: [
+              makeTurn("user", "Meu nome e Marina e estamos tratando de onboarding de clientes.", "2026-04-02T10:00:00.000Z"),
+              makeTurn("assistant", "Entendido, Marina.", "2026-04-02T10:01:00.000Z")
+            ],
+            history: [
+              {
+                user: "Agora estamos estudando Romanos 8.",
+                ai: "Ok.",
+                timestamp: "2026-04-02T11:00:00.000Z"
+              }
+            ],
+            userProfile: { name: "Marina" },
+            diagnostics: {
+              cacheHit: false,
+              source: "mock_retrieval",
+              connectorFetchMs: 3,
+              retrievalMs: 4
+            }
+          }
+        }
+      },
+      runtimeContext: {
+        async enrich(_question, context) {
+          return context
+        }
+      }
+    },
+    limits: {
+      maxConversationTurns: 6,
+      maxMemorySummaryChars: 240,
+      maxContextTokens: 360,
+      maxRetrievedItems: 10
+    }
+  })
+
+  assert.deepEqual(result.preparedPayload.context.conversationHistory, [])
+  assert.equal(result.diagnostics.requestConversationTurns, 0)
+  assert.equal(result.diagnostics.stmTurns, 0)
+  assert.match(String(result.preparedPayload.context.memorySummary || ""), /Marina/i)
+  assert.doesNotMatch(String(result.preparedPayload.context.memorySummary || ""), /Romanos|onboarding|Historico distante/i)
+})

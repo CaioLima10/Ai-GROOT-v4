@@ -1,0 +1,916 @@
+{
+  "generatedAt": "2026-04-11T22:22:19Z",
+  "outputRoot": "/branding/fale-biblico",
+  "sourceSheets": [
+    {
+      "name": "alphabet-board.png",
+      "path": "/branding/fale-biblico/source-sheets/alphabet-board.png",
+      "externalPattern": "alfabeto egipcio animado em estilo cartoon"
+    },
+    {
+      "name": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/source-sheets/emotion-viseme-board.png",
+      "externalPattern": "fonoaudiologia em ilustracoes divertidas"
+    },
+    {
+      "name": "pose-board.png",
+      "path": "/branding/fale-biblico/source-sheets/pose-board.png",
+      "externalPattern": "mascote de aprendizado de lingua animado"
+    },
+    {
+      "name": "hero-scribe.png",
+      "path": "/branding/fale-biblico/source-sheets/hero-scribe.png",
+      "externalPattern": "padre escriba com pergaminho antigo"
+    },
+    {
+      "name": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/source-sheets/viseme-board-extended.png",
+      "externalPattern": "tutor linguistico animado em ilustracoes"
+    }
+  ],
+  "categoryCounts": {
+    "emotions": 10,
+    "hero": 1,
+    "letters": 20,
+    "lipsync": 12,
+    "poses": 10
+  },
+  "assets": [
+    {
+      "id": "emotion-angry",
+      "category": "emotions",
+      "label": "Angry",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/angry.png",
+      "size": {
+        "width": 240,
+        "height": 470
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "negative"
+      ]
+    },
+    {
+      "id": "emotion-joy-question",
+      "category": "emotions",
+      "label": "Joy / Question",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/joy-question.png",
+      "size": {
+        "width": 310,
+        "height": 480
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "positive",
+        "question"
+      ]
+    },
+    {
+      "id": "emotion-joy-wink",
+      "category": "emotions",
+      "label": "Joy / Wink",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/joy-wink.png",
+      "size": {
+        "width": 320,
+        "height": 480
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "positive",
+        "wink"
+      ]
+    },
+    {
+      "id": "emotion-laugh",
+      "category": "emotions",
+      "label": "Giggle / Laugh",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/laugh.png",
+      "size": {
+        "width": 255,
+        "height": 470
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "positive"
+      ]
+    },
+    {
+      "id": "emotion-question-thumbs-up",
+      "category": "emotions",
+      "label": "Question / Thumbs Up",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/emotions/question-thumbs-up.png",
+      "size": {
+        "width": 340,
+        "height": 480
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "question",
+        "positive"
+      ]
+    },
+    {
+      "id": "emotion-relieved",
+      "category": "emotions",
+      "label": "Relieved",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/relieved.png",
+      "size": {
+        "width": 330,
+        "height": 480
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "calm"
+      ]
+    },
+    {
+      "id": "emotion-sad",
+      "category": "emotions",
+      "label": "Sad",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/sad.png",
+      "size": {
+        "width": 245,
+        "height": 470
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "negative"
+      ]
+    },
+    {
+      "id": "emotion-soft-sad",
+      "category": "emotions",
+      "label": "Soft Sad",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/emotions/soft-sad.png",
+      "size": {
+        "width": 295,
+        "height": 480
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "negative"
+      ]
+    },
+    {
+      "id": "emotion-surprised",
+      "category": "emotions",
+      "label": "Surprised",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/emotions/surprised.png",
+      "size": {
+        "width": 325,
+        "height": 480
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "surprise"
+      ]
+    },
+    {
+      "id": "emotion-worried",
+      "category": "emotions",
+      "label": "Worried",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/emotions/worried.png",
+      "size": {
+        "width": 245,
+        "height": 470
+      },
+      "tags": [
+        "authorial",
+        "emotion",
+        "negative"
+      ]
+    },
+    {
+      "id": "hero-scribe-default",
+      "category": "hero",
+      "label": "Scribe Default",
+      "sourceSheet": "hero-scribe.png",
+      "path": "/branding/fale-biblico/sprites/hero/scribe-default.png",
+      "size": {
+        "width": 876,
+        "height": 1210
+      },
+      "tags": [
+        "authorial",
+        "hero",
+        "fale-biblico",
+        "primary-mascot"
+      ]
+    },
+    {
+      "id": "letter-a",
+      "category": "letters",
+      "label": "A",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/a.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-b",
+      "category": "letters",
+      "label": "B",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/b.png",
+      "size": {
+        "width": 205,
+        "height": 383
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-c",
+      "category": "letters",
+      "label": "C",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/c.png",
+      "size": {
+        "width": 204,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-d",
+      "category": "letters",
+      "label": "D",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/d.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-e",
+      "category": "letters",
+      "label": "E",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/e.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-f",
+      "category": "letters",
+      "label": "F",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/f.png",
+      "size": {
+        "width": 205,
+        "height": 382
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-g",
+      "category": "letters",
+      "label": "G",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/g.png",
+      "size": {
+        "width": 205,
+        "height": 375
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-h",
+      "category": "letters",
+      "label": "H",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/h.png",
+      "size": {
+        "width": 204,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-i",
+      "category": "letters",
+      "label": "I",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/i.png",
+      "size": {
+        "width": 205,
+        "height": 374
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-j",
+      "category": "letters",
+      "label": "J",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/j.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-k",
+      "category": "letters",
+      "label": "K",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/k.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-l",
+      "category": "letters",
+      "label": "L",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/l.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-m",
+      "category": "letters",
+      "label": "M",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/m.png",
+      "size": {
+        "width": 204,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-n",
+      "category": "letters",
+      "label": "N",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/n.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-o",
+      "category": "letters",
+      "label": "O",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/o.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-u",
+      "category": "letters",
+      "label": "U",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/u.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-v",
+      "category": "letters",
+      "label": "V",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/v.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-w",
+      "category": "letters",
+      "label": "W",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/w.png",
+      "size": {
+        "width": 204,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-x",
+      "category": "letters",
+      "label": "X",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/x.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "letter-y",
+      "category": "letters",
+      "label": "Y",
+      "sourceSheet": "alphabet-board.png",
+      "path": "/branding/fale-biblico/sprites/letters/y.png",
+      "size": {
+        "width": 205,
+        "height": 384
+      },
+      "tags": [
+        "authorial",
+        "alphabet",
+        "lesson",
+        "desktop-ui"
+      ]
+    },
+    {
+      "id": "lipsync-ai-classic",
+      "category": "lipsync",
+      "label": "A,I",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/ai-classic.png",
+      "size": {
+        "width": 190,
+        "height": 380
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "classic-set"
+      ]
+    },
+    {
+      "id": "lipsync-ai-extended",
+      "category": "lipsync",
+      "label": "A,I",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/ai-extended.png",
+      "size": {
+        "width": 290,
+        "height": 376
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set"
+      ]
+    },
+    {
+      "id": "lipsync-bmp",
+      "category": "lipsync",
+      "label": "B,M,P",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/bmp.png",
+      "size": {
+        "width": 250,
+        "height": 510
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set"
+      ]
+    },
+    {
+      "id": "lipsync-cdkns",
+      "category": "lipsync",
+      "label": "C,D,K,N,S",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/cdkns.png",
+      "size": {
+        "width": 205,
+        "height": 380
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "classic-set"
+      ]
+    },
+    {
+      "id": "lipsync-e-classic",
+      "category": "lipsync",
+      "label": "E",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/e-classic.png",
+      "size": {
+        "width": 190,
+        "height": 380
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "classic-set"
+      ]
+    },
+    {
+      "id": "lipsync-e-extended",
+      "category": "lipsync",
+      "label": "E",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/e-extended.png",
+      "size": {
+        "width": 285,
+        "height": 415
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set"
+      ]
+    },
+    {
+      "id": "lipsync-fv",
+      "category": "lipsync",
+      "label": "F,V",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/fv.png",
+      "size": {
+        "width": 240,
+        "height": 510
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set"
+      ]
+    },
+    {
+      "id": "lipsync-rest",
+      "category": "lipsync",
+      "label": "Rest",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/rest.png",
+      "size": {
+        "width": 245,
+        "height": 510
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set",
+        "idle"
+      ]
+    },
+    {
+      "id": "lipsync-tlr",
+      "category": "lipsync",
+      "label": "T,L,R",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/tlr.png",
+      "size": {
+        "width": 200,
+        "height": 380
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "classic-set"
+      ]
+    },
+    {
+      "id": "lipsync-u-classic",
+      "category": "lipsync",
+      "label": "U",
+      "sourceSheet": "emotion-viseme-board.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/u-classic.png",
+      "size": {
+        "width": 190,
+        "height": 380
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "classic-set"
+      ]
+    },
+    {
+      "id": "lipsync-u-extended",
+      "category": "lipsync",
+      "label": "U",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/u-extended.png",
+      "size": {
+        "width": 330,
+        "height": 377
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set"
+      ]
+    },
+    {
+      "id": "lipsync-uh-hh",
+      "category": "lipsync",
+      "label": "Uh-hh",
+      "sourceSheet": "viseme-board-extended.png",
+      "path": "/branding/fale-biblico/sprites/lipsync/uh-hh.png",
+      "size": {
+        "width": 230,
+        "height": 510
+      },
+      "tags": [
+        "authorial",
+        "viseme",
+        "extended-set"
+      ]
+    },
+    {
+      "id": "pose-alert",
+      "category": "poses",
+      "label": "Alert",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/alert.png",
+      "size": {
+        "width": 250,
+        "height": 435
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "warning"
+      ]
+    },
+    {
+      "id": "pose-celebrate",
+      "category": "poses",
+      "label": "Celebrate",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/celebrate.png",
+      "size": {
+        "width": 205,
+        "height": 345
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "celebration"
+      ]
+    },
+    {
+      "id": "pose-confused",
+      "category": "poses",
+      "label": "Confused",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/confused.png",
+      "size": {
+        "width": 265,
+        "height": 375
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "question"
+      ]
+    },
+    {
+      "id": "pose-frustrated",
+      "category": "poses",
+      "label": "Frustrated",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/frustrated.png",
+      "size": {
+        "width": 325,
+        "height": 355
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "negative",
+        "question"
+      ]
+    },
+    {
+      "id": "pose-idle",
+      "category": "poses",
+      "label": "Idle",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/idle.png",
+      "size": {
+        "width": 250,
+        "height": 385
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "idle"
+      ]
+    },
+    {
+      "id": "pose-scribe-main",
+      "category": "poses",
+      "label": "Scribe Main",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/scribe-main.png",
+      "size": {
+        "width": 335,
+        "height": 730
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "hero"
+      ]
+    },
+    {
+      "id": "pose-sleeping",
+      "category": "poses",
+      "label": "Sleeping",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/sleeping.png",
+      "size": {
+        "width": 380,
+        "height": 300
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "rest"
+      ]
+    },
+    {
+      "id": "pose-study-chat",
+      "category": "poses",
+      "label": "Study / Chat",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/study-chat.png",
+      "size": {
+        "width": 305,
+        "height": 354
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "learning",
+        "dialogue"
+      ]
+    },
+    {
+      "id": "pose-thumbs-up",
+      "category": "poses",
+      "label": "Thumbs Up",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/thumbs-up.png",
+      "size": {
+        "width": 270,
+        "height": 350
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "positive"
+      ]
+    },
+    {
+      "id": "pose-tired",
+      "category": "poses",
+      "label": "Tired",
+      "sourceSheet": "pose-board.png",
+      "path": "/branding/fale-biblico/sprites/poses/tired.png",
+      "size": {
+        "width": 370,
+        "height": 330
+      },
+      "tags": [
+        "authorial",
+        "pose",
+        "rest",
+        "low-energy"
+      ]
+    }
+  ]
+}

@@ -10,6 +10,15 @@ type ConfigureEnterpriseSecurityInput = {
   express: { json: (input: Record<string, unknown>) => any }
 }
 
+function isDevLoopbackOrigin(origin: string) {
+  try {
+    const parsed = new URL(origin)
+    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
 export function configureEnterpriseSecurity(app: Express, deps: ConfigureEnterpriseSecurityInput) {
   const { cors, hpp, compression, helmet, rateLimit, slowDown, express } = deps
 
@@ -18,24 +27,17 @@ export function configureEnterpriseSecurity(app: Express, deps: ConfigureEnterpr
     .map((origin) => origin.trim())
     .filter(Boolean)
 
-  const devLocalOrigins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "http://localhost:3002",
-    "http://127.0.0.1:3002"
-  ]
-
   const allowDevOrigins = process.env.NODE_ENV !== "production"
   const allowedOrigins = Array.from(new Set([
-    ...configuredAllowedOrigins,
-    ...(allowDevOrigins ? devLocalOrigins : [])
+    ...configuredAllowedOrigins
   ]))
 
   const corsOptions = {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin) return callback(null, true)
+      if (allowDevOrigins && isDevLoopbackOrigin(origin)) {
+        return callback(null, true)
+      }
       if (allowedOrigins.length === 0) {
         if (process.env.NODE_ENV === "production") {
           console.warn("[CORS] ALLOWED_ORIGINS not configured — allowing all origins. Set ALLOWED_ORIGINS env var to restrict.")

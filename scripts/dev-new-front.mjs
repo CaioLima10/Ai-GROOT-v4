@@ -1,5 +1,7 @@
+import "dotenv/config";
 import { spawn } from "node:child_process";
 import net from "node:net";
+import { resolveGiomApiPort, resolveGiomWebPort } from "../config/runtimePorts.js";
 
 function spawnCommand(command, args, options = {}) {
   if (process.platform === "win32") {
@@ -67,8 +69,25 @@ async function findAvailablePort(startPort, maxAttempts = 10) {
   return null;
 }
 
-const apiPort = Number(process.env.API_PORT || process.env.PORT || 3002);
-const webPort = Number(process.env.WEB_PORT || 3003);
+async function waitForPortToListen(port, timeoutMs = 120_000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    // eslint-disable-next-line no-await-in-loop
+    const available = await isPortAvailable(port);
+    if (!available) {
+      return true;
+    }
+
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+
+  return false;
+}
+
+const apiPort = resolveGiomApiPort(process.env);
+const webPort = resolveGiomWebPort(process.env);
 
 const apiPortAvailable = await isPortAvailable(apiPort);
 const webPortAvailable = await isPortAvailable(webPort);
@@ -79,6 +98,13 @@ const apiProcess = apiPortAvailable
 
 if (!apiPortAvailable) {
   console.warn(`[api] porta ${apiPort} ocupada; assumindo backend ja em execucao`);
+}
+
+if (apiProcess) {
+  const apiReady = await waitForPortToListen(apiPort);
+  if (!apiReady) {
+    console.error(`[api] backend nao ficou pronto na porta ${apiPort} dentro do tempo esperado`);
+  }
 }
 
 const webProcess = webPortAvailable

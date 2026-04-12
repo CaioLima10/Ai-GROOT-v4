@@ -13,7 +13,9 @@ const [
   css,
   renderer,
   layout,
-  api,
+  enterpriseServer,
+  enterpriseMediaRoutes,
+  enterprisePublicRoutes,
   promptBuilder,
   chatComposer,
   chatConversation,
@@ -26,6 +28,8 @@ const [
   read("apps/web-next/src/components/messages/MessageRenderer.tsx"),
   read("apps/web-next/src/app/layout.tsx"),
   read("apps/api/src/enterpriseServer.js"),
+  read("apps/api/src/enterpriseMediaRoutesRuntime.js"),
+  read("apps/api/src/enterprisePublicRoutesRuntime.js"),
   read("packages/ai-core/src/promptBuilder.js"),
   read("apps/web-next/src/components/chat/ChatComposer.tsx"),
   read("apps/web-next/src/components/chat/ChatConversation.tsx"),
@@ -75,17 +79,17 @@ const checks = [
   {
     name: "backend understands uploads for pdf and image OCR",
     run() {
-      assert.match(api, /app\.post\("\/upload"/)
+      assert.match(enterpriseMediaRoutes, /app\.post\("\/upload"/)
       assert.match(uploadExtractionRuntime, /extractTextFromPdf/)
       assert.match(uploadExtractionRuntime, /extractTextFromImage/)
-      assert.match(api, /visualImageUnderstanding:\s*uploadOcrEnabled/)
+      assert.match(enterprisePublicRoutes, /visualImageUnderstanding:\s*uploadOcrEnabled/)
     }
   },
   {
     name: "assistant prompt avoids robotic self-introduction by default",
     run() {
       assert.match(promptBuilder, /nao abra com autoapresentacao/i)
-      assert.match(api, /postProcessAssistantResponse/)
+      assert.match(enterpriseServer, /postProcessAssistantResponse/)
     }
   },
   {

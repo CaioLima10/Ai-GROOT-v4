@@ -25,6 +25,9 @@ const TIME_VERIFICATION_ENABLED = process.env.TIME_VERIFICATION_ENABLED !== "fal
 const TIME_VERIFICATION_API_BASE_URL = String(
   process.env.TIME_VERIFICATION_API_BASE_URL || "https://worldtimeapi.org/api/timezone"
 ).replace(/\/$/, "")
+const TIME_VERIFICATION_SECONDARY_API_BASE_URL = String(
+  process.env.TIME_VERIFICATION_SECONDARY_API_BASE_URL || "https://timeapi.io/api/Time/current/zone"
+).replace(/\/$/, "")
 const TIME_VERIFICATION_DEFAULT_ZONE = String(process.env.TIME_VERIFICATION_DEFAULT_ZONE || "Etc/UTC").trim() || "Etc/UTC"
 const TIME_VERIFICATION_TIMEOUT_MS = Math.max(
   500,
@@ -108,6 +111,62 @@ function buildSystemClock(timezone = TIME_VERIFICATION_DEFAULT_ZONE, reason = ""
   })
 }
 
+function parseUtcOffsetToMs(value: unknown): number | null {
+  const raw = String(value || "").trim()
+  if (!raw) return null
+  const match = raw.match(/^([+-])(\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (!match) return null
+
+  const sign = match[1] === "-" ? -1 : 1
+  const hours = Number(match[2])
+  const minutes = Number(match[3])
+  const seconds = Number(match[4] || "0")
+  if (![hours, minutes, seconds].every((value) => Number.isFinite(value))) {
+    return null
+  }
+
+  return sign * (((hours * 60) + minutes) * 60 + seconds) * 1000
+}
+
+function parseTimeApiNowMs(payload: Record<string, unknown>): number {
+  const unixSeconds = Number(payload.unixTime || payload.unixtime || payload.unix || 0)
+  if (Number.isFinite(unixSeconds) && unixSeconds > 0) {
+    return unixSeconds > 10_000_000_000 ? unixSeconds : unixSeconds * 1000
+  }
+
+  const utcCandidates = [
+    payload.dateTimeUtc,
+    payload.utcDateTime,
+    payload.utc_datetime,
+    payload.datetime_utc
+  ]
+  for (const candidate of utcCandidates) {
+    const parsed = Date.parse(String(candidate || ""))
+    if (Number.isFinite(parsed)) return parsed
+  }
+
+  const localIso = String(
+    payload.dateTime || payload.datetime || payload.currentLocalTime || payload.localDateTime || ""
+  ).trim()
+  if (localIso) {
+    const hasOffset = /(?:Z|[+-]\d{2}:\d{2})$/i.test(localIso)
+    if (hasOffset) {
+      const parsed = Date.parse(localIso)
+      if (Number.isFinite(parsed)) return parsed
+    }
+
+    const parsedLocalAsUtc = Date.parse(`${localIso}Z`)
+    if (Number.isFinite(parsedLocalAsUtc)) {
+      const offsetMs = parseUtcOffsetToMs(payload.utcOffset || payload.currentUtcOffset || payload.utc_offset)
+      if (Number.isFinite(offsetMs)) {
+        return parsedLocalAsUtc - Number(offsetMs)
+      }
+    }
+  }
+
+  return Number.NaN
+}
+
 async function fetchClockFromWorldTimeApi(timezone = TIME_VERIFICATION_DEFAULT_ZONE): Promise<RuntimeClock> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIME_VERIFICATION_TIMEOUT_MS)
@@ -154,6 +213,52 @@ async function fetchClockFromWorldTimeApi(timezone = TIME_VERIFICATION_DEFAULT_Z
   }
 }
 
+async function fetchClockFromTimeApiIo(timezone = TIME_VERIFICATION_DEFAULT_ZONE): Promise<RuntimeClock> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIME_VERIFICATION_TIMEOUT_MS)
+
+  try {
+    const resolvedTimezone = sanitizeTimeZone(timezone)
+    const url = `${TIME_VERIFICATION_SECONDARY_API_BASE_URL}?timeZone=${encodeURIComponent(resolvedTimezone)}`
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "GIOM-RuntimeClock/1.0"
+      }
+    })
+
+    if (!response.ok) {
+      const error: RuntimeClockError = new Error(`HTTP ${response.status}`)
+      error.code = "TIME_VERIFICATION_SECONDARY_HTTP_ERROR"
+      throw error
+    }
+
+    const payload = await response.json() as Record<string, unknown>
+    const parsedNowMs = parseTimeApiNowMs(payload)
+    if (!Number.isFinite(parsedNowMs)) {
+      const error: RuntimeClockError = new Error("Resposta TimeAPI sem timestamp valido")
+      error.code = "TIME_VERIFICATION_SECONDARY_INVALID_PAYLOAD"
+      throw error
+    }
+
+    return buildClockPayload({
+      nowMs: parsedNowMs,
+      timezone: String(payload.timeZone || payload.timezone || timezone || TIME_VERIFICATION_DEFAULT_ZONE),
+      source: "timeapiio",
+      verified: true,
+      fetchedAt: new Date().toISOString(),
+      utcIso: new Date(parsedNowMs).toISOString(),
+      localIso: String(payload.dateTime || payload.datetime || payload.currentLocalTime || new Date(parsedNowMs).toISOString()),
+      utcOffset: payload.utcOffset != null
+        ? String(payload.utcOffset)
+        : (payload.currentUtcOffset != null ? String(payload.currentUtcOffset) : null),
+      unixTime: Math.floor(parsedNowMs / 1000)
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export async function getVerifiedRuntimeClock(timezone = TIME_VERIFICATION_DEFAULT_ZONE): Promise<RuntimeClock> {
   const resolvedTimezone = sanitizeTimeZone(timezone)
   const cacheKey = resolvedTimezone
@@ -170,8 +275,17 @@ export async function getVerifiedRuntimeClock(timezone = TIME_VERIFICATION_DEFAU
     const verifiedClock = await fetchClockFromWorldTimeApi(resolvedTimezone)
     return writeClockCache(cacheKey, verifiedClock)
   } catch (error) {
-    const runtimeError = error as RuntimeClockError
-    return writeClockCache(cacheKey, buildSystemClock(resolvedTimezone, runtimeError?.code || "fallback"))
+    const primaryError = error as RuntimeClockError
+    try {
+      const secondaryClock = await fetchClockFromTimeApiIo(resolvedTimezone)
+      return writeClockCache(cacheKey, secondaryClock)
+    } catch (secondaryError) {
+      const runtimeError = secondaryError as RuntimeClockError
+      return writeClockCache(
+        cacheKey,
+        buildSystemClock(resolvedTimezone, runtimeError?.code || primaryError?.code || "fallback")
+      )
+    }
   }
 }
 

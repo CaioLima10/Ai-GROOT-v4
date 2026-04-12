@@ -45,6 +45,93 @@
  * @property {(question?: string, context?: PromptBuilderRuntimeContext) => Promise<Record<string, unknown> | null>} enrichLanguageRuntimeContext
  */
 
+function normalizeContextFollowUpText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function buildConversationHistoryText(history = []) {
+  return history
+    .slice(-8)
+    .map((turn) => String(turn?.content || "").trim())
+    .filter(Boolean)
+    .join("\n")
+}
+
+function isWeatherConversationFollowUp(question = "", history = []) {
+  const normalizedQuestion = normalizeContextFollowUpText(question)
+  if (!normalizedQuestion) return false
+
+  const followUpCue = /\b(amanha|depois de amanha|na mesma cidade|na mesma regiao|no mesmo lugar|no mesmo local|mesma cidade|mesmo lugar|mesmo local|fim de semana|proximos dias)\b/.test(normalizedQuestion)
+  if (!followUpCue) return false
+
+  const historyText = normalizeContextFollowUpText(buildConversationHistoryText(history))
+  return /\b(clima|tempo|temperatura|chuva|uv|vento|previsao)\b/.test(historyText)
+}
+
+const SPORTS_HISTORY_SUBJECTS = [
+  ["santos fc", "Santos FC"],
+  ["santos", "Santos"],
+  ["flamengo", "Flamengo"],
+  ["palmeiras", "Palmeiras"],
+  ["corinthians", "Corinthians"],
+  ["sao paulo", "Sao Paulo"],
+  ["botafogo", "Botafogo"],
+  ["gremio", "Gremio"],
+  ["internacional", "Internacional"],
+  ["inter", "Internacional"],
+  ["brasil", "Brasil"],
+  ["selecao brasileira", "Brasil"]
+]
+
+function findLatestSportsSubject(history = []) {
+  const historyText = normalizeContextFollowUpText(buildConversationHistoryText(history))
+  if (!historyText) return ""
+
+  for (const [token, label] of SPORTS_HISTORY_SUBJECTS) {
+    if (historyText.includes(token)) {
+      return label
+    }
+  }
+
+  return ""
+}
+
+function hasExplicitSportsSubject(question = "") {
+  const normalizedQuestion = normalizeContextFollowUpText(question)
+  if (!normalizedQuestion) return false
+
+  return SPORTS_HISTORY_SUBJECTS.some(([token]) => normalizedQuestion.includes(token))
+}
+
+function isSportsConversationFollowUp(question = "", history = []) {
+  const normalizedQuestion = normalizeContextFollowUpText(question)
+  if (!normalizedQuestion || hasExplicitSportsSubject(question)) return false
+
+  const followUpCue = /\b(essa partida|desse jogo|dessa partida|desse confronto|qual horario|que horas|qual campeonato|qual liga|esse jogo|essa partida|esse confronto)\b/.test(normalizedQuestion)
+  return followUpCue && Boolean(findLatestSportsSubject(history))
+}
+
+function buildSportsContinuationQuestion(question = "", history = []) {
+  if (!isSportsConversationFollowUp(question, history)) {
+    return question
+  }
+
+  const subject = findLatestSportsSubject(history)
+  return subject ? `Sobre ${subject}, ${String(question || "").trim()}` : question
+}
+
+function normalizeExplicitWeatherLocationQuery(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/^(?:\s*(?:em|na|no|para)\s+)+/i, "")
+    .trim()
+}
+
 /**
  * @param {string} question
  * @param {PromptBuilderRuntimeContext} context
@@ -80,7 +167,9 @@ export async function buildRuntimeConversationContext(question = "", context = {
   const inferredMinistryFocus = deps.inferMinistryFocusFromText(question)
 
   const forecastDays = deps.inferWeatherForecastDays(question)
-  const explicitWeatherLocationQuery = deps.extractWeatherLocationQuery(question)
+  const explicitWeatherLocationQuery = normalizeExplicitWeatherLocationQuery(deps.extractWeatherLocationQuery(question))
+  const weatherConversationFollowUp = isWeatherConversationFollowUp(question, conversationHistory)
+  const sportsQuestion = buildSportsContinuationQuestion(question, conversationHistory)
   const requestedWeatherWidget = String(context?.preferredResponseVariant || "").trim().toLowerCase() === "weather"
   /** @type {WeatherLocationResolution | null} */
   let weatherLocation = null
@@ -103,7 +192,7 @@ export async function buildRuntimeConversationContext(question = "", context = {
     }
   }
 
-  if (!weatherLocation && !explicitWeatherLocationQuery && deps.isWeatherQuestion(question) && deps.shouldPreferRecentWeatherMemory(question)) {
+  if (!weatherLocation && !explicitWeatherLocationQuery && (deps.isWeatherQuestion(question) || weatherConversationFollowUp) && deps.shouldPreferRecentWeatherMemory(question)) {
     weatherLocation = await deps.resolveRecentWeatherLocationFromMemory(
       String(extras?.userId || context?.userId || ""),
       forecastDays
@@ -129,7 +218,7 @@ export async function buildRuntimeConversationContext(question = "", context = {
     }
   }
 
-  if (!weatherLocation && !explicitWeatherLocationQuery && !requestedWeatherWidget && researchCapabilities.weatherForecast && deps.isAgroWeatherRelevant(question, context)) {
+  if (!weatherLocation && !explicitWeatherLocationQuery && !requestedWeatherWidget && researchCapabilities.weatherForecast && (deps.isAgroWeatherRelevant(question, context) || weatherConversationFollowUp)) {
     try {
       weatherLocation = await deps.resolveApproximateLocationByIp(String(extras?.ip || context?.ip || ""))
       if (weatherLocation) {
@@ -145,7 +234,7 @@ export async function buildRuntimeConversationContext(question = "", context = {
     }
   }
 
-  if (researchCapabilities.weatherForecast && weatherLocation && deps.isAgroWeatherRelevant(question, context)) {
+  if (researchCapabilities.weatherForecast && weatherLocation && (deps.isAgroWeatherRelevant(question, context) || weatherConversationFollowUp)) {
     const weatherClock = await deps.getVerifiedRuntimeClock(weatherLocation.timezone || "Etc/UTC")
     try {
       const weatherPayload = await deps.fetchWeatherForecastPayload(weatherLocation)
@@ -171,9 +260,9 @@ export async function buildRuntimeConversationContext(question = "", context = {
     }
   }
 
-  if (researchCapabilities.sportsSchedule && deps.isSportsScheduleRelevant(question, context)) {
+  if (researchCapabilities.sportsSchedule && (deps.isSportsScheduleRelevant(question, context) || sportsQuestion !== question)) {
     try {
-      const liveFixture = await deps.resolveNextFixtureFromQuestion(question)
+      const liveFixture = await deps.resolveNextFixtureFromQuestion(sportsQuestion)
       if (liveFixture) {
         enhancedContext.liveFixture = liveFixture
       }

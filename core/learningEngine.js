@@ -21,7 +21,7 @@ const SENSITIVE_PATTERNS = [
 const FACT_PATTERNS = [
   {
     key: 'name',
-    regex: /(?:^|[.!?,]\s*|\se\s+)meu nome (?:e|é)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40})(?=[,.!?]|$)/i
+    regex: /(?:^|[.!?,]\s*)meu nome (?:e|é)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40}?)(?=\s+e\s+(?:eu|estou|estamos|quero|prefiro|trabalho|atuo|minha|pode|costumo|uso)\b|[,.!?]|$)/i
   },
   {
     key: 'workDomain',
@@ -29,21 +29,35 @@ const FACT_PATTERNS = [
   },
   {
     key: 'responseStyle',
-    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu\s+)?prefiro respostas?\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:eu\s+)?(?:prefiro|gosto de|quero)\s+(?:respostas?|explica(?:c|ç)(?:o|õ)es?)\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
   },
   {
     key: 'role',
     regex: /(?:^|[.!?,]\s*|\se\s+)eu sou (?:um|uma)\s+([^.,\n]{2,80}?)(?=[.,\n]|$)/i
+  },
+  {
+    key: 'preferredName',
+    regex: /(?:^|[.!?,]\s*)(?:pode me chamar de|me chame de|quero que me chame de)\s+([a-z\u00c0-\u017f][a-z\u00c0-\u017f\s'-]{1,40}?)(?=\s+e\s+(?:eu|estou|estamos|quero|prefiro|trabalho|atuo|minha|pode|costumo|uso)\b|[,.!?]|$)/i
+  },
+  {
+    key: 'bibleVersion',
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:prefiro|uso|costumo usar)\s+(?:a\s+)?(?:biblia|bíblia|vers[aã]o)\s+([^.,\n]{2,40}?)(?=[.,\n]|$)/i
+  },
+  {
+    key: 'currentGoal',
+    regex: /(?:^|[.!?,]\s*|\se\s+)(?:estou estudando|estamos estudando|estou aprendendo|estamos aprendendo|quero estudar|quero aprender)\s+([^.,\n]{3,80}?)(?=[.,\n]|$)/i
   }
 ]
 
 const SUSPICIOUS_FACT_VALUE_PATTERNS = [
+  /^\s*(?:qual|quem|onde|quando|como|porque|por que|o que|quais|me diga|diga|responda|continue|explique)\b/i,
   /\bagora diga\b/i,
   /\bqual (?:e|é)\b/i,
   /\bcomo prefiro\b/i,
   /\buma unica frase\b/i,
   /\buma única frase\b/i,
-  /\blembra\b/i
+  /\blembra\b/i,
+  /\?/
 ]
 
 export function isSensitive(text = '') {
@@ -100,13 +114,13 @@ export function detectPreferences(text = '') {
 
   if (
     bibleCodeMatch?.[1]
-    && /\b(prefiro|prefere|uso|usar|mantenha|mantem|mantenha a|na|no|com a|com)\b/i.test(String(text || ""))
+    && /\b(prefiro|prefere|uso|usar|mantenha|mantem|mantenha a|na|no|com a|com)\b/i.test(String(text || ''))
   ) {
     preferences.preferredBibleCode = bibleCodeMatch[1]
   }
 
   if (/\b(novos convertidos|novo convertido|novas convertidas|discipulado inicial|recem convertido|recém convertido)\b/i.test(input)) {
-    preferences.ministryFocus = "new_believers"
+    preferences.ministryFocus = 'new_believers'
   }
 
   return preferences
@@ -149,6 +163,13 @@ export function sanitizeKnownFacts(facts = {}) {
     }
 
     if (SUSPICIOUS_FACT_VALUE_PATTERNS.some(pattern => pattern.test(normalizedValue))) {
+      return acc
+    }
+
+    if (
+      (key === 'name' || key === 'preferredName')
+      && normalizedValue.split(/\s+/).filter(Boolean).length > 4
+    ) {
       return acc
     }
 
